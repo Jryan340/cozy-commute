@@ -374,7 +374,7 @@ const sndBtn = document.getElementById('snd');
 const SND_URL = 'trainsound.mp3';
 const SOUND_LEVELS = [
   { name: 'Off',        icon: '🔇', gain: 0.0001, lp: 20000 },
-  { name: 'Background', icon: '🔈', gain: 0.5,    lp: 2600  },  // quieter + softer, recedes
+  { name: 'Background', icon: '🔈', gain: 0.33,   lp: 2600  },  // quieter + softer, recedes
   { name: 'Prominent',  icon: '🔊', gain: 1.0,    lp: 20000 },  // full + bright, up close
 ];
 let soundLevel = 0, loopBaseLP = 20000;
