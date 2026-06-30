@@ -113,7 +113,7 @@
 </head>
 <body>
   <div id="hud">
-    <span>🚆 <b id="route">3:15 Local</b></span>
+    <span>🚆 <b id="route">Boston → New York</b></span>
     <span class="sep">·</span>
     <span>🕑 <b id="eta">7:00</b></span>
     <span class="sep">·</span>
@@ -535,13 +535,26 @@ const feats = [];
   }
 })();
 
-// stations that glide past on one side every so often
-const STATION_NAMES = ['Maple Halt','Briar Cross','Fenwick','Lake End','Old Mill','Thornbury','Wren Sidings','Ashcombe'];
-const STN_GAP = 1400;                       // world px between stations
-const stations = STATION_NAMES.map((name, i) => ({
-  y: 760 + i * STN_GAP, side: i % 2 ? 'L' : 'R', name, announced: false,
-}));
-const STN_LOOP = STATION_NAMES.length * STN_GAP;
+// the real Boston → New York run: Northeast Corridor stops, with mileposts from
+// Boston South Station (approx. real distances; ~229 mi total to NY Penn)
+const ROUTE = { label: 'Boston → New York', totalMiles: 229 };
+const STATIONS = [
+  { name: 'Boston South Station',  mile: 0   },
+  { name: 'Back Bay',              mile: 1   },
+  { name: 'Route 128',             mile: 11  },
+  { name: 'Providence',            mile: 43  },
+  { name: 'Kingston',              mile: 75  },
+  { name: 'Westerly',              mile: 92  },
+  { name: 'Mystic',                mile: 105 },
+  { name: 'New London',            mile: 118 },
+  { name: 'Old Saybrook',          mile: 136 },
+  { name: 'New Haven',             mile: 156 },
+  { name: 'Bridgeport',            mile: 175 },
+  { name: 'Stamford',              mile: 193 },
+  { name: 'New Rochelle',          mile: 207 },
+  { name: 'New York Penn Station', mile: 229 },
+];
+STATIONS.forEach((s, i) => { s.side = i % 2 ? 'L' : 'R'; s.announced = false; });
 
 // --- living-window state ----------------------------------------------------
 let dayT = 0;            // 0..1 position in a looping day/night cycle
@@ -614,7 +627,7 @@ function update(dt) {
   // journey + scenery
   elapsed += dt;
   scroll += speed * dt;
-  miles += (speed * dt) / 42;     // arbitrary cozy mileage rate
+  miles = Math.min(ROUTE.totalMiles, (elapsed / JOURNEY) * ROUTE.totalMiles);  // 0 → 229 along the route
   dayT = (elapsed / 150) % 1;     // a full, gentle day/night cycle every 2.5 min
   tunnelAmount = tunnelAt(scroll);
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
@@ -760,12 +773,15 @@ function drawScenery() {
       px(bx+4, yy, 2, 16, C.pole); px(bx+1, yy+2, 8, 2, C.pole);
     }
   }
-  // stations sliding past + their announcements
-  for (const s of stations) {
-    const yy = ((s.y + scroll) % STN_LOOP) - 100;
-    if (yy < 60) s.announced = false;
-    if (!s.announced && yy > H * 0.5) { s.announced = true; toast('Now passing · ' + s.name); }
-    if (yy > -100 && yy < H + 10) drawStation(s, yy);
+  // real stations: glide past (and get announced) as we reach their milepost
+  for (const s of STATIONS) {
+    const d = s.mile - miles;                  // miles still to go (negative = passed)
+    if (!s.announced && d <= 0) {
+      s.announced = true;
+      const verb = s.mile === 0 ? 'Departing' : s.mile >= ROUTE.totalMiles ? 'Arriving' : 'Now passing';
+      toast(`${verb} · ${s.name}`);
+    }
+    if (d < 5.5 && d > -3) drawStation(s, ((5.5 - d) / 8.5) * H);   // slides top → bottom as you pass
   }
 }
 
