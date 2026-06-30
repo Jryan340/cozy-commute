@@ -375,6 +375,10 @@ const sndBtn = document.getElementById('snd');
 
 function buildAudio() {
   actx = new (window.AudioContext || window.webkitAudioContext)();
+  // iOS 16.4+: route through the 'playback' session so the ring/silent switch can't mute us
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  // nudge iOS fully awake with a 1-sample blip
+  try { const u = actx.createBufferSource(); u.buffer = actx.createBuffer(1,1,actx.sampleRate); u.connect(actx.destination); u.start(); } catch (e) {}
   master = actx.createGain(); master.gain.value = 0.0001; master.connect(actx.destination);
 
   // shared brown-noise buffer for the rumble and the clack ticks
@@ -386,28 +390,35 @@ function buildAudio() {
 
   // continuous rolling rumble: looped noise -> lowpass -> gain
   const rsrc = actx.createBufferSource(); rsrc.buffer = noiseBuf; rsrc.loop = true;
-  rumbleLP = actx.createBiquadFilter(); rumbleLP.type = 'lowpass'; rumbleLP.frequency.value = 220;
-  rumbleGain = actx.createGain(); rumbleGain.gain.value = 0.18;
+  rumbleLP = actx.createBiquadFilter(); rumbleLP.type = 'lowpass'; rumbleLP.frequency.value = 340;
+  rumbleGain = actx.createGain(); rumbleGain.gain.value = 0.16;
   rsrc.connect(rumbleLP).connect(rumbleGain).connect(master); rsrc.start();
 
   clackBus = actx.createGain(); clackBus.gain.value = 0.9; clackBus.connect(master);
 }
 
-// one rail-joint "ca-chunk": a low thump plus a short noise tick
+// one rail-joint "ca-chunk": low thump + a mid 'tock' (so phone speakers catch it) + bright tick
 function clack(t) {
   const o = actx.createOscillator(); o.type = 'sine';
-  o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(52, t + 0.09);
+  o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(60, t + 0.09);
   const g = actx.createGain();
   g.gain.setValueAtTime(0.0001, t);
   g.gain.exponentialRampToValueAtTime(0.5, t + 0.005);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
   o.connect(g).connect(clackBus); o.start(t); o.stop(t + 0.16);
 
+  const k = actx.createOscillator(); k.type = 'triangle'; k.frequency.setValueAtTime(260, t);
+  const kg = actx.createGain();
+  kg.gain.setValueAtTime(0.0001, t);
+  kg.gain.exponentialRampToValueAtTime(0.3, t + 0.004);
+  kg.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+  k.connect(kg).connect(clackBus); k.start(t); k.stop(t + 0.09);
+
   const n = actx.createBufferSource(); n.buffer = noiseBuf; n.playbackRate.value = 1 + Math.random()*0.3;
-  const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 0.8;
+  const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1600; bp.Q.value = 0.7;
   const ng = actx.createGain();
   ng.gain.setValueAtTime(0.0001, t);
-  ng.gain.exponentialRampToValueAtTime(0.12, t + 0.004);
+  ng.gain.exponentialRampToValueAtTime(0.16, t + 0.004);
   ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
   n.connect(bp).connect(ng).connect(clackBus);
   n.start(t, Math.random()*1.5, 0.06);
@@ -430,8 +441,9 @@ async function toggleAudio() {
   sndBtn.textContent = audioOn ? '🔊' : '🔇';
   if (audioOn) {
     master.gain.cancelScheduledValues(actx.currentTime);
-    master.gain.setTargetAtTime(0.5, actx.currentTime, 0.3);     // fade in
+    master.gain.setTargetAtTime(0.7, actx.currentTime, 0.3);     // fade in
     cycleStart = actx.currentTime + 0.1;
+    clack(actx.currentTime + 0.05);                             // instant feedback
     schedTimer = setInterval(scheduleClacks, 60);
     toast('Train sounds on 🔊');
   } else {
@@ -602,8 +614,8 @@ function update(dt) {
 
   // the rumble muffles and swells as we roll through a tunnel
   if (audioOn && rumbleLP) {
-    rumbleLP.frequency.value = 220 - tunnelAmount * 90;
-    rumbleGain.gain.value = 0.18 + tunnelAmount * 0.12;
+    rumbleLP.frequency.value = 340 - tunnelAmount * 140;
+    rumbleGain.gain.value = 0.16 + tunnelAmount * 0.12;
   }
 
   // smooth camera toward its target (zoomed into seat, or the whole car)
