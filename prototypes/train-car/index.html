@@ -23,7 +23,17 @@
     background: #2a2630;
     box-shadow: 0 10px 60px rgba(0,0,0,.6);
     border-radius: 6px;
+    touch-action: none;          /* let us handle taps without scroll/zoom */
   }
+  #act {
+    position: fixed; right: 18px; bottom: 64px; display: none;
+    background: #3f7d6e; color: #fff; border: 1px solid #54998a;
+    border-bottom-width: 3px; border-radius: 14px; padding: 14px 20px;
+    font: 600 15px ui-monospace, monospace; letter-spacing: .5px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.5); cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #act:active { transform: translateY(1px); border-bottom-width: 2px; }
   #hud {
     position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 18px; align-items: center;
@@ -62,6 +72,8 @@
   </div>
 
   <div id="wrap"><canvas id="game"></canvas></div>
+
+  <button id="act">Sit</button>
 
   <div id="toast" class="toast"></div>
   <div id="hint">
@@ -186,6 +198,37 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
+// --- touch / pointer: tap to walk, tap a seat to sit ----------------------
+let target = null, autoSit = false;
+const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+function toLogical(clientX, clientY) {
+  const r = cv.getBoundingClientRect();
+  return { x: (clientX - r.left) / r.width * W, y: (clientY - r.top) / r.height * H };
+}
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const p = toLogical(e.clientX, e.clientY);
+  if (player.seat) { toggleSit(); return; }       // tap anywhere to stand
+  // tapped on/near a free seat? -> walk there and sit on arrival
+  let seat = null, bd = 30*30;
+  for (const st of seats) {
+    if (st.occupant) continue;
+    const dx = p.x - st.cx, dy = p.y - st.cy, d = dx*dx + dy*dy;
+    if (d < bd) { bd = d; seat = st; }
+  }
+  if (seat) { target = { x: seat.cx, y: seat.cy }; autoSit = true; }
+  else      { target = { x: p.x, y: p.y };         autoSit = false; }
+}, { passive: false });
+
+// floating action button (shown on touch)
+const actBtn = document.getElementById('act');
+actBtn.addEventListener('click', () => { target = null; autoSit = false; toggleSit(); });
+if (isTouch) {
+  actBtn.style.display = 'block';
+  document.getElementById('hint').innerHTML =
+    'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; find a window seat 🪟';
+}
+
 function nearestFreeSeat() {
   let best = null, bd = 50*50;
   for (const st of seats) {
@@ -222,6 +265,22 @@ let toastT = 0;
 const toastEl = document.getElementById('toast');
 function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); toastT = 2.2; }
 
+// shared movement (used by keyboard and tap-to-walk); axis-separated collision
+function moveBy(dx, dy, dt) {
+  const len = Math.hypot(dx, dy) || 1;
+  const mvx = (dx/len) * player.speed * dt;
+  const mvy = (dy/len) * player.speed * dt;
+  if (!hits(player.x + mvx, player.y, player.w, player.h)) player.x += mvx;
+  if (!hits(player.x, player.y + mvy, player.w, player.h)) player.y += mvy;
+  if (dx) player.facing = dx > 0 ? 1 : -1;
+  player.walkT += dt * 10;
+}
+function arriveTarget() {
+  const wantSit = autoSit;
+  target = null; autoSit = false;
+  if (wantSit) toggleSit();
+}
+
 // --- world / journey state -------------------------------------------------
 let scroll = 0;          // scenery scroll offset (px)
 let speed = 26;          // px/sec of scenery (the train's apparent speed)
@@ -252,14 +311,22 @@ function update(dt) {
     if (keys['d'] || keys['arrowright']) dx += 1;
     if (keys['w'] || keys['arrowup'])    dy -= 1;
     if (keys['s'] || keys['arrowdown'])  dy += 1;
+
     if (dx || dy) {
-      const len = Math.hypot(dx, dy) || 1;
-      const mvx = (dx/len) * player.speed * dt;
-      const mvy = (dy/len) * player.speed * dt;
-      if (!hits(player.x + mvx, player.y, player.w, player.h)) player.x += mvx;
-      if (!hits(player.x, player.y + mvy, player.w, player.h)) player.y += mvy;
-      if (dx) player.facing = dx > 0 ? 1 : -1;
-      player.walkT += dt * 10;
+      target = null;                       // keyboard overrides a tapped target
+      moveBy(dx, dy, dt);
+    } else if (target) {
+      // walk toward the tapped destination
+      const cx = player.x + player.w/2, cy = player.y + player.h/2;
+      let tx = target.x - cx, ty = target.y - cy;
+      const dist = Math.hypot(tx, ty);
+      if (dist < 3) { arriveTarget(); }
+      else {
+        const before = { x: player.x, y: player.y };
+        moveBy(tx/dist, ty/dist, dt);
+        const stepped = Math.hypot(player.x - before.x, player.y - before.y);
+        if (stepped < 0.4) arriveTarget(); // arrived, or wedged against the seat edge
+      }
     } else player.walkT = 0;
   }
 
@@ -274,6 +341,7 @@ function update(dt) {
   document.getElementById('eta').textContent =
     Math.floor(remain/60) + ':' + String(Math.floor(remain%60)).padStart(2,'0');
   document.getElementById('miles').textContent = miles.toFixed(1);
+  if (isTouch) actBtn.textContent = player.seat ? 'Stand up' : 'Sit';
 }
 
 // --- draw helpers ----------------------------------------------------------
@@ -391,8 +459,8 @@ function drawPlayer() {
   // a tiny nose-dot to show facing
   px(cx + (player.facing>0?2:-3), cy-4, 1, 1, 'rgba(0,0,0,.3)');
 
-  // "sit here" prompt if near a free seat
-  const st = nearestFreeSeat();
+  // "sit here" prompt if near a free seat (keyboard hint only)
+  const st = isTouch ? null : nearestFreeSeat();
   if (st) {
     const dx=(player.x+player.w/2)-st.cx, dy=(player.y+player.h/2)-st.cy;
     if (dx*dx+dy*dy < 42*42) {
