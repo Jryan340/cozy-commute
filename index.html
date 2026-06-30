@@ -770,15 +770,14 @@ STATIONS.forEach((s, i) => { s.side = i % 2 ? 'L' : 'R'; s.announced = false; })
 let dayT = 0;            // 0..1 position in a looping day/night cycle
 let tunnelAmount = 0;    // 0..1 how deep we are inside a tunnel
 
-// time-of-day palette (cyclic: last stop == first so it loops seamlessly)
+// time-of-day across the trip: depart 3:15 PM in the afternoon, arrive at dusk
+// (driven by journey progress, not a loop — so it never flips to full night)
 const SKY = [
-  { t: 0.00, c: [255, 244, 210], a: 0.02 },  // early morning
-  { t: 0.25, c: [255, 250, 235], a: 0.00 },  // bright midday
-  { t: 0.50, c: [255, 158,  86], a: 0.20 },  // golden afternoon
-  { t: 0.68, c: [120,  92, 150], a: 0.30 },  // dusk
-  { t: 0.82, c: [ 28,  34,  78], a: 0.46 },  // night
-  { t: 0.93, c: [ 78,  72, 122], a: 0.30 },  // pre-dawn
-  { t: 1.00, c: [255, 244, 210], a: 0.02 },  // == t0
+  { t: 0.00, c: [255, 246, 224], a: 0.00 },  // bright afternoon (departure)
+  { t: 0.40, c: [255, 224, 168], a: 0.08 },  // softening light
+  { t: 0.70, c: [255, 170, 100], a: 0.18 },  // golden hour
+  { t: 0.88, c: [176, 120, 138], a: 0.24 },  // sunset
+  { t: 1.00, c: [104,  92, 150], a: 0.32 },  // dusk / early evening (arrival)
 ];
 function lightingFor(t) {
   let a = SKY[0], b = SKY[SKY.length - 1];
@@ -860,7 +859,7 @@ function update(dt) {
   const stopsLeft = Math.max(0, (STATIONS.length - 1) - nextStop);
   etaSeconds = arrived ? 0 : (ROUTE.totalMiles - miles) / CRUISE + stopsLeft * DWELL;
   if (tripOpen) updateTripCard();
-  dayT = (elapsed / 150) % 1;     // a full, gentle day/night cycle every 2.5 min
+  dayT = Math.min(1, miles / ROUTE.totalMiles);   // afternoon → dusk over the whole trip
   tunnelAmount = tunnelAt(scroll);
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
 
@@ -1214,16 +1213,23 @@ function applyAmbient() {
 // --- whole-train overview ---------------------------------------------------
 function drawWideView() {
   const cx = W/2;
-  // 1) countryside, scrolling past
+  const urban = urbanAt(miles / ROUTE.totalMiles);
+  const uc = Math.min(1, urban);
+  const gA = hexMix(C.fieldA, '#9a958c', uc*0.85), gB = hexMix(C.fieldB, '#8b867d', uc*0.85);
+  // 1) ground, scrolling past — same region tint as the window view
   for (let y = -16; y < H+16; y += 16) {
     const yy = ((y + scroll*0.8) % (H+32)) - 16;
-    px(0, yy, W, 16, (Math.floor((yy+scroll)/16) % 2) ? C.fieldA : C.fieldB);
+    px(0, yy, W, 16, (Math.floor((yy+scroll)/16) % 2) ? gA : gB);
   }
-  for (const f of feats) {                                     // scattered trees, off the track
+  // 2) lineside on both sides of the track: skyline ↔ houses ↔ trees, matching the region
+  for (const f of feats) {
     const yy = ((f.y*1.3 + scroll) % (H+60)) - 30;
-    const bx = f.side === 'L' ? (10 + f.off) : (W - 24 - f.off);
-    px(bx+4, yy+9, 3, 6, '#6b4a2e');
-    px(bx, yy, 11, 11, C.treeDk); px(bx+1, yy+1, 9, 8, C.tree); px(bx+3, yy+2, 4, 3, '#3f9450');
+    const r = (f.off % 18) / 18, u = urban + (r - 0.5) * 0.4;
+    for (const bx of [10 + f.off*1.3, W - 22 - f.off*1.3]) {
+      if (u > 0.62) drawBuilding(bx, yy, urban, r);
+      else if (u > 0.30) drawHouse(bx, yy, r);
+      else drawTreeish(f, bx, yy);
+    }
   }
   // 2) the track: ballast, scrolling sleepers, two rails
   px(cx-17, 0, 34, H, '#9b8c74'); px(cx-17, 0, 2, H, '#857862'); px(cx+15, 0, 2, H, '#857862');
