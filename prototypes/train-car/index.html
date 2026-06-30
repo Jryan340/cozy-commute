@@ -34,6 +34,14 @@
     -webkit-tap-highlight-color: transparent;
   }
   #act:active { transform: translateY(1px); border-bottom-width: 2px; }
+  #snd {
+    position: fixed; left: 18px; bottom: 64px; width: 46px; height: 46px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20,18,26,.8); border: 1px solid rgba(255,255,255,.12);
+    color: #efe8da; font-size: 20px; cursor: pointer; z-index: 6;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #snd:active { transform: translateY(1px); }
   #hud {
     position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 18px; align-items: center;
@@ -109,6 +117,7 @@
   <div id="wrap"><canvas id="game"></canvas></div>
 
   <button id="act">Sit</button>
+  <button id="snd" aria-label="toggle train sounds">🔇</button>
 
   <div id="scrim"></div>
   <div id="bag">
@@ -359,6 +368,80 @@ function toggleBag(){ bagOpen ? closeBag() : openBag(); }
 document.getElementById('bagDone').addEventListener('click', closeBag);
 scrimEl.addEventListener('click', closeBag);
 
+// --- audio: gentle train sounds (off by default; tap 🔇 to enable) ----------
+let audioOn = false, actx = null, master = null, rumbleGain = null, rumbleLP = null;
+let clackBus = null, noiseBuf = null, schedTimer = null, cycleStart = 0;
+const sndBtn = document.getElementById('snd');
+
+function buildAudio() {
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  master = actx.createGain(); master.gain.value = 0.0001; master.connect(actx.destination);
+
+  // shared brown-noise buffer for the rumble and the clack ticks
+  const len = actx.sampleRate * 2;
+  noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  let lo = 0;
+  for (let i = 0; i < len; i++) { const w = Math.random()*2 - 1; lo = (lo + 0.02*w) / 1.02; d[i] = lo * 3.5; }
+
+  // continuous rolling rumble: looped noise -> lowpass -> gain
+  const rsrc = actx.createBufferSource(); rsrc.buffer = noiseBuf; rsrc.loop = true;
+  rumbleLP = actx.createBiquadFilter(); rumbleLP.type = 'lowpass'; rumbleLP.frequency.value = 220;
+  rumbleGain = actx.createGain(); rumbleGain.gain.value = 0.18;
+  rsrc.connect(rumbleLP).connect(rumbleGain).connect(master); rsrc.start();
+
+  clackBus = actx.createGain(); clackBus.gain.value = 0.9; clackBus.connect(master);
+}
+
+// one rail-joint "ca-chunk": a low thump plus a short noise tick
+function clack(t) {
+  const o = actx.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(52, t + 0.09);
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.5, t + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+  o.connect(g).connect(clackBus); o.start(t); o.stop(t + 0.16);
+
+  const n = actx.createBufferSource(); n.buffer = noiseBuf; n.playbackRate.value = 1 + Math.random()*0.3;
+  const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 0.8;
+  const ng = actx.createGain();
+  ng.gain.setValueAtTime(0.0001, t);
+  ng.gain.exponentialRampToValueAtTime(0.12, t + 0.004);
+  ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+  n.connect(bp).connect(ng).connect(clackBus);
+  n.start(t, Math.random()*1.5, 0.06);
+}
+
+const CLACK_PATTERN = [0, 0.17, 0.46, 0.63];   // two pairs of clacks per cycle
+const CLACK_CYCLE = 1.05;
+function scheduleClacks() {
+  if (!audioOn || !actx) return;
+  while (cycleStart < actx.currentTime + 0.25) {
+    for (const off of CLACK_PATTERN) clack(cycleStart + off);
+    cycleStart += CLACK_CYCLE;
+  }
+}
+
+async function toggleAudio() {
+  if (!actx) buildAudio();
+  if (actx.state === 'suspended') { try { await actx.resume(); } catch (e) {} }
+  audioOn = !audioOn;
+  sndBtn.textContent = audioOn ? '🔊' : '🔇';
+  if (audioOn) {
+    master.gain.cancelScheduledValues(actx.currentTime);
+    master.gain.setTargetAtTime(0.5, actx.currentTime, 0.3);     // fade in
+    cycleStart = actx.currentTime + 0.1;
+    schedTimer = setInterval(scheduleClacks, 60);
+    toast('Train sounds on 🔊');
+  } else {
+    master.gain.setTargetAtTime(0.0001, actx.currentTime, 0.2);  // fade out
+    clearInterval(schedTimer); schedTimer = null;
+    toast('Sounds off');
+  }
+}
+sndBtn.addEventListener('click', toggleAudio);
+
 function nearestFreeSeat() {
   let best = null, bd = 50*50;
   for (const st of seats) {
@@ -516,6 +599,12 @@ function update(dt) {
   dayT = (elapsed / 150) % 1;     // a full, gentle day/night cycle every 2.5 min
   tunnelAmount = tunnelAt(scroll);
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
+
+  // the rumble muffles and swells as we roll through a tunnel
+  if (audioOn && rumbleLP) {
+    rumbleLP.frequency.value = 220 - tunnelAmount * 90;
+    rumbleGain.gain.value = 0.18 + tunnelAmount * 0.12;
+  }
 
   // smooth camera toward its target (zoomed into seat, or the whole car)
   const ts  = (zoomed && player.seat) ? 2.6 : 1;
