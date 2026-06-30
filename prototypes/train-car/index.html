@@ -42,6 +42,14 @@
     -webkit-tap-highlight-color: transparent;
   }
   #snd:active { transform: translateY(1px); }
+  #wide {
+    position: fixed; right: 18px; top: 64px; width: 46px; height: 46px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20,18,26,.8); border: 1px solid rgba(255,255,255,.12);
+    color: #efe8da; font-size: 20px; cursor: pointer; z-index: 6;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #wide:active { transform: translateY(1px); }
   #hud {
     position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 18px; align-items: center;
@@ -118,6 +126,7 @@
 
   <button id="act">Sit</button>
   <button id="snd" aria-label="toggle train sounds">🔇</button>
+  <button id="wide" aria-label="see the whole train">🗺️</button>
 
   <div id="scrim"></div>
   <div id="bag">
@@ -243,7 +252,16 @@ const USE_MSG = {
 
 // --- camera / zoom ----------------------------------------------------------
 let zoomed = false;                       // double-tap to zoom into your seat
+let wideView = false;                     // 🗺️ pull all the way out to see the whole train
 const cam = { s: 1, fx: W/2, fy: H/2 };   // scale + focus point (world coords)
+
+// whole-train overview layout: a locomotive + carriages; the 3rd car is yours
+const TRAIN = (() => {
+  const segs = []; let y = 34;
+  segs.push({ y, h: 56, type: 'loco' }); y += 56 + 8;
+  for (let i = 0; i < 4; i++) { segs.push({ y, h: 50, type: 'car', player: i === 2 }); y += 50 + 8; }
+  return segs;
+})();
 function screenToWorld(x, y) {
   return { x: (x - W/2) / cam.s + cam.fx, y: (y - H/2) / cam.s + cam.fy };
 }
@@ -287,6 +305,8 @@ function toLogical(clientX, clientY) {
 let tapTimer = null, pendingTap = null;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
+  if (wideView) { setWide(false); return; }        // tap anywhere to come back to your car
+
   const s = toLogical(e.clientX, e.clientY);       // screen-space logical
   const p = screenToWorld(s.x, s.y);               // world coords (camera aware)
 
@@ -404,6 +424,16 @@ function startLoop() {
   loopSrc.start(0, loopSrc.loopStart);
 }
 
+// effective volume: way low when we've pulled out to the whole-train view
+function effectiveGain() {
+  if (soundLevel === 0) return 0.0001;
+  return wideView ? 0.05 : SOUND_LEVELS[soundLevel].gain;
+}
+function applyMaster() {
+  if (!actx || !master) return;
+  master.gain.cancelScheduledValues(actx.currentTime);
+  master.gain.setTargetAtTime(effectiveGain(), actx.currentTime, 0.4);
+}
 async function cycleSound() {
   try {
     if (!actx) await buildAudio();
@@ -413,14 +443,23 @@ async function cycleSound() {
     sndBtn.textContent = lv.icon;
     loopBaseLP = lv.lp;                                             // Background recedes (softer)
     if (soundLevel > 0 && !loopSrc && soundBuf) startLoop();
-    master.gain.cancelScheduledValues(actx.currentTime);
-    master.gain.setTargetAtTime(lv.gain, actx.currentTime, 0.4);    // smooth ramp between levels
+    applyMaster();
     toast(`Sound: ${lv.name} ${lv.icon}`);
   } catch (e) {
     toast('Could not start sound.');
   }
 }
 sndBtn.addEventListener('click', cycleSound);
+
+// --- whole-train overview toggle -------------------------------------------
+const wideBtn = document.getElementById('wide');
+function setWide(on) {
+  wideView = on;
+  if (on) { zoomed = false; closeBag(); }
+  wideBtn.textContent = on ? '🚃' : '🗺️';     // 🚃 = back to your car
+  applyMaster();                               // sound ducks way low when pulled out
+}
+wideBtn.addEventListener('click', () => setWide(!wideView));
 
 function nearestFreeSeat() {
   let best = null, bd = 50*50;
@@ -546,8 +585,8 @@ function tunnelAt(s) {
 // --- update ----------------------------------------------------------------
 let last = performance.now();
 function update(dt) {
-  // movement (disabled while seated)
-  if (!player.seat) {
+  // movement (disabled while seated or in the whole-train view)
+  if (!player.seat && !wideView) {
     let dx = 0, dy = 0;
     if (keys['a'] || keys['arrowleft'])  dx -= 1;
     if (keys['d'] || keys['arrowright']) dx += 1;
@@ -601,10 +640,12 @@ function update(dt) {
   document.getElementById('miles').textContent = miles.toFixed(1);
   if (isTouch) {
     actBtn.textContent = player.seat ? 'Stand up' : 'Sit';
-    hintEl.innerHTML = player.seat
-      ? (zoomed ? 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; tap a thing to use it &nbsp;·&nbsp; double-tap to zoom out'
-                : 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; double-tap to zoom in')
-      : 'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; tap yourself 🎒 for your bag';
+    hintEl.innerHTML = wideView
+      ? 'The whole train · tap anywhere to come back to your car 🚃'
+      : player.seat
+        ? (zoomed ? 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; tap a thing to use it &nbsp;·&nbsp; double-tap to zoom out'
+                  : 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; double-tap to zoom in')
+        : 'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; 🗺️ see the whole train';
   }
 }
 
@@ -847,23 +888,27 @@ function frame(now) {
   update(dt);
 
   ctx.clearRect(0,0,W,H);
-  ctx.save();
-  ctx.translate(W/2, H/2); ctx.scale(cam.s, cam.s); ctx.translate(-cam.fx, -cam.fy);
+  if (wideView) {
+    drawWideView();
+  } else {
+    ctx.save();
+    ctx.translate(W/2, H/2); ctx.scale(cam.s, cam.s); ctx.translate(-cam.fx, -cam.fy);
 
-  drawScenery();
-  drawCar();
-  // seat, then its passenger, then the table + things in front of them
-  for (const st of seats) {
-    drawSeat(st);
-    if (st.occupant && st.occupant.npc) {
-      st.occupant.bob += dt;
-      drawPerson(st.sitX, st.sitY, st.occupant, st.occupant.bob);
+    drawScenery();
+    drawCar();
+    // seat, then its passenger, then the table + things in front of them
+    for (const st of seats) {
+      drawSeat(st);
+      if (st.occupant && st.occupant.npc) {
+        st.occupant.bob += dt;
+        drawPerson(st.sitX, st.sitY, st.occupant, st.occupant.bob);
+      }
+      drawSeatItems(st, dt);
     }
-    drawSeatItems(st, dt);
-  }
-  drawPlayer();
+    drawPlayer();
 
-  ctx.restore();
+    ctx.restore();
+  }
   applyAmbient();
 
   // gentle vignette for cosiness
@@ -878,16 +923,68 @@ function frame(now) {
 function applyAmbient() {
   const L = lightingFor(dayT);
   if (L.a > 0.001) { ctx.fillStyle = `rgba(${L.r},${L.g},${L.b},${L.a})`; ctx.fillRect(0,0,W,H); }
-  // tunnel: black out the view through both windows, leave the interior lit
   if (tunnelAmount > 0.001) {
     ctx.fillStyle = `rgba(6,6,14,${tunnelAmount*0.9})`;
-    ctx.fillRect(0,0,WALL_L,H); ctx.fillRect(WALL_R,0,W-WALL_R,H);
+    if (wideView) {
+      ctx.fillRect(0,0,W,H);                                   // the train enters a tunnel: all dark
+    } else {
+      ctx.fillRect(0,0,WALL_L,H); ctx.fillRect(WALL_R,0,W-WALL_R,H);  // dark through the windows only
+    }
   }
-  // as it gets dark (dusk/night or tunnel), the carriage lamps warm the interior
-  const dark = Math.max(tunnelAmount, Math.min(1, (L.a - 0.15) / 0.3));
-  if (dark > 0.001) {
-    ctx.fillStyle = `rgba(255,188,110,${dark*0.10})`;
-    ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
+  if (!wideView) {   // carriage lamps warm the interior as it darkens
+    const dark = Math.max(tunnelAmount, Math.min(1, (L.a - 0.15) / 0.3));
+    if (dark > 0.001) {
+      ctx.fillStyle = `rgba(255,188,110,${dark*0.10})`;
+      ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
+    }
+  }
+}
+
+// --- whole-train overview ---------------------------------------------------
+function drawWideView() {
+  const cx = W/2;
+  // 1) countryside, scrolling past
+  for (let y = -16; y < H+16; y += 16) {
+    const yy = ((y + scroll*0.8) % (H+32)) - 16;
+    px(0, yy, W, 16, (Math.floor((yy+scroll)/16) % 2) ? C.fieldA : C.fieldB);
+  }
+  for (const f of feats) {                                     // scattered trees, off the track
+    const yy = ((f.y*1.3 + scroll) % (H+60)) - 30;
+    const bx = f.side === 'L' ? (10 + f.off) : (W - 24 - f.off);
+    px(bx+4, yy+9, 3, 6, '#6b4a2e');
+    px(bx, yy, 11, 11, C.treeDk); px(bx+1, yy+1, 9, 8, C.tree); px(bx+3, yy+2, 4, 3, '#3f9450');
+  }
+  // 2) the track: ballast, scrolling sleepers, two rails
+  px(cx-17, 0, 34, H, '#9b8c74'); px(cx-17, 0, 2, H, '#857862'); px(cx+15, 0, 2, H, '#857862');
+  for (let y = -12; y < H+12; y += 12) {
+    const yy = ((y + scroll) % (H+24)) - 12;
+    px(cx-15, yy, 30, 4, '#7a5a3a');
+  }
+  px(cx-10, 0, 2, H, '#5c6066'); px(cx+8, 0, 2, H, '#5c6066');
+  // 3) the train: locomotive + carriages, your car marked
+  for (let i = 0; i < TRAIN.length; i++) {
+    const s = TRAIN[i];
+    const w = s.type === 'loco' ? 34 : 40, x = cx - w/2;
+    px(cx-1, s.y + s.h, 2, 8, '#2c2c30');                       // coupler to next
+    px(x+2, s.y+3, w, s.h, C.shadow);                           // shadow
+    if (s.type === 'loco') {
+      px(x, s.y, w, s.h, '#3a3f47');
+      px(x+6, s.y-5, w-12, 7, '#2b2f36');                       // nose
+      px(x+w/2-2, s.y+3, 4, 6, '#ffcf86');                      // headlight
+      px(x+4, s.y+16, w-8, 4, '#54606a'); px(x+4, s.y+26, w-8, 4, '#54606a');
+    } else {
+      if (s.player) { px(x-4, s.y-3, w+8, s.h+6, 'rgba(255,217,160,.35)'); }  // glow
+      px(x, s.y, w, s.h, '#9c4a3f');                            // body
+      px(x+2, s.y+2, w-4, s.h-4, '#b0584a');                    // roof
+      px(x+w/2-1, s.y, 2, s.h, '#7a3a31');                      // ridge
+      for (let wy = s.y+6; wy < s.y+s.h-5; wy += 9) {           // windows both sides
+        px(x+2, wy, 3, 5, '#cfeefb'); px(x+w-5, wy, 3, 5, '#cfeefb');
+      }
+      if (s.player) {
+        px(x+w/2-2, s.y-9, 4, 6, '#ffd24a');                    // a little pin
+        px(x+w/2-1, s.y-3, 2, 3, '#ffd24a');
+      }
+    }
   }
 }
 requestAnimationFrame(frame);
