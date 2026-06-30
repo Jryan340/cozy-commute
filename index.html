@@ -128,7 +128,9 @@
     width: min(350px, 86vw); background: linear-gradient(180deg, #f5f0e5, #e8e1d1); color: #2a2630;
     border-radius: 20px; padding: 20px; box-shadow: 0 24px 70px rgba(0,0,0,.6);
     font-family: ui-monospace, monospace; position: relative;
+    transition: transform .42s cubic-bezier(.2,.85,.25,1), opacity .42s;
   }
+  #boarding:not(.show) .bd-card { transform: translateY(-26px) scale(.97); opacity: 0; }  /* slides in/out */
   .bd-card::before, .bd-card::after {
     content: ''; position: absolute; top: 60%; width: 18px; height: 18px; border-radius: 50%;
     background: #16141d; transform: translateY(-50%);
@@ -633,7 +635,7 @@ function updateTripCard() {
   ticksEls.forEach((el, i) => el.classList.toggle('passed', STATIONS[i].mile <= miles + 0.01));
   const next = STATIONS.find(s => s.mile > miles + 0.01);
   document.getElementById('tripNext').textContent = (!arrived && next) ? next.name : '—';
-  document.getElementById('tripEta').textContent = arrived ? 'Arrived' : fmtClock(Math.max(0, JOURNEY - elapsed));
+  document.getElementById('tripEta').textContent = arrived ? 'Arrived' : fmtClock(etaSeconds);
   document.getElementById('tripDone').textContent = Math.round(miles);
   document.getElementById('tripLeft').textContent = Math.max(0, Math.round(total - miles));
   document.getElementById('tripAboard').textContent = fmtClock(elapsed);
@@ -658,7 +660,8 @@ function board() { boarding = false; boardingEl.classList.remove('show'); toast(
 document.getElementById('bdGo').addEventListener('click', board);
 
 function resetJourney() {
-  elapsed = 0; miles = 0; arrived = false; speed = 26;
+  elapsed = 0; miles = 0; arrived = false;
+  trainSpeed = 0; dwellTimer = 0; nextStop = 1;
   STATIONS.forEach(s => s.announced = false);
   closeTrip();
   if (wideView) setWide(false);
@@ -722,10 +725,16 @@ function arriveTarget() {
 
 // --- world / journey state -------------------------------------------------
 let scroll = 0;          // scenery scroll offset (px)
-let speed = 26;          // px/sec of scenery (the train's apparent speed)
-let miles = 0;
-const JOURNEY = 7 * 60;  // 7 minute journey (mock)
-let elapsed = 0;
+let miles = 0;           // miles travelled along the route
+let elapsed = 0;         // seconds aboard since departure
+let trainSpeed = 0;      // current speed, miles/second of game time
+let dwellTimer = 0;      // seconds left standing at the current station
+let nextStop = 1;        // index of the next station we'll pull into (0 = Boston, where we board)
+let etaSeconds = 0;
+const CRUISE = 0.78;          // cruising speed (mi/s)
+const BRAKE_DIST = 2.2;       // start slowing this many miles out from a stop
+const DWELL = 2.5;            // seconds standing at each station
+const SCROLL_PER_MILE = 44;   // scenery px per mile (so motion matches speed)
 
 // deterministic scenery features so they scroll consistently
 const feats = [];
@@ -829,11 +838,31 @@ function update(dt) {
     } else player.walkT = 0;
   }
 
-  // journey + scenery (frozen while boarding at the platform)
-  if (!boarding) { elapsed += dt; scroll += speed * dt; }
-  miles = Math.min(ROUTE.totalMiles, (elapsed / JOURNEY) * ROUTE.totalMiles);  // 0 → 229 along the route
-  if (!arrived && !boarding && elapsed >= JOURNEY) { arrived = true; openTrip(); }  // reached New York
-  if (arrived) speed += (0 - speed) * Math.min(1, dt * 1.2);                    // ease to a stop at the platform
+  // journey: pull into each station, dwell, then accelerate to the next
+  if (!boarding && !arrived) {
+    elapsed += dt;
+    if (dwellTimer > 0) {                                  // standing at a station
+      dwellTimer -= dt;
+      trainSpeed += (0 - trainSpeed) * Math.min(1, dt * 5);
+      if (dwellTimer <= 0) { nextStop++; toast('Departing · ' + STATIONS[nextStop-1].name); }
+    } else {
+      const target = STATIONS[nextStop];
+      const d = target.mile - miles;
+      if (d <= 0.2) {                                      // pulled into the stop
+        miles = target.mile; trainSpeed = 0;
+        if (nextStop >= STATIONS.length - 1) { arrived = true; openTrip(); }  // New York
+        else { dwellTimer = DWELL; toast('🚉 Now stopping · ' + target.name); }
+      } else {                                             // approach: brake near the stop, else cruise
+        const want = d < BRAKE_DIST ? Math.max(0.28, CRUISE * (d / BRAKE_DIST)) : CRUISE;
+        trainSpeed += (want - trainSpeed) * Math.min(1, dt * 3);
+        miles = Math.min(target.mile, miles + trainSpeed * dt);
+      }
+    }
+    scroll += trainSpeed * SCROLL_PER_MILE * dt;           // scenery moves with the train
+  }
+  if (arrived) trainSpeed += (0 - trainSpeed) * Math.min(1, dt * 2);
+  const stopsLeft = Math.max(0, (STATIONS.length - 1) - nextStop);
+  etaSeconds = arrived ? 0 : (ROUTE.totalMiles - miles) / CRUISE + stopsLeft * DWELL;
   if (tripOpen) updateTripCard();
   dayT = (elapsed / 150) % 1;     // a full, gentle day/night cycle every 2.5 min
   tunnelAmount = tunnelAt(scroll);
@@ -854,10 +883,8 @@ function update(dt) {
   cam.s += (ts - cam.s) * k; cam.fx += (tfx - cam.fx) * k; cam.fy += (tfy - cam.fy) * k;
 
   // HUD
-  const remain = Math.max(0, JOURNEY - elapsed);
-  document.getElementById('eta').textContent =
-    Math.floor(remain/60) + ':' + String(Math.floor(remain%60)).padStart(2,'0');
-  document.getElementById('miles').textContent = miles.toFixed(1);
+  document.getElementById('eta').textContent = fmtClock(etaSeconds);
+  document.getElementById('miles').textContent = Math.round(miles);
   if (isTouch) {
     actBtn.textContent = player.seat ? 'Stand up' : 'Sit';
     hintEl.innerHTML = wideView
@@ -956,39 +983,67 @@ function drawSeatItems(st) {
   }
 }
 
+// surroundings change with how far we are: city → suburbs → country → suburbs → BIG city
+const URBAN_KF = [[0,1.05],[0.05,1.0],[0.18,0.55],[0.36,0.08],[0.60,0.05],[0.78,0.55],[0.92,1.0],[1.0,1.25]];
+function urbanAt(p) {
+  for (let i = 0; i < URBAN_KF.length - 1; i++) {
+    const [p0,u0] = URBAN_KF[i], [p1,u1] = URBAN_KF[i+1];
+    if (p >= p0 && p <= p1) { const f = p1===p0 ? 0 : (p-p0)/(p1-p0); return u0 + (u1-u0)*f; }
+  }
+  return URBAN_KF[URBAN_KF.length-1][1];
+}
+function hexMix(a, b, t) {
+  const A = parseInt(a.slice(1),16), B = parseInt(b.slice(1),16);
+  const r  = Math.round((A>>16)      + (((B>>16))      - (A>>16))      * t);
+  const g  = Math.round(((A>>8)&255) + ((((B>>8)&255)) - ((A>>8)&255)) * t);
+  const bl = Math.round((A&255)      + ((B&255)        - (A&255))      * t);
+  return `rgb(${r},${g},${bl})`;
+}
+function drawBuilding(bx, yy, urban, r) {
+  const w = 9 + Math.round(r*6);
+  const h = 12 + Math.round(urban*28 + r*9);
+  const top = yy + 12 - h;                        // grow upward from a baseline
+  px(bx, top, w, h, urban > 0.85 ? '#6a6a77' : '#867c6f');
+  px(bx, top, w, 2, 'rgba(255,255,255,.08)');
+  for (let wy = top + 3; wy < yy + 8; wy += 4) px(bx+2, wy, w-4, 1, 'rgba(255,228,168,.4)'); // lit windows
+}
+function drawHouse(bx, yy, r) {
+  const w = 10 + Math.round(r*3), h = 7 + Math.round(r*2), y = yy + 12 - h;
+  px(bx, y, w, h, '#b98a63');                     // wall
+  px(bx-1, y-3, w+2, 4, '#7a4a37');               // roof
+  px(bx+2, y+2, 2, 2, '#ffe6a8');                 // window
+}
+function drawTreeish(f, bx, yy) {
+  if (f.kind === 'bush') { px(bx+1, yy+4, 9, 6, C.treeDk); px(bx+2, yy+3, 7, 5, C.tree); }
+  else if (f.kind === 'pole') { px(bx+4, yy, 2, 16, C.pole); px(bx+1, yy+2, 8, 2, C.pole); }
+  else { px(bx+4, yy+9, 3, 6, '#6b4a2e'); px(bx, yy, 11, 11, C.treeDk); px(bx+1, yy+1, 9, 8, C.tree); px(bx+3, yy+2, 4, 3, '#3f9450'); }
+}
+
 function drawScenery() {
-  // outer ground bands (visible "outside" the windows), left strip & right strip
+  const urban = urbanAt(miles / ROUTE.totalMiles);
+  const uc = Math.min(1, urban);
+  const gA = hexMix(C.fieldA, '#9a958c', uc*0.85), gB = hexMix(C.fieldB, '#8b867d', uc*0.85);
   for (const band of [{x:0,w:WALL_L},{x:WALL_R,w:W-WALL_R}]) {
-    // base field with subtle horizontal banding that scrolls
     for (let y=-40; y<H+40; y+=8) {
       const yy = ((y + scroll*0.9) % (H+80)) - 40;
-      px(band.x, yy, band.w, 8, (Math.floor((yy+scroll)/8)%2)? C.fieldA : C.fieldB);
+      px(band.x, yy, band.w, 8, (Math.floor((yy+scroll)/8)%2) ? gA : gB);
     }
-    // a dirt path edge nearest the track
-    px(band.x===0? WALL_L-4:WALL_R, 0, 4, H, C.dirt);
+    px(band.x===0 ? WALL_L-4 : WALL_R, 0, 4, H, hexMix(C.dirt, '#7c7a78', uc*0.7));
   }
-  // scrolling features (trees / poles / bushes)
+  // lineside features morph with the region: skyline ↔ houses ↔ trees
   for (const f of feats) {
     const yy = ((f.y + scroll) % (H + 60)) - 30;
     const bx = f.side==='L' ? 4 + f.off*0.4 : WALL_R + 2 + f.off*0.4;
-    if (f.kind==='tree') {
-      px(bx+4, yy+9, 3, 6, '#6b4a2e');
-      px(bx, yy, 11, 11, C.treeDk); px(bx+1, yy+1, 9, 8, C.tree); px(bx+3, yy+2, 4, 3, '#3f9450');
-    } else if (f.kind==='bush') {
-      px(bx+1, yy+4, 9, 6, C.treeDk); px(bx+2, yy+3, 7, 5, C.tree);
-    } else { // pole
-      px(bx+4, yy, 2, 16, C.pole); px(bx+1, yy+2, 8, 2, C.pole);
-    }
+    const r = (f.off % 18) / 18;                  // stable per-feature 0..1
+    const u = urban + (r - 0.5) * 0.4;            // soft blending at region edges
+    if (u > 0.62) drawBuilding(bx, yy, urban, r);
+    else if (u > 0.30) drawHouse(bx, yy, r);
+    else drawTreeish(f, bx, yy);
   }
-  // real stations: glide past (and get announced) as we reach their milepost
+  // station platforms glide past as we pull in (announcements handled in update)
   for (const s of STATIONS) {
-    const d = s.mile - miles;                  // miles still to go (negative = passed)
-    if (!s.announced && d <= 0) {
-      s.announced = true;
-      const verb = s.mile === 0 ? 'Departing' : s.mile >= ROUTE.totalMiles ? 'Arriving' : 'Now passing';
-      toast(`${verb} · ${s.name}`);
-    }
-    if (d < 5.5 && d > -3) drawStation(s, ((5.5 - d) / 8.5) * H);   // slides top → bottom as you pass
+    const d = s.mile - miles;
+    if (d < 5.5 && d > -3) drawStation(s, ((5.5 - d) / 8.5) * H);
   }
 }
 
