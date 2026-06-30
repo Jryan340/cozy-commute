@@ -301,6 +301,53 @@ const feats = [];
   }
 })();
 
+// stations that glide past on one side every so often
+const STATION_NAMES = ['Maple Halt','Briar Cross','Fenwick','Lake End','Old Mill','Thornbury','Wren Sidings','Ashcombe'];
+const STN_GAP = 1400;                       // world px between stations
+const stations = STATION_NAMES.map((name, i) => ({
+  y: 760 + i * STN_GAP, side: i % 2 ? 'L' : 'R', name, announced: false,
+}));
+const STN_LOOP = STATION_NAMES.length * STN_GAP;
+
+// --- living-window state ----------------------------------------------------
+let dayT = 0;            // 0..1 position in a looping day/night cycle
+let tunnelAmount = 0;    // 0..1 how deep we are inside a tunnel
+
+// time-of-day palette (cyclic: last stop == first so it loops seamlessly)
+const SKY = [
+  { t: 0.00, c: [255, 244, 210], a: 0.02 },  // early morning
+  { t: 0.25, c: [255, 250, 235], a: 0.00 },  // bright midday
+  { t: 0.50, c: [255, 158,  86], a: 0.20 },  // golden afternoon
+  { t: 0.68, c: [120,  92, 150], a: 0.30 },  // dusk
+  { t: 0.82, c: [ 28,  34,  78], a: 0.46 },  // night
+  { t: 0.93, c: [ 78,  72, 122], a: 0.30 },  // pre-dawn
+  { t: 1.00, c: [255, 244, 210], a: 0.02 },  // == t0
+];
+function lightingFor(t) {
+  let a = SKY[0], b = SKY[SKY.length - 1];
+  for (let i = 0; i < SKY.length - 1; i++) {
+    if (t >= SKY[i].t && t <= SKY[i + 1].t) { a = SKY[i]; b = SKY[i + 1]; break; }
+  }
+  const f = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
+  return {
+    r: Math.round(a.c[0] + (b.c[0] - a.c[0]) * f),
+    g: Math.round(a.c[1] + (b.c[1] - a.c[1]) * f),
+    b: Math.round(a.c[2] + (b.c[2] - a.c[2]) * f),
+    a: a.a + (b.a - a.a) * f,
+  };
+}
+// smoothly enters/exits a tunnel based on how far we've scrolled
+function tunnelAt(s) {
+  const period = 1150, len = 150, edge = 38;
+  const p = ((s % period) + period) % period;
+  const start = period - len;
+  if (p < start) return 0;
+  const into = p - start;
+  if (into < edge) return into / edge;
+  if (into > len - edge) return (len - into) / edge;
+  return 1;
+}
+
 // --- update ----------------------------------------------------------------
 let last = performance.now();
 function update(dt) {
@@ -334,6 +381,8 @@ function update(dt) {
   elapsed += dt;
   scroll += speed * dt;
   miles += (speed * dt) / 42;     // arbitrary cozy mileage rate
+  dayT = (elapsed / 150) % 1;     // a full, gentle day/night cycle every 2.5 min
+  tunnelAmount = tunnelAt(scroll);
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
 
   // HUD
@@ -371,6 +420,27 @@ function drawScenery() {
       px(bx+4, yy, 2, 16, C.pole); px(bx+1, yy+2, 8, 2, C.pole);
     }
   }
+  // stations sliding past + their announcements
+  for (const s of stations) {
+    const yy = ((s.y + scroll) % STN_LOOP) - 100;
+    if (yy < 60) s.announced = false;
+    if (!s.announced && yy > H * 0.5) { s.announced = true; toast('Now passing · ' + s.name); }
+    if (yy > -100 && yy < H + 10) drawStation(s, yy);
+  }
+}
+
+function drawStation(s, yy) {
+  const left = s.side === 'L';
+  const bx = left ? 0 : WALL_R, bw = left ? WALL_L : (W - WALL_R);
+  px(bx, yy, bw, 92, '#8f867d');                       // platform concrete
+  px(bx, yy, bw, 2, '#766e66'); px(bx, yy + 90, bw, 2, '#766e66');
+  const edgeX = left ? WALL_L - 5 : WALL_R;            // tactile safety strip by the track
+  for (let k = 0; k < 92; k += 6) px(edgeX, yy + k, 5, 3, '#c9a44e');
+  const sx = left ? 5 : WALL_R + 7;                    // a name sign on a post
+  px(sx + 4, yy + 30, 2, 30, '#5a5048');
+  px(sx - 1, yy + 18, 16, 13, '#2f6d8a'); px(sx, yy + 19, 14, 11, '#3f87aa');
+  px(sx + 2, yy + 22, 10, 1, '#cfeefb'); px(sx + 2, yy + 25, 8, 1, '#cfeefb');
+  px(sx + 4, yy + 70, 6, 6, '#caa07b'); px(sx + 4, yy + 68, 6, 3, '#3a2a1d'); // a waiting passenger
 }
 
 function drawCar() {
@@ -489,6 +559,7 @@ function frame(now) {
     }
   }
   drawPlayer();
+  applyAmbient();
 
   // gentle vignette for cosiness
   const g = ctx.createRadialGradient(W/2,H/2,80, W/2,H/2,260);
@@ -496,6 +567,23 @@ function frame(now) {
   ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
 
   requestAnimationFrame(frame);
+}
+
+// time-of-day wash + tunnel darkness + cosy interior lamp glow
+function applyAmbient() {
+  const L = lightingFor(dayT);
+  if (L.a > 0.001) { ctx.fillStyle = `rgba(${L.r},${L.g},${L.b},${L.a})`; ctx.fillRect(0,0,W,H); }
+  // tunnel: black out the view through both windows, leave the interior lit
+  if (tunnelAmount > 0.001) {
+    ctx.fillStyle = `rgba(6,6,14,${tunnelAmount*0.9})`;
+    ctx.fillRect(0,0,WALL_L,H); ctx.fillRect(WALL_R,0,W-WALL_R,H);
+  }
+  // as it gets dark (dusk/night or tunnel), the carriage lamps warm the interior
+  const dark = Math.max(tunnelAmount, Math.min(1, (L.a - 0.15) / 0.3));
+  if (dark > 0.001) {
+    ctx.fillStyle = `rgba(255,188,110,${dark*0.10})`;
+    ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
+  }
 }
 requestAnimationFrame(frame);
 </script>
