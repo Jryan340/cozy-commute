@@ -368,10 +368,16 @@ function toggleBag(){ bagOpen ? closeBag() : openBag(); }
 document.getElementById('bagDone').addEventListener('click', closeBag);
 scrimEl.addEventListener('click', closeBag);
 
-// --- audio: looped train-interior recording (off by default; tap 🔇 to enable) ---
-let audioOn = false, actx = null, master = null, loopLP = null, loopSrc = null, soundBuf = null;
+// --- audio: looped train-interior recording; tap 🔇 to cycle Off/Background/Prominent ---
+let actx = null, master = null, loopLP = null, loopSrc = null, soundBuf = null;
 const sndBtn = document.getElementById('snd');
 const SND_URL = 'trainsound.mp3';
+const SOUND_LEVELS = [
+  { name: 'Off',        icon: '🔇', gain: 0.0001 },
+  { name: 'Background', icon: '🔈', gain: 0.32 },
+  { name: 'Prominent',  icon: '🔊', gain: 1.0 },
+];
+let soundLevel = 0;
 
 async function buildAudio() {
   actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -398,26 +404,22 @@ function startLoop() {
   loopSrc.start(0, loopSrc.loopStart);
 }
 
-async function toggleAudio() {
+async function cycleSound() {
   try {
     if (!actx) await buildAudio();
     if (actx.state === 'suspended') { try { await actx.resume(); } catch (e) {} }
-    audioOn = !audioOn;
-    sndBtn.textContent = audioOn ? '🔊' : '🔇';
-    if (audioOn) {
-      if (!loopSrc && soundBuf) startLoop();
-      master.gain.cancelScheduledValues(actx.currentTime);
-      master.gain.setTargetAtTime(0.9, actx.currentTime, 0.4);     // gentle fade in
-      toast('Train sounds on 🔊');
-    } else {
-      master.gain.setTargetAtTime(0.0001, actx.currentTime, 0.3);  // fade out (loop keeps running, silently)
-      toast('Sounds off');
-    }
+    soundLevel = (soundLevel + 1) % SOUND_LEVELS.length;
+    const lv = SOUND_LEVELS[soundLevel];
+    sndBtn.textContent = lv.icon;
+    if (soundLevel > 0 && !loopSrc && soundBuf) startLoop();
+    master.gain.cancelScheduledValues(actx.currentTime);
+    master.gain.setTargetAtTime(lv.gain, actx.currentTime, 0.4);    // smooth ramp between levels
+    toast(`Sound: ${lv.name} ${lv.icon}`);
   } catch (e) {
     toast('Could not start sound.');
   }
 }
-sndBtn.addEventListener('click', toggleAudio);
+sndBtn.addEventListener('click', cycleSound);
 
 function nearestFreeSeat() {
   let best = null, bd = 50*50;
@@ -578,7 +580,7 @@ function update(dt) {
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
 
   // the sound muffles as we roll through a tunnel
-  if (audioOn && loopLP) {
+  if (soundLevel > 0 && loopLP) {
     loopLP.frequency.value = 20000 - tunnelAmount * 18600;   // ~1400Hz deep in a tunnel
   }
 
