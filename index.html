@@ -368,110 +368,53 @@ function toggleBag(){ bagOpen ? closeBag() : openBag(); }
 document.getElementById('bagDone').addEventListener('click', closeBag);
 scrimEl.addEventListener('click', closeBag);
 
-// --- audio: gentle train sounds (off by default; tap 🔇 to enable) ----------
-let audioOn = false, actx = null, master = null, rumbleGain = null, rumbleLP = null;
-let clackBus = null, noiseBuf = null, schedTimer = null, cycleStart = 0;
+// --- audio: looped train-interior recording (off by default; tap 🔇 to enable) ---
+let audioOn = false, actx = null, master = null, loopLP = null, loopSrc = null, soundBuf = null;
 const sndBtn = document.getElementById('snd');
+const SND_URL = 'trainsound.mp3';
 
-let clackOut = null;   // warm, lowpassed bus the clacks pass through
-function buildAudio() {
+async function buildAudio() {
   actx = new (window.AudioContext || window.webkitAudioContext)();
   // iOS 16.4+: route through the 'playback' session so the ring/silent switch can't mute us
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
   // nudge iOS fully awake with a 1-sample blip
   try { const u = actx.createBufferSource(); u.buffer = actx.createBuffer(1,1,actx.sampleRate); u.connect(actx.destination); u.start(); } catch (e) {}
   master = actx.createGain(); master.gain.value = 0.0001; master.connect(actx.destination);
-
-  // a warm carriage reverb from a softly-decaying generated impulse
-  const ir = actx.createBuffer(2, (actx.sampleRate * 1.1) | 0, actx.sampleRate);
-  for (let ch = 0; ch < 2; ch++) {
-    const a = ir.getChannelData(ch);
-    for (let i = 0; i < a.length; i++) a[i] = (Math.random()*2 - 1) * Math.pow(1 - i/a.length, 2.6);
-  }
-  const conv = actx.createConvolver(); conv.buffer = ir;
-  const revLP = actx.createBiquadFilter(); revLP.type = 'lowpass'; revLP.frequency.value = 1500;
-  const revGain = actx.createGain(); revGain.gain.value = 0.3;
-  conv.connect(revLP).connect(revGain).connect(master);
-
-  // brown-noise buffer (used by rumble + the soft wooden clack texture)
-  const len = actx.sampleRate * 3;
-  noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
-  const d = noiseBuf.getChannelData(0);
-  let lo = 0;
-  for (let i = 0; i < len; i++) { const w = Math.random()*2 - 1; lo = (lo + 0.02*w) / 1.02; d[i] = lo * 3.5; }
-
-  // soft, warm rumble with a slow 'breathing' swell
-  const rsrc = actx.createBufferSource(); rsrc.buffer = noiseBuf; rsrc.loop = true;
-  rumbleLP = actx.createBiquadFilter(); rumbleLP.type = 'lowpass'; rumbleLP.frequency.value = 200;
-  rumbleGain = actx.createGain(); rumbleGain.gain.value = 0.13;
-  rsrc.connect(rumbleLP).connect(rumbleGain).connect(master); rsrc.start();
-  const lfo = actx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.11;
-  const lfoG = actx.createGain(); lfoG.gain.value = 0.035;
-  lfo.connect(lfoG).connect(rumbleGain.gain); lfo.start();
-
-  // clack bus -> lowpass (warm/muffled, as heard from inside) -> dry + reverb
-  clackBus = actx.createGain(); clackBus.gain.value = 0.9;
-  clackOut = actx.createBiquadFilter(); clackOut.type = 'lowpass'; clackOut.frequency.value = 640;
-  clackBus.connect(clackOut);
-  clackOut.connect(master);
-  clackOut.connect(conv);     // a little of each clack rings into the carriage
+  loopLP = actx.createBiquadFilter(); loopLP.type = 'lowpass'; loopLP.frequency.value = 20000;
+  loopLP.connect(master);
+  // fetch + decode the recording once
+  const res = await fetch(SND_URL);
+  const ab = await res.arrayBuffer();
+  soundBuf = await actx.decodeAudioData(ab);
 }
 
-// one soft rail-joint "dug": rounded low body + weighty sub + faint wooden texture (no bright click)
-function clack(t, vol = 1) {
-  const o = actx.createOscillator(); o.type = 'sine';
-  o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(68, t + 0.12);
-  const g = actx.createGain();
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.42 * vol, t + 0.012);   // soft 12ms attack, no click
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
-  o.connect(g).connect(clackBus); o.start(t); o.stop(t + 0.2);
-
-  const s = actx.createOscillator(); s.type = 'sine'; s.frequency.setValueAtTime(55, t);
-  const sg = actx.createGain();
-  sg.gain.setValueAtTime(0.0001, t);
-  sg.gain.exponentialRampToValueAtTime(0.2 * vol, t + 0.015);
-  sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-  s.connect(sg).connect(clackBus); s.start(t); s.stop(t + 0.18);
-
-  const n = actx.createBufferSource(); n.buffer = noiseBuf; n.playbackRate.value = 0.7 + Math.random()*0.2;
-  const nlp = actx.createBiquadFilter(); nlp.type = 'lowpass'; nlp.frequency.value = 380;
-  const ng = actx.createGain();
-  ng.gain.setValueAtTime(0.0001, t);
-  ng.gain.exponentialRampToValueAtTime(0.05 * vol, t + 0.01);
-  ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
-  n.connect(nlp).connect(ng).connect(clackBus); n.start(t, Math.random()*2, 0.12);
-}
-
-const CLACK_PATTERN = [0, 0.23, 0.66, 0.89];   // unhurried "dug-a-dug ... dug-a-dug"
-const CLACK_CYCLE = 1.7;
-function scheduleClacks() {
-  if (!audioOn || !actx) return;
-  while (cycleStart < actx.currentTime + 0.3) {
-    for (const off of CLACK_PATTERN) {
-      const jitter = (Math.random() - 0.5) * 0.03;   // ±15ms, so it breathes
-      clack(cycleStart + off + jitter, 0.8 + Math.random() * 0.4);
-    }
-    cycleStart += CLACK_CYCLE;
-  }
+function startLoop() {
+  loopSrc = actx.createBufferSource();
+  loopSrc.buffer = soundBuf; loopSrc.loop = true;
+  // trim the MP3's padding so the loop point doesn't gap/click
+  loopSrc.loopStart = 0.05;
+  loopSrc.loopEnd = Math.max(0.1, soundBuf.duration - 0.05);
+  loopSrc.connect(loopLP);
+  loopSrc.start(0, loopSrc.loopStart);
 }
 
 async function toggleAudio() {
-  if (!actx) buildAudio();
-  if (actx.state === 'suspended') { try { await actx.resume(); } catch (e) {} }
-  audioOn = !audioOn;
-  sndBtn.textContent = audioOn ? '🔊' : '🔇';
-  if (audioOn) {
-    master.gain.cancelScheduledValues(actx.currentTime);
-    master.gain.setTargetAtTime(0.6, actx.currentTime, 0.4);     // gentle fade in
-    cycleStart = actx.currentTime + 0.1;
-    clack(actx.currentTime + 0.05);                             // instant feedback
-    schedTimer = setInterval(scheduleClacks, 60);
-    toast('Train sounds on 🔊');
-  } else {
-    master.gain.setTargetAtTime(0.0001, actx.currentTime, 0.2);  // fade out
-    clearInterval(schedTimer); schedTimer = null;
-    toast('Sounds off');
+  try {
+    if (!actx) await buildAudio();
+    if (actx.state === 'suspended') { try { await actx.resume(); } catch (e) {} }
+    audioOn = !audioOn;
+    sndBtn.textContent = audioOn ? '🔊' : '🔇';
+    if (audioOn) {
+      if (!loopSrc && soundBuf) startLoop();
+      master.gain.cancelScheduledValues(actx.currentTime);
+      master.gain.setTargetAtTime(0.9, actx.currentTime, 0.4);     // gentle fade in
+      toast('Train sounds on 🔊');
+    } else {
+      master.gain.setTargetAtTime(0.0001, actx.currentTime, 0.3);  // fade out (loop keeps running, silently)
+      toast('Sounds off');
+    }
+  } catch (e) {
+    toast('Could not start sound.');
   }
 }
 sndBtn.addEventListener('click', toggleAudio);
@@ -634,10 +577,9 @@ function update(dt) {
   tunnelAmount = tunnelAt(scroll);
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
 
-  // the rumble muffles and swells as we roll through a tunnel
-  if (audioOn && rumbleLP) {
-    rumbleLP.frequency.value = 200 - tunnelAmount * 80;
-    rumbleGain.gain.value = 0.13 + tunnelAmount * 0.1;
+  // the sound muffles as we roll through a tunnel
+  if (audioOn && loopLP) {
+    loopLP.frequency.value = 20000 - tunnelAmount * 18600;   // ~1400Hz deep in a tunnel
   }
 
   // smooth camera toward its target (zoomed into seat, or the whole car)
