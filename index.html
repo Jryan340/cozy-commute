@@ -58,6 +58,41 @@
     font-size: 12px; opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* inventory ("your bag") */
+  #scrim {
+    position: fixed; inset: 0; background: rgba(10,9,14,.45); backdrop-filter: blur(2px);
+    opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 5;
+  }
+  #scrim.show { opacity: 1; pointer-events: auto; }
+  #bag {
+    position: fixed; left: 50%; bottom: 0; transform: translateX(-50%) translateY(110%);
+    width: min(440px, 96vw); background: #221f2a; color: #efe8da;
+    border: 1px solid rgba(255,255,255,.08); border-bottom: none;
+    border-radius: 18px 18px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+    box-shadow: 0 -12px 40px rgba(0,0,0,.5); transition: transform .26s cubic-bezier(.2,.8,.2,1);
+    z-index: 6;
+  }
+  #bag.show { transform: translateX(-50%) translateY(0); }
+  .bag-head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 12px; }
+  .bag-head b { font-size: 15px; letter-spacing: .3px; }
+  .bag-head span { font-size: 12px; opacity: .6; }
+  #bagGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .chip {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 10px 4px; border-radius: 12px; cursor: pointer;
+    background: #2c2836; border: 1px solid #3a3546; color: #d9d2c4;
+    font: 600 11px ui-monospace, monospace; -webkit-tap-highlight-color: transparent;
+  }
+  .chip .emo { font-size: 22px; line-height: 1; }
+  .chip:active { transform: translateY(1px); }
+  .chip.on { background: #2f6d5f; border-color: #54998a; color: #fff; box-shadow: 0 0 0 2px rgba(84,153,138,.35); }
+  #bagDone {
+    width: 100%; margin-top: 14px; padding: 12px; border-radius: 12px; cursor: pointer;
+    background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
+    font: 600 14px ui-monospace, monospace; letter-spacing: .5px;
+  }
+  #bagDone:active { transform: translateY(1px); border-bottom-width: 2px; }
 </style>
 </head>
 <body>
@@ -74,6 +109,13 @@
   <div id="wrap"><canvas id="game"></canvas></div>
 
   <button id="act">Sit</button>
+
+  <div id="scrim"></div>
+  <div id="bag">
+    <div class="bag-head"><b>Your bag</b><span id="bagCount">0/3 out</span></div>
+    <div id="bagGrid"></div>
+    <button id="bagDone">Done</button>
+  </div>
 
   <div id="toast" class="toast"></div>
   <div id="hint">
@@ -169,7 +211,25 @@ const player = {
   x: AISLE_L + 22, y: 250, w: 10, h: 12,
   shirt: '#e0795f', skin: '#e8b88f', hair: '#4a3220',
   speed: 64, facing: 1, walkT: 0, seat: null,
-  activity: null,          // null | 'coffee' | 'book' | 'laptop'
+  items: ['coffee', 'book'],   // what's out on your table (max 3); chosen from your bag
+};
+
+// everything you can take out of your bag
+const BAG = [
+  { key: 'coffee',     label: 'Coffee',  emoji: '☕' },
+  { key: 'tea',        label: 'Tea',     emoji: '🍵' },
+  { key: 'water',      label: 'Water',   emoji: '💧' },
+  { key: 'book',       label: 'Book',    emoji: '📖' },
+  { key: 'laptop',     label: 'Laptop',  emoji: '💻' },
+  { key: 'notepad',    label: 'Notepad', emoji: '✏️' },
+  { key: 'pastry',     label: 'Pastry',  emoji: '🥐' },
+  { key: 'headphones', label: 'Music',   emoji: '🎧' },
+];
+const MAX_ITEMS = 3;
+const USE_MSG = {
+  coffee: 'Sipping coffee ☕', tea: 'A warm cup of tea 🍵', water: 'A cool sip of water 💧',
+  book: 'Reading a while 📖', laptop: 'A little work 💻', notepad: 'Jotting a thought ✏️',
+  pastry: 'A flaky bite 🥐', headphones: 'Drifting into a song 🎧',
 };
 
 // --- camera / zoom ----------------------------------------------------------
@@ -215,21 +275,16 @@ function toLogical(clientX, clientY) {
   const r = cv.getBoundingClientRect();
   return { x: (clientX - r.left) / r.width * W, y: (clientY - r.top) / r.height * H };
 }
-let lastTap = 0;
+let tapTimer = null, pendingTap = null;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
   const s = toLogical(e.clientX, e.clientY);       // screen-space logical
   const p = screenToWorld(s.x, s.y);               // world coords (camera aware)
-  const now = e.timeStamp || performance.now();
-  const dbl = (now - lastTap) < 300;
-  lastTap = now;
 
-  if (player.seat) {
-    if (dbl) { zoomed = !zoomed; return; }          // double-tap zooms to/from seat
-    tryUseItem(p.x, p.y);                            // tap your coffee / book / laptop
-    return;
-  }
-  // standing: tap a free seat to walk over and sit, else walk to the spot
+  if (player.seat) { seatedTap(p); return; }
+
+  // standing: tap yourself for your bag, else walk / tap a seat to sit
+  if (hitPlayer(p)) { toggleBag(); return; }
   let seat = null, bd = 30*30;
   for (const st of seats) {
     if (st.occupant) continue;
@@ -240,16 +295,28 @@ cv.addEventListener('pointerdown', e => {
   else      { target = { x: p.x, y: p.y };         autoSit = false; }
 }, { passive: false });
 
-// tap a table item while seated to pick it up / set it down
-const ITEM_MSG = { coffee: 'Sipping coffee ☕', book: 'Reading a while 📖', laptop: 'A little work 💻' };
+// seated: single tap = bag / use a thing, double tap = zoom (deferred to tell apart)
+function seatedTap(p) {
+  if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; zoomed = !zoomed; return; }
+  pendingTap = p;
+  tapTimer = setTimeout(() => {
+    tapTimer = null;
+    if (hitPlayer(pendingTap)) { toggleBag(); return; }   // tap yourself -> your bag
+    tryUseItem(pendingTap.x, pendingTap.y);                // tap a thing on the table
+  }, 250);
+}
+function hitPlayer(p) {
+  const cx = player.x + player.w/2, cy = player.y + player.h/2;
+  const dx = p.x - cx, dy = p.y - cy;
+  return dx*dx + dy*dy < 13*13;
+}
 function tryUseItem(wx, wy) {
   if (!player.seat) return false;
-  const r = itemRects(player.seat);
-  for (const key of ['coffee','book','laptop']) {
-    const it = r[key];
+  const slots = itemSlots(player.seat);
+  for (let i = 0; i < player.items.length; i++) {
+    const it = slots[i];
     if (wx >= it.x-2 && wx <= it.x+it.w+2 && wy >= it.y-3 && wy <= it.y+it.h+3) {
-      player.activity = (player.activity === key) ? null : key;
-      toast(player.activity ? ITEM_MSG[key] : 'You set it down.');
+      toast(USE_MSG[player.items[i]] || '…');
       return true;
     }
   }
@@ -261,6 +328,36 @@ const actBtn = document.getElementById('act');
 const hintEl = document.getElementById('hint');
 actBtn.addEventListener('click', () => { target = null; autoSit = false; toggleSit(); });
 if (isTouch) actBtn.style.display = 'block';
+
+// --- inventory ("your bag") -------------------------------------------------
+const bagEl = document.getElementById('bag');
+const scrimEl = document.getElementById('scrim');
+const bagGrid = document.getElementById('bagGrid');
+const bagCount = document.getElementById('bagCount');
+let bagOpen = false;
+for (const it of BAG) {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.dataset.key = it.key;
+  b.innerHTML = `<span class="emo">${it.emoji}</span><span>${it.label}</span>`;
+  b.addEventListener('click', () => pickItem(it.key));
+  bagGrid.appendChild(b);
+}
+function refreshBag() {
+  bagCount.textContent = `${player.items.length}/${MAX_ITEMS} out`;
+  for (const b of bagGrid.children) b.classList.toggle('on', player.items.includes(b.dataset.key));
+}
+function pickItem(key) {
+  const i = player.items.indexOf(key);
+  if (i >= 0) player.items.splice(i, 1);
+  else if (player.items.length >= MAX_ITEMS) { toast("Table's full — set something down first."); return; }
+  else player.items.push(key);
+  refreshBag();
+}
+function openBag()  { bagOpen = true;  bagEl.classList.add('show');  scrimEl.classList.add('show'); refreshBag(); }
+function closeBag() { bagOpen = false; bagEl.classList.remove('show'); scrimEl.classList.remove('show'); }
+function toggleBag(){ bagOpen ? closeBag() : openBag(); }
+document.getElementById('bagDone').addEventListener('click', closeBag);
+scrimEl.addEventListener('click', closeBag);
 
 function nearestFreeSeat() {
   let best = null, bd = 50*50;
@@ -278,8 +375,8 @@ function toggleSit() {
     // stand up: step into the aisle
     player.seat.occupant = null;
     player.seat = null;
-    player.activity = null;
     zoomed = false;
+    closeBag();
     player.x = (player.x < W/2) ? AISLE_L + 4 : AISLE_R - player.w - 4;
     toast('You stand up and stretch.');
     return;
@@ -435,23 +532,23 @@ function update(dt) {
   if (isTouch) {
     actBtn.textContent = player.seat ? 'Stand up' : 'Sit';
     hintEl.innerHTML = player.seat
-      ? (zoomed ? 'Tap your ☕ 📖 💻 &nbsp;·&nbsp; double-tap to zoom out'
-                : 'Double-tap to zoom to your seat &nbsp;·&nbsp; tap your ☕ 📖 💻')
-      : 'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; find a window seat 🪟';
+      ? (zoomed ? 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; tap a thing to use it &nbsp;·&nbsp; double-tap to zoom out'
+                : 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; double-tap to zoom in')
+      : 'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; tap yourself 🎒 for your bag';
   }
 }
 
 // --- draw helpers ----------------------------------------------------------
 function px(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x|0,y|0,w|0,h|0); }
 
-// a little fixed table in front of each seat, with room for three things
-function itemRects(st) {
+// three slots on the table; players fill them left→right with chosen items
+function itemSlots(st) {
   const ty = st.y - 15;
-  return {
-    coffee: { x: st.x + 3,  y: ty + 1, w: 8,  h: 10 },
-    book:   { x: st.x + 12, y: ty + 1, w: 9,  h: 10 },
-    laptop: { x: st.x + 22, y: ty + 1, w: 10, h: 10 },
-  };
+  return [
+    { x: st.x + 2,  y: ty + 1, w: 9,  h: 10 },
+    { x: st.x + 12, y: ty + 1, w: 9,  h: 10 },
+    { x: st.x + 22, y: ty + 1, w: 10, h: 10 },
+  ];
 }
 function drawTable(st) {
   const tw = st.w, th = 13, tx = st.x, ty = st.y - 16;
@@ -467,11 +564,29 @@ function drawCoffee(r, t) {
   px(r.x + 2, r.y + 1 - ((t * 9) % 4), 1, 2, 'rgba(255,255,255,.55)'); // steam
   px(r.x + 4, r.y      - ((t * 9 + 2) % 4), 1, 2, 'rgba(255,255,255,.4)');
 }
+function drawTea(r, t) {
+  px(r.x + 1, r.y + 3, r.w - 2, r.h - 3, '#f0ece0');           // cup
+  px(r.x + 1, r.y + 3, r.w - 2, 2, '#9bbf6a');                 // green tea
+  px(r.x + r.w - 1, r.y + 5, 1, 3, '#cfc6b6');                 // handle
+  px(r.x, r.y + 6, 2, 1, '#caa24e');                           // a little tag
+  px(r.x + 2, r.y + 1 - ((t * 9) % 4), 1, 2, 'rgba(255,255,255,.5)');
+}
+function drawWater(r) {
+  px(r.x + 2, r.y + 2, r.w - 4, r.h - 2, 'rgba(196,230,240,.55)'); // glass
+  px(r.x + 2, r.y + 5, r.w - 4, r.h - 5, 'rgba(120,190,215,.8)');  // water
+  px(r.x + 3, r.y + 3, 1, r.h - 4, 'rgba(255,255,255,.5)');        // shine
+}
 function drawBook(r) {
   px(r.x, r.y + 2, r.w, r.h - 3, '#9c5a4a');                   // covers
   px(r.x + 1, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');         // left page
   px(r.x + r.w/2, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');     // right page
   px(r.x + r.w/2 - 0.5, r.y + 2, 1, r.h - 3, '#6e3d31');       // spine
+}
+function drawNotepad(r) {
+  px(r.x + 1, r.y + 1, r.w - 3, r.h - 1, '#f3ead2');           // pad
+  for (let i = 3; i < r.h - 1; i += 2) px(r.x + 2, r.y + i, r.w - 6, 1, '#cdbf9a');
+  px(r.x + r.w - 2, r.y, 2, r.h, '#caa24e');                   // pencil body
+  px(r.x + r.w - 2, r.y, 2, 2, '#3a2c24');                     // pencil tip
 }
 function drawLaptop(r, t) {
   px(r.x, r.y + 5, r.w, r.h - 5, '#9aa0a8');                   // keyboard base
@@ -479,22 +594,34 @@ function drawLaptop(r, t) {
   const glow = 0.45 + 0.3 * Math.sin(t * 3);
   px(r.x + 2, r.y + 1, r.w - 4, 4, `rgba(130,205,255,${glow})`); // screen
 }
-function drawSeatItems(st, dt2) {
+function drawPastry(r) {
+  px(r.x + 1, r.y + 4, r.w - 2, r.h - 5, '#caa24e');           // croissant body
+  px(r.x + 2, r.y + 3, r.w - 4, 3, '#d9b562');
+  px(r.x + 1, r.y + 5, 1, 3, '#a9842f'); px(r.x + r.w - 2, r.y + 5, 1, 3, '#a9842f');
+}
+function drawHeadphones(r) {
+  px(r.x + 2, r.y + 2, r.w - 4, 2, '#3a3f47');                 // band
+  px(r.x + 1, r.y + 3, 2, 5, '#2b2f36'); px(r.x + r.w - 3, r.y + 3, 2, 5, '#2b2f36'); // ear cups
+}
+function drawItemKind(key, r, t) {
+  switch (key) {
+    case 'coffee': return drawCoffee(r, t);
+    case 'tea': return drawTea(r, t);
+    case 'water': return drawWater(r);
+    case 'book': return drawBook(r);
+    case 'laptop': return drawLaptop(r, t);
+    case 'notepad': return drawNotepad(r);
+    case 'pastry': return drawPastry(r);
+    case 'headphones': return drawHeadphones(r);
+  }
+}
+function drawSeatItems(st) {
   drawTable(st);
-  const r = itemRects(st);
+  const slots = itemSlots(st);
   if (st.occupant && st.occupant.player) {
-    if (player.activity) {                                     // halo under chosen thing
-      const a = r[player.activity];
-      px(a.x - 2, a.y - 2, a.w + 4, a.h + 4, 'rgba(255,222,150,.22)');
-    }
-    drawCoffee(r.coffee, elapsed);
-    drawBook(r.book);
-    drawLaptop(r.laptop, elapsed);
+    player.items.forEach((k, i) => { if (slots[i]) drawItemKind(k, slots[i], elapsed); });
   } else if (st.occupant && st.occupant.npc && st.occupant.item) {
-    const it = r[st.occupant.item];
-    if (st.occupant.item === 'coffee') drawCoffee(it, elapsed + st.cy);
-    else if (st.occupant.item === 'book') drawBook(it);
-    else drawLaptop(it, elapsed + st.cy);
+    drawItemKind(st.occupant.item, slots[1], elapsed + st.cy);
   }
 }
 
