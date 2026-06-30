@@ -151,6 +151,7 @@ for (const row of rowYs) {
 
 // seed a few NPC passengers in random-ish (deterministic) seats
 const npcSeats = [0, 3, 4, 7, 9];
+const NPC_ITEMS = ['coffee', 'laptop', 'book', 'coffee', 'book'];
 npcSeats.forEach((i, k) => {
   seats[i].occupant = {
     npc: true,
@@ -159,6 +160,7 @@ npcSeats.forEach((i, k) => {
     skin: ['#e8b88f','#caa07b','#a87a52','#f0cba0'][k % 4],
     hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][k % 4],
     bob: Math.random() * 6.28,
+    item: NPC_ITEMS[k % NPC_ITEMS.length],
   };
 });
 
@@ -167,7 +169,15 @@ const player = {
   x: AISLE_L + 22, y: 250, w: 10, h: 12,
   shirt: '#e0795f', skin: '#e8b88f', hair: '#4a3220',
   speed: 64, facing: 1, walkT: 0, seat: null,
+  activity: null,          // null | 'coffee' | 'book' | 'laptop'
 };
+
+// --- camera / zoom ----------------------------------------------------------
+let zoomed = false;                       // double-tap to zoom into your seat
+const cam = { s: 1, fx: W/2, fy: H/2 };   // scale + focus point (world coords)
+function screenToWorld(x, y) {
+  return { x: (x - W/2) / cam.s + cam.fx, y: (y - H/2) / cam.s + cam.fy };
+}
 
 // --- solids for collision (walls + seat footprints) ------------------------
 function solids() {
@@ -205,11 +215,21 @@ function toLogical(clientX, clientY) {
   const r = cv.getBoundingClientRect();
   return { x: (clientX - r.left) / r.width * W, y: (clientY - r.top) / r.height * H };
 }
+let lastTap = 0;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
-  const p = toLogical(e.clientX, e.clientY);
-  if (player.seat) { toggleSit(); return; }       // tap anywhere to stand
-  // tapped on/near a free seat? -> walk there and sit on arrival
+  const s = toLogical(e.clientX, e.clientY);       // screen-space logical
+  const p = screenToWorld(s.x, s.y);               // world coords (camera aware)
+  const now = e.timeStamp || performance.now();
+  const dbl = (now - lastTap) < 300;
+  lastTap = now;
+
+  if (player.seat) {
+    if (dbl) { zoomed = !zoomed; return; }          // double-tap zooms to/from seat
+    tryUseItem(p.x, p.y);                            // tap your coffee / book / laptop
+    return;
+  }
+  // standing: tap a free seat to walk over and sit, else walk to the spot
   let seat = null, bd = 30*30;
   for (const st of seats) {
     if (st.occupant) continue;
@@ -220,14 +240,27 @@ cv.addEventListener('pointerdown', e => {
   else      { target = { x: p.x, y: p.y };         autoSit = false; }
 }, { passive: false });
 
+// tap a table item while seated to pick it up / set it down
+const ITEM_MSG = { coffee: 'Sipping coffee ☕', book: 'Reading a while 📖', laptop: 'A little work 💻' };
+function tryUseItem(wx, wy) {
+  if (!player.seat) return false;
+  const r = itemRects(player.seat);
+  for (const key of ['coffee','book','laptop']) {
+    const it = r[key];
+    if (wx >= it.x-2 && wx <= it.x+it.w+2 && wy >= it.y-3 && wy <= it.y+it.h+3) {
+      player.activity = (player.activity === key) ? null : key;
+      toast(player.activity ? ITEM_MSG[key] : 'You set it down.');
+      return true;
+    }
+  }
+  return false;
+}
+
 // floating action button (shown on touch)
 const actBtn = document.getElementById('act');
+const hintEl = document.getElementById('hint');
 actBtn.addEventListener('click', () => { target = null; autoSit = false; toggleSit(); });
-if (isTouch) {
-  actBtn.style.display = 'block';
-  document.getElementById('hint').innerHTML =
-    'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; find a window seat 🪟';
-}
+if (isTouch) actBtn.style.display = 'block';
 
 function nearestFreeSeat() {
   let best = null, bd = 50*50;
@@ -245,6 +278,8 @@ function toggleSit() {
     // stand up: step into the aisle
     player.seat.occupant = null;
     player.seat = null;
+    player.activity = null;
+    zoomed = false;
     player.x = (player.x < W/2) ? AISLE_L + 4 : AISLE_R - player.w - 4;
     toast('You stand up and stretch.');
     return;
@@ -385,16 +420,83 @@ function update(dt) {
   tunnelAmount = tunnelAt(scroll);
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
 
+  // smooth camera toward its target (zoomed into seat, or the whole car)
+  const ts  = (zoomed && player.seat) ? 2.6 : 1;
+  const tfx = (zoomed && player.seat) ? player.seat.cx : W/2;
+  const tfy = (zoomed && player.seat) ? player.seat.cy : H/2;
+  const k = 1 - Math.pow(0.0015, dt);
+  cam.s += (ts - cam.s) * k; cam.fx += (tfx - cam.fx) * k; cam.fy += (tfy - cam.fy) * k;
+
   // HUD
   const remain = Math.max(0, JOURNEY - elapsed);
   document.getElementById('eta').textContent =
     Math.floor(remain/60) + ':' + String(Math.floor(remain%60)).padStart(2,'0');
   document.getElementById('miles').textContent = miles.toFixed(1);
-  if (isTouch) actBtn.textContent = player.seat ? 'Stand up' : 'Sit';
+  if (isTouch) {
+    actBtn.textContent = player.seat ? 'Stand up' : 'Sit';
+    hintEl.innerHTML = player.seat
+      ? (zoomed ? 'Tap your ☕ 📖 💻 &nbsp;·&nbsp; double-tap to zoom out'
+                : 'Double-tap to zoom to your seat &nbsp;·&nbsp; tap your ☕ 📖 💻')
+      : 'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; find a window seat 🪟';
+  }
 }
 
 // --- draw helpers ----------------------------------------------------------
 function px(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x|0,y|0,w|0,h|0); }
+
+// a little fixed table in front of each seat, with room for three things
+function itemRects(st) {
+  const ty = st.y - 15;
+  return {
+    coffee: { x: st.x + 3,  y: ty + 1, w: 8,  h: 10 },
+    book:   { x: st.x + 12, y: ty + 1, w: 9,  h: 10 },
+    laptop: { x: st.x + 22, y: ty + 1, w: 10, h: 10 },
+  };
+}
+function drawTable(st) {
+  const tw = st.w, th = 13, tx = st.x, ty = st.y - 16;
+  px(tx, ty + 3, tw, th, C.shadow);
+  px(tx, ty, tw, th, '#7c5236');           // table top
+  px(tx, ty, tw, 2, '#9a6a44');            // highlight edge
+  px(tx, ty + th - 1, tw, 1, '#5e3d28');
+}
+function drawCoffee(r, t) {
+  px(r.x + 1, r.y + 3, r.w - 2, r.h - 3, '#efe6d6');           // mug
+  px(r.x + 1, r.y + 3, r.w - 2, 2, '#5a3a22');                 // coffee surface
+  px(r.x + r.w - 1, r.y + 5, 1, 3, '#cfc6b6');                 // handle
+  px(r.x + 2, r.y + 1 - ((t * 9) % 4), 1, 2, 'rgba(255,255,255,.55)'); // steam
+  px(r.x + 4, r.y      - ((t * 9 + 2) % 4), 1, 2, 'rgba(255,255,255,.4)');
+}
+function drawBook(r) {
+  px(r.x, r.y + 2, r.w, r.h - 3, '#9c5a4a');                   // covers
+  px(r.x + 1, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');         // left page
+  px(r.x + r.w/2, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');     // right page
+  px(r.x + r.w/2 - 0.5, r.y + 2, 1, r.h - 3, '#6e3d31');       // spine
+}
+function drawLaptop(r, t) {
+  px(r.x, r.y + 5, r.w, r.h - 5, '#9aa0a8');                   // keyboard base
+  px(r.x + 1, r.y, r.w - 2, 6, '#33383f');                    // lid back
+  const glow = 0.45 + 0.3 * Math.sin(t * 3);
+  px(r.x + 2, r.y + 1, r.w - 4, 4, `rgba(130,205,255,${glow})`); // screen
+}
+function drawSeatItems(st, dt2) {
+  drawTable(st);
+  const r = itemRects(st);
+  if (st.occupant && st.occupant.player) {
+    if (player.activity) {                                     // halo under chosen thing
+      const a = r[player.activity];
+      px(a.x - 2, a.y - 2, a.w + 4, a.h + 4, 'rgba(255,222,150,.22)');
+    }
+    drawCoffee(r.coffee, elapsed);
+    drawBook(r.book);
+    drawLaptop(r.laptop, elapsed);
+  } else if (st.occupant && st.occupant.npc && st.occupant.item) {
+    const it = r[st.occupant.item];
+    if (st.occupant.item === 'coffee') drawCoffee(it, elapsed + st.cy);
+    else if (st.occupant.item === 'book') drawBook(it);
+    else drawLaptop(it, elapsed + st.cy);
+  }
+}
 
 function drawScenery() {
   // outer ground bands (visible "outside" the windows), left strip & right strip
@@ -548,17 +650,23 @@ function frame(now) {
   update(dt);
 
   ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(W/2, H/2); ctx.scale(cam.s, cam.s); ctx.translate(-cam.fx, -cam.fy);
+
   drawScenery();
   drawCar();
-  // draw seated occupants, then seats? -> draw seat, then occupant on top
+  // seat, then its passenger, then the table + things in front of them
   for (const st of seats) {
     drawSeat(st);
     if (st.occupant && st.occupant.npc) {
       st.occupant.bob += dt;
       drawPerson(st.sitX, st.sitY, st.occupant, st.occupant.bob);
     }
+    drawSeatItems(st, dt);
   }
   drawPlayer();
+
+  ctx.restore();
   applyAmbient();
 
   // gentle vignette for cosiness
