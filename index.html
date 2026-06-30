@@ -87,17 +87,22 @@
   }
   .trip-status.arrived { background: rgba(255,201,120,.16); color: #ffd9a0; border-color: rgba(255,201,120,.45); }
 
-  .trip-line { margin: 4px 2px 24px; }
-  .tl-track { position: relative; height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); }
-  .tl-fill { position: absolute; left: 0; top: 0; height: 100%; width: 0%; border-radius: 3px;
-    background: linear-gradient(90deg, #4f9a8a, #ffd9a0); transition: width .4s linear; }
-  .tl-tick { position: absolute; top: -1px; width: 2px; height: 8px; transform: translateX(-50%);
-    background: rgba(255,255,255,.22); border-radius: 1px; }
-  .tl-tick.passed { background: #ffe1b0; }
-  .tl-train { position: absolute; top: -10px; left: 0%; transform: translateX(-50%); font-size: 14px;
-    transition: left .4s linear; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
-  .tl-ends { display: flex; justify-content: space-between; margin-top: 10px; font-size: 10px; letter-spacing: 1px; }
-  .tl-ends b { color: #efe8da; } .tl-ends span { opacity: .5; }
+  /* named stop list (transit-line timeline) */
+  .tl-list { max-height: 188px; overflow-y: auto; margin: 2px 0 16px; padding: 2px 4px 2px 2px; }
+  .st-row { position: relative; display: flex; align-items: center; gap: 11px; padding: 5px 2px; }
+  .st-row::before { content: ''; position: absolute; left: 6px; top: 50%; height: 100%; width: 2px;
+    background: #3a3646; z-index: 0; }
+  .st-row:last-child::before { display: none; }
+  .st-dot { position: relative; z-index: 1; flex: 0 0 11px; width: 11px; height: 11px; border-radius: 50%;
+    border: 2px solid #56506220; border-color: #565062; background: #2a2735; box-sizing: border-box; }
+  .st-name { flex: 1; font-size: 13px; color: #cfc8ba; }
+  .st-mi { font-size: 10px; opacity: .42; letter-spacing: .3px; }
+  .st-row.passed .st-dot { background: #ffd9a0; border-color: #ffd9a0; }
+  .st-row.passed::before { background: #ffd9a0; }
+  .st-row.passed .st-name { color: rgba(239,232,218,.5); }
+  .st-row.next .st-dot { border-color: #7fd3bd; box-shadow: 0 0 0 3px rgba(127,211,189,.22); }
+  .st-row.next .st-name { color: #fff; font-weight: 700; }
+  .st-row.next .st-mi { color: #7fd3bd; opacity: 1; }
 
   .trip-primary { display: flex; gap: 10px; margin-bottom: 14px; }
   .trip-primary > div { flex: 1; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.06);
@@ -219,16 +224,6 @@
 </style>
 </head>
 <body>
-  <div id="hud">
-    <span>🚆 <b id="route">Boston → New York</b></span>
-    <span class="sep">·</span>
-    <span>🕑 <b id="eta">7:00</b></span>
-    <span class="sep">·</span>
-    <span><b id="miles">0.0</b> mi</span>
-    <span class="sep">·</span>
-    <span>👥 <b id="aboard">5</b></span>
-  </div>
-
   <div id="wrap"><canvas id="game"></canvas></div>
 
   <button id="act">Sit</button>
@@ -250,18 +245,11 @@
       <div class="trip-route">Boston <span>→</span> New York</div>
       <div class="trip-status" id="tripStatus">En route</div>
     </div>
-    <div class="trip-line">
-      <div class="tl-track">
-        <div class="tl-fill" id="tlFill"></div>
-        <div id="tlTicks"></div>
-        <div class="tl-train" id="tlTrain">🚆</div>
-      </div>
-      <div class="tl-ends"><span><b>BOS</b> Boston</span><span>New York <b>NYC</b></span></div>
-    </div>
     <div class="trip-primary">
       <div><b id="tripEta">7:00</b><span>to arrival</span></div>
       <div><b id="tripNext">Back Bay</b><span>next stop</span></div>
     </div>
+    <div class="tl-list" id="tlList"></div>
     <div class="trip-stats">
       <div><b id="tripDone">0</b><span>MI TRAVELED</span></div>
       <div><b id="tripLeft">229</b><span>MI TO GO</span></div>
@@ -618,22 +606,31 @@ wideBtn.addEventListener('click', () => setWide(!wideView));
 const tripEl = document.getElementById('trip');
 const tripScrim = document.getElementById('tripScrim');
 let tripOpen = false, arrived = false;
-let ticksEls = null;
-function buildTicks() {
-  ticksEls = STATIONS.map(s => {
-    const t = document.createElement('div'); t.className = 'tl-tick';
-    t.style.left = (s.mile / ROUTE.totalMiles * 100) + '%';
-    document.getElementById('tlTicks').appendChild(t); return t;
+let stRows = null, lastScrolled = -1;
+function buildStopList() {
+  const list = document.getElementById('tlList');
+  stRows = STATIONS.map(s => {
+    const row = document.createElement('div'); row.className = 'st-row';
+    row.innerHTML = `<div class="st-dot"></div><div class="st-name">${s.name}</div><div class="st-mi">${s.mile} mi</div>`;
+    list.appendChild(row); return row;
   });
 }
 function fmtClock(s) { return Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0'); }
 function updateTripCard() {
-  if (!ticksEls) buildTicks();
-  const total = ROUTE.totalMiles, prog = Math.min(1, miles/total);
-  document.getElementById('tlFill').style.width = (prog*100) + '%';
-  document.getElementById('tlTrain').style.left = (prog*100) + '%';
-  ticksEls.forEach((el, i) => el.classList.toggle('passed', STATIONS[i].mile <= miles + 0.01));
-  const next = STATIONS.find(s => s.mile > miles + 0.01);
+  if (!stRows) buildStopList();
+  const total = ROUTE.totalMiles;
+  stRows.forEach((row, i) => {
+    const passed = STATIONS[i].mile <= miles + 0.01;
+    const isNext = (i === nextStop) && !arrived;
+    row.classList.toggle('passed', passed && !isNext);
+    row.classList.toggle('next', isNext);
+  });
+  if (lastScrolled !== nextStop) {       // keep the upcoming stop in view
+    lastScrolled = nextStop;
+    const r = stRows[Math.min(nextStop, stRows.length - 1)];
+    if (r) r.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+  const next = STATIONS[nextStop];
   document.getElementById('tripNext').textContent = (!arrived && next) ? next.name : '—';
   document.getElementById('tripEta').textContent = arrived ? 'Arrived' : fmtClock(etaSeconds);
   document.getElementById('tripDone').textContent = Math.round(miles);
@@ -645,10 +642,9 @@ function updateTripCard() {
   status.classList.toggle('arrived', arrived);
   document.getElementById('tripClose').textContent = arrived ? 'Ride again ↺' : 'Close';
 }
-function openTrip()  { tripOpen = true; updateTripCard(); tripEl.classList.add('show'); tripScrim.classList.add('show'); }
+function openTrip()  { tripOpen = true; lastScrolled = -1; updateTripCard(); tripEl.classList.add('show'); tripScrim.classList.add('show'); }
 function closeTrip() { tripOpen = false; tripEl.classList.remove('show'); tripScrim.classList.remove('show'); }
 document.getElementById('tripTab').addEventListener('click', openTrip);
-document.getElementById('hud').addEventListener('click', openTrip);
 tripScrim.addEventListener('click', closeTrip);
 document.getElementById('tripClose').addEventListener('click', () => { if (arrived) resetJourney(); else closeTrip(); });
 
@@ -882,9 +878,6 @@ function update(dt) {
   const k = 1 - Math.pow(0.0015, dt);
   cam.s += (ts - cam.s) * k; cam.fx += (tfx - cam.fx) * k; cam.fy += (tfy - cam.fy) * k;
 
-  // HUD
-  document.getElementById('eta').textContent = fmtClock(etaSeconds);
-  document.getElementById('miles').textContent = Math.round(miles);
   if (isTouch) {
     actBtn.textContent = player.seat ? 'Stand up' : 'Sit';
     hintEl.innerHTML = wideView
