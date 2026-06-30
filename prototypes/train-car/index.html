@@ -373,11 +373,11 @@ let actx = null, master = null, loopLP = null, loopSrc = null, soundBuf = null;
 const sndBtn = document.getElementById('snd');
 const SND_URL = 'trainsound.mp3';
 const SOUND_LEVELS = [
-  { name: 'Off',        icon: '🔇', gain: 0.0001 },
-  { name: 'Background', icon: '🔈', gain: 0.32 },
-  { name: 'Prominent',  icon: '🔊', gain: 1.0 },
+  { name: 'Off',        icon: '🔇', gain: 0.0001, lp: 20000 },
+  { name: 'Background', icon: '🔈', gain: 0.5,    lp: 2600  },  // quieter + softer, recedes
+  { name: 'Prominent',  icon: '🔊', gain: 1.0,    lp: 20000 },  // full + bright, up close
 ];
-let soundLevel = 0;
+let soundLevel = 0, loopBaseLP = 20000;
 
 async function buildAudio() {
   actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -411,6 +411,7 @@ async function cycleSound() {
     soundLevel = (soundLevel + 1) % SOUND_LEVELS.length;
     const lv = SOUND_LEVELS[soundLevel];
     sndBtn.textContent = lv.icon;
+    loopBaseLP = lv.lp;                                             // Background recedes (softer)
     if (soundLevel > 0 && !loopSrc && soundBuf) startLoop();
     master.gain.cancelScheduledValues(actx.currentTime);
     master.gain.setTargetAtTime(lv.gain, actx.currentTime, 0.4);    // smooth ramp between levels
@@ -579,9 +580,11 @@ function update(dt) {
   tunnelAmount = tunnelAt(scroll);
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
 
-  // the sound muffles as we roll through a tunnel
+  // the sound sits at its level's tone, muffling further in a tunnel — smoothed
   if (soundLevel > 0 && loopLP) {
-    loopLP.frequency.value = 20000 - tunnelAmount * 18600;   // ~1400Hz deep in a tunnel
+    const target = loopBaseLP - tunnelAmount * (loopBaseLP - 1400);
+    const cur = loopLP.frequency.value;
+    loopLP.frequency.value = cur + (target - cur) * Math.min(1, dt * 4);
   }
 
   // smooth camera toward its target (zoomed into seat, or the whole car)
