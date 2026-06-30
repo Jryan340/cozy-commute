@@ -51,11 +51,11 @@
   }
   #wide:active { transform: translateY(1px); }
   #hud {
-    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
-    display: flex; gap: 18px; align-items: center;
-    background: rgba(20,18,26,.78); padding: 8px 16px; border-radius: 999px;
-    font-size: 13px; letter-spacing: .3px; backdrop-filter: blur(6px);
-    border: 1px solid rgba(255,255,255,.07); white-space: nowrap;
+    position: fixed; top: calc(10px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 3px 10px; align-items: center;
+    background: rgba(20,18,26,.82); padding: 6px 12px; border-radius: 16px;
+    font-size: 11px; letter-spacing: .2px; backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.07); max-width: calc(100vw - 16px);
   }
   #hud b { color: #ffd9a0; font-weight: 700; }
   #hud .sep { opacity: .3; }
@@ -113,13 +113,13 @@
 </head>
 <body>
   <div id="hud">
-    <span>🚆 <b id="route">The 3:15 — Local</b></span>
-    <span class="sep">|</span>
-    <span>arr in <b id="eta">7:00</b></span>
-    <span class="sep">|</span>
-    <span>miles <b id="miles">0.0</b></span>
-    <span class="sep">|</span>
-    <span>aboard <b id="aboard">5</b></span>
+    <span>🚆 <b id="route">3:15 Local</b></span>
+    <span class="sep">·</span>
+    <span>🕑 <b id="eta">7:00</b></span>
+    <span class="sep">·</span>
+    <span><b id="miles">0.0</b> mi</span>
+    <span class="sep">·</span>
+    <span>👥 <b id="aboard">5</b></span>
   </div>
 
   <div id="wrap"><canvas id="game"></canvas></div>
