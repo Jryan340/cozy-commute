@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Cozy Commute — Train Car Mockup</title>
+<style>
+  :root { --bg: #1c1b22; }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg);
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color: #e8e1d4; overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+  }
+  #wrap {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    background: #2a2630;
+    box-shadow: 0 10px 60px rgba(0,0,0,.6);
+    border-radius: 6px;
+    touch-action: none;          /* let us handle taps without scroll/zoom */
+  }
+  #act {
+    position: fixed; right: 18px; bottom: 64px; display: none;
+    background: #3f7d6e; color: #fff; border: 1px solid #54998a;
+    border-bottom-width: 3px; border-radius: 14px; padding: 14px 20px;
+    font: 600 15px ui-monospace, monospace; letter-spacing: .5px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.5); cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #act:active { transform: translateY(1px); border-bottom-width: 2px; }
+  #snd {
+    position: fixed; left: 18px; bottom: 64px; width: 46px; height: 46px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20,18,26,.8); border: 1px solid rgba(255,255,255,.12);
+    color: #efe8da; font-size: 20px; cursor: pointer; z-index: 6;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #snd:active { transform: translateY(1px); }
+  #wide {
+    position: fixed; right: 18px; top: 64px; width: 46px; height: 46px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20,18,26,.8); border: 1px solid rgba(255,255,255,.12);
+    color: #efe8da; font-size: 20px; cursor: pointer; z-index: 6;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #wide:active { transform: translateY(1px); }
+  #hud {
+    position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 8px; align-items: center;
+    background: rgba(20,18,26,.86); padding: 5px 11px; border-radius: 14px;
+    font-size: 10.5px; letter-spacing: .2px; backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.08); max-width: calc(100vw - 16px); z-index: 7;
+  }
+  #hud b { color: #ffd9a0; font-weight: 700; }
+  #hud .sep { opacity: .3; }
+  #hint {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; opacity: .65; text-align: center; line-height: 1.5;
+    background: rgba(20,18,26,.6); padding: 6px 14px; border-radius: 10px;
+  }
+  #hint kbd {
+    background: #3a3542; border: 1px solid #534c5e; border-bottom-width: 2px;
+    border-radius: 4px; padding: 1px 6px; margin: 0 1px; font-size: 11px; color: #f0e9da;
+  }
+  .toast {
+    position: fixed; top: 56px; left: 50%; transform: translateX(-50%) translateY(-8px);
+    background: rgba(63,125,110,.95); color: #fff; padding: 6px 14px; border-radius: 8px;
+    font-size: 12px; opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* inventory ("your bag") */
+  #scrim {
+    position: fixed; inset: 0; background: rgba(10,9,14,.45); backdrop-filter: blur(2px);
+    opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 5;
+  }
+  #scrim.show { opacity: 1; pointer-events: auto; }
+  #bag {
+    position: fixed; left: 50%; bottom: 0; transform: translateX(-50%) translateY(110%);
+    width: min(440px, 96vw); background: #221f2a; color: #efe8da;
+    border: 1px solid rgba(255,255,255,.08); border-bottom: none;
+    border-radius: 18px 18px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+    box-shadow: 0 -12px 40px rgba(0,0,0,.5); transition: transform .26s cubic-bezier(.2,.8,.2,1);
+    z-index: 6;
+  }
+  #bag.show { transform: translateX(-50%) translateY(0); }
+  .bag-head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 12px; }
+  .bag-head b { font-size: 15px; letter-spacing: .3px; }
+  .bag-head span { font-size: 12px; opacity: .6; }
+  #bagGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .chip {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 10px 4px; border-radius: 12px; cursor: pointer;
+    background: #2c2836; border: 1px solid #3a3546; color: #d9d2c4;
+    font: 600 11px ui-monospace, monospace; -webkit-tap-highlight-color: transparent;
+  }
+  .chip .emo { font-size: 22px; line-height: 1; }
+  .chip:active { transform: translateY(1px); }
+  .chip.on { background: #2f6d5f; border-color: #54998a; color: #fff; box-shadow: 0 0 0 2px rgba(84,153,138,.35); }
+  #bagDone {
+    width: 100%; margin-top: 14px; padding: 12px; border-radius: 12px; cursor: pointer;
+    background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
+    font: 600 14px ui-monospace, monospace; letter-spacing: .5px;
+  }
+  #bagDone:active { transform: translateY(1px); border-bottom-width: 2px; }
+</style>
+</head>
+<body>
+  <div id="hud">
+    <span>🚆 <b id="route">3:15 Local</b></span>
+    <span class="sep">·</span>
+    <span>🕑 <b id="eta">7:00</b></span>
+    <span class="sep">·</span>
+    <span><b id="miles">0.0</b> mi</span>
+    <span class="sep">·</span>
+    <span>👥 <b id="aboard">5</b></span>
+  </div>
+
+  <div id="wrap"><canvas id="game"></canvas></div>
+
+  <button id="act">Sit</button>
+  <button id="snd" aria-label="toggle train sounds">🔇</button>
+  <button id="wide" aria-label="see the whole train">🗺️</button>
+
+  <div id="scrim"></div>
+  <div id="bag">
+    <div class="bag-head"><b>Your bag</b><span id="bagCount">0/3 out</span></div>
+    <div id="bagGrid"></div>
+    <button id="bagDone">Done</button>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <div id="hint">
+    <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows to walk &nbsp;·&nbsp;
+    <kbd>E</kbd> or <kbd>Space</kbd> to sit / stand &nbsp;·&nbsp; find a window seat 🪟
+  </div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Cozy Commute — top-down single train car mockup
+// Pure canvas, pixel-art, no dependencies. Logical resolution is small and
+// scaled up with nearest-neighbour for a crisp pixel look.
+// ---------------------------------------------------------------------------
+const W = 240, H = 380;                 // logical pixel resolution of the car
+const cv = document.getElementById('game');
+const ctx = cv.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+// scale the canvas to fit the viewport while keeping integer-ish pixels
+function fit() {
+  const pad = 24;
+  const s = Math.max(1, Math.min(
+    (window.innerWidth  - pad) / W,
+    (window.innerHeight - pad) / H
+  ));
+  cv.width = W; cv.height = H;
+  cv.style.width  = Math.floor(W * s) + 'px';
+  cv.style.height = Math.floor(H * s) + 'px';
+  ctx.imageSmoothingEnabled = false;
+}
+window.addEventListener('resize', fit); fit();
+
+// --- palette ---------------------------------------------------------------
+const C = {
+  floor:  '#b98a5e', plank: '#a9774d', plankHi: '#c79a6c',
+  wall:   '#5d4438', wallHi: '#6f5343', trim: '#8a6650',
+  glass1: '#bfe3ef', glass2: '#a9d4e4',
+  seat:   '#3f7d6e', seatDk:'#2c5a4f', seatHi:'#54998a', head:'#274c43',
+  rail:   '#caa46f', shadow: 'rgba(0,0,0,.18)',
+  fieldA: '#86c267', fieldB: '#74b257', dirt:'#c7a878', tree:'#2f7a3e', treeDk:'#236030',
+  pole:'#7a6a55', water:'#6fb3c4',
+};
+
+// --- car layout ------------------------------------------------------------
+// inner walls
+const WALL_L = 30, WALL_R = 210;        // inner edges of side walls
+const CAR_TOP = 26, CAR_BOT = 354;      // inner ends of the car
+const AISLE_L = 98, AISLE_R = 142;      // walkable aisle
+
+// Seat rows. Each row has a left pair and a right pair facing "forward" (up).
+const rowYs = [70, 130, 190, 250, 310];
+const seats = [];
+function seatRect(side, row) {
+  // a single seat per side per row, hugging the window wall (1+1 layout)
+  const w = 34, h = 30;
+  const y = row - h/2;
+  const x = side === 'L' ? WALL_L + 5 : WALL_R - 5 - w;
+  return { x, y, w, h };
+}
+const NAMES = ['Mei','Tom','Priya','Sam','Otis','Lena','Cyrus','Nora','—'];
+const SHIRTS = ['#c75c6a','#5b7fc7','#caa14e','#7b5ec7','#4ea38a','#c77f4e'];
+let seatId = 0;
+for (const row of rowYs) {
+  for (const side of ['L','R']) {
+    const r = seatRect(side, row);
+    seats.push({
+      id: seatId++, side, row, ...r,
+      cx: r.x + r.w/2, cy: r.y + r.h/2,
+      sitX: r.x + r.w/2, sitY: r.y + r.h/2 + 2,
+      occupant: null,        // filled below
+      window: true,          // every seat here is a window seat (single car, 1+1)
+    });
+  }
+}
+
+// seed a few NPC passengers in random-ish (deterministic) seats
+const npcSeats = [0, 3, 4, 7, 9];
+const NPC_ITEMS = ['coffee', 'laptop', 'book', 'coffee', 'book'];
+npcSeats.forEach((i, k) => {
+  seats[i].occupant = {
+    npc: true,
+    name: NAMES[k % NAMES.length],
+    shirt: SHIRTS[k % SHIRTS.length],
+    skin: ['#e8b88f','#caa07b','#a87a52','#f0cba0'][k % 4],
+    hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][k % 4],
+    bob: Math.random() * 6.28,
+    item: NPC_ITEMS[k % NPC_ITEMS.length],
+  };
+});
+
+// --- player ----------------------------------------------------------------
+const player = {
+  x: AISLE_L + 22, y: 250, w: 10, h: 12,
+  shirt: '#e0795f', skin: '#e8b88f', hair: '#4a3220',
+  speed: 64, facing: 1, walkT: 0, seat: null,
+  items: ['coffee', 'book'],   // what's out on your table (max 3); chosen from your bag
+};
+
+// everything you can take out of your bag
+const BAG = [
+  { key: 'coffee',     label: 'Coffee',  emoji: '☕' },
+  { key: 'tea',        label: 'Tea',     emoji: '🍵' },
+  { key: 'water',      label: 'Water',   emoji: '💧' },
+  { key: 'book',       label: 'Book',    emoji: '📖' },
+  { key: 'laptop',     label: 'Laptop',  emoji: '💻' },
+  { key: 'notepad',    label: 'Notepad', emoji: '✏️' },
+  { key: 'pastry',     label: 'Pastry',  emoji: '🥐' },
+  { key: 'headphones', label: 'Music',   emoji: '🎧' },
+];
+const MAX_ITEMS = 3;
+const USE_MSG = {
+  coffee: 'Sipping coffee ☕', tea: 'A warm cup of tea 🍵', water: 'A cool sip of water 💧',
+  book: 'Reading a while 📖', laptop: 'A little work 💻', notepad: 'Jotting a thought ✏️',
+  pastry: 'A flaky bite 🥐', headphones: 'Drifting into a song 🎧',
+};
+
+// --- camera / zoom ----------------------------------------------------------
+let zoomed = false;                       // double-tap to zoom into your seat
+let wideView = false;                     // 🗺️ pull all the way out to see the whole train
+const cam = { s: 1, fx: W/2, fy: H/2 };   // scale + focus point (world coords)
+
+// whole-train overview layout: a locomotive + carriages; the 3rd car is yours
+const TRAIN = (() => {
+  const segs = []; let y = 34;
+  segs.push({ y, h: 56, type: 'loco' }); y += 56 + 8;
+  for (let i = 0; i < 4; i++) { segs.push({ y, h: 50, type: 'car', player: i === 2 }); y += 50 + 8; }
+  return segs;
+})();
+function screenToWorld(x, y) {
+  return { x: (x - W/2) / cam.s + cam.fx, y: (y - H/2) / cam.s + cam.fy };
+}
+
+// --- solids for collision (walls + seat footprints) ------------------------
+function solids() {
+  const s = [
+    { x: 0,       y: 0,        w: WALL_L, h: H },          // left wall
+    { x: WALL_R,  y: 0,        w: W-WALL_R, h: H },        // right wall
+    { x: 0,       y: 0,        w: W, h: CAR_TOP },          // top cap
+    { x: 0,       y: CAR_BOT,  w: W, h: H-CAR_BOT },        // bottom cap
+  ];
+  for (const st of seats) s.push({ x: st.x, y: st.y, w: st.w, h: st.h });
+  return s;
+}
+const SOLIDS = solids();
+function hits(x, y, w, h) {
+  for (const r of SOLIDS) {
+    if (x < r.x + r.w && x + w > r.x && y < r.y + r.h && y + h > r.y) return true;
+  }
+  return false;
+}
+
+// --- input -----------------------------------------------------------------
+const keys = {};
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if (k === 'e' || k === ' ') { e.preventDefault(); toggleSit(); }
+  if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+});
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+// --- touch / pointer: tap to walk, tap a seat to sit ----------------------
+let target = null, autoSit = false;
+const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+function toLogical(clientX, clientY) {
+  const r = cv.getBoundingClientRect();
+  return { x: (clientX - r.left) / r.width * W, y: (clientY - r.top) / r.height * H };
+}
+let tapTimer = null, pendingTap = null;
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  if (wideView) { setWide(false); return; }        // tap anywhere to come back to your car
+
+  const s = toLogical(e.clientX, e.clientY);       // screen-space logical
+  const p = screenToWorld(s.x, s.y);               // world coords (camera aware)
+
+  if (player.seat) { seatedTap(p); return; }
+
+  // standing: tap yourself for your bag, else walk / tap a seat to sit
+  if (hitPlayer(p)) { toggleBag(); return; }
+  let seat = null, bd = 30*30;
+  for (const st of seats) {
+    if (st.occupant) continue;
+    const dx = p.x - st.cx, dy = p.y - st.cy, d = dx*dx + dy*dy;
+    if (d < bd) { bd = d; seat = st; }
+  }
+  if (seat) { target = { x: seat.cx, y: seat.cy }; autoSit = true; }
+  else      { target = { x: p.x, y: p.y };         autoSit = false; }
+}, { passive: false });
+
+// seated: single tap = bag / use a thing, double tap = zoom (deferred to tell apart)
+function seatedTap(p) {
+  if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; zoomed = !zoomed; return; }
+  pendingTap = p;
+  tapTimer = setTimeout(() => {
+    tapTimer = null;
+    if (hitPlayer(pendingTap)) { toggleBag(); return; }   // tap yourself -> your bag
+    tryUseItem(pendingTap.x, pendingTap.y);                // tap a thing on the table
+  }, 250);
+}
+function hitPlayer(p) {
+  const cx = player.x + player.w/2, cy = player.y + player.h/2;
+  const dx = p.x - cx, dy = p.y - cy;
+  return dx*dx + dy*dy < 13*13;
+}
+function tryUseItem(wx, wy) {
+  if (!player.seat) return false;
+  const slots = itemSlots(player.seat);
+  for (let i = 0; i < player.items.length; i++) {
+    const it = slots[i];
+    if (wx >= it.x-2 && wx <= it.x+it.w+2 && wy >= it.y-3 && wy <= it.y+it.h+3) {
+      toast(USE_MSG[player.items[i]] || '…');
+      return true;
+    }
+  }
+  return false;
+}
+
+// floating action button (shown on touch)
+const actBtn = document.getElementById('act');
+const hintEl = document.getElementById('hint');
+actBtn.addEventListener('click', () => { target = null; autoSit = false; toggleSit(); });
+if (isTouch) actBtn.style.display = 'block';
+
+// --- inventory ("your bag") -------------------------------------------------
+const bagEl = document.getElementById('bag');
+const scrimEl = document.getElementById('scrim');
+const bagGrid = document.getElementById('bagGrid');
+const bagCount = document.getElementById('bagCount');
+let bagOpen = false;
+for (const it of BAG) {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.dataset.key = it.key;
+  b.innerHTML = `<span class="emo">${it.emoji}</span><span>${it.label}</span>`;
+  b.addEventListener('click', () => pickItem(it.key));
+  bagGrid.appendChild(b);
+}
+function refreshBag() {
+  bagCount.textContent = `${player.items.length}/${MAX_ITEMS} out`;
+  for (const b of bagGrid.children) b.classList.toggle('on', player.items.includes(b.dataset.key));
+}
+function pickItem(key) {
+  const i = player.items.indexOf(key);
+  if (i >= 0) player.items.splice(i, 1);
+  else if (player.items.length >= MAX_ITEMS) { toast("Table's full — set something down first."); return; }
+  else player.items.push(key);
+  refreshBag();
+}
+function openBag()  { bagOpen = true;  bagEl.classList.add('show');  scrimEl.classList.add('show'); refreshBag(); }
+function closeBag() { bagOpen = false; bagEl.classList.remove('show'); scrimEl.classList.remove('show'); }
+function toggleBag(){ bagOpen ? closeBag() : openBag(); }
+document.getElementById('bagDone').addEventListener('click', closeBag);
+scrimEl.addEventListener('click', closeBag);
+
+// --- audio: looped train-interior recording; tap 🔇 to cycle Off/Background/Prominent ---
+let actx = null, master = null, loopLP = null, loopSrc = null, soundBuf = null;
+const sndBtn = document.getElementById('snd');
+const SND_URL = 'trainsound.mp3';
+const SOUND_LEVELS = [
+  { name: 'Off',        icon: '🔇', gain: 0.0001, lp: 20000 },
+  { name: 'Background', icon: '🔈', gain: 0.33,   lp: 2600  },  // quieter + softer, recedes
+  { name: 'Prominent',  icon: '🔊', gain: 1.0,    lp: 20000 },  // full + bright, up close
+];
+let soundLevel = 0, loopBaseLP = 20000;
+
+async function buildAudio() {
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  // iOS 16.4+: route through the 'playback' session so the ring/silent switch can't mute us
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  // nudge iOS fully awake with a 1-sample blip
+  try { const u = actx.createBufferSource(); u.buffer = actx.createBuffer(1,1,actx.sampleRate); u.connect(actx.destination); u.start(); } catch (e) {}
+  master = actx.createGain(); master.gain.value = 0.0001; master.connect(actx.destination);
+  loopLP = actx.createBiquadFilter(); loopLP.type = 'lowpass'; loopLP.frequency.value = 20000;
+  loopLP.connect(master);
+  // fetch + decode the recording once
+  const res = await fetch(SND_URL);
+  const ab = await res.arrayBuffer();
+  soundBuf = await actx.decodeAudioData(ab);
+}
+
+function startLoop() {
+  loopSrc = actx.createBufferSource();
+  loopSrc.buffer = soundBuf; loopSrc.loop = true;
+  // trim the MP3's padding so the loop point doesn't gap/click
+  loopSrc.loopStart = 0.05;
+  loopSrc.loopEnd = Math.max(0.1, soundBuf.duration - 0.05);
+  loopSrc.connect(loopLP);
+  loopSrc.start(0, loopSrc.loopStart);
+}
+
+// effective volume: way low when we've pulled out to the whole-train view
+function effectiveGain() {
+  if (soundLevel === 0) return 0.0001;
+  return wideView ? 0.05 : SOUND_LEVELS[soundLevel].gain;
+}
+function applyMaster() {
+  if (!actx || !master) return;
+  master.gain.cancelScheduledValues(actx.currentTime);
+  master.gain.setTargetAtTime(effectiveGain(), actx.currentTime, 0.4);
+}
+async function cycleSound() {
+  try {
+    if (!actx) await buildAudio();
+    if (actx.state === 'suspended') { try { await actx.resume(); } catch (e) {} }
+    soundLevel = (soundLevel + 1) % SOUND_LEVELS.length;
+    const lv = SOUND_LEVELS[soundLevel];
+    sndBtn.textContent = lv.icon;
+    loopBaseLP = lv.lp;                                             // Background recedes (softer)
+    if (soundLevel > 0 && !loopSrc && soundBuf) startLoop();
+    applyMaster();
+    toast(`Sound: ${lv.name} ${lv.icon}`);
+  } catch (e) {
+    toast('Could not start sound.');
+  }
+}
+sndBtn.addEventListener('click', cycleSound);
+
+// --- whole-train overview toggle -------------------------------------------
+const wideBtn = document.getElementById('wide');
+function setWide(on) {
+  wideView = on;
+  if (on) { zoomed = false; closeBag(); }
+  wideBtn.textContent = on ? '🚃' : '🗺️';     // 🚃 = back to your car
+  applyMaster();                               // sound ducks way low when pulled out
+}
+wideBtn.addEventListener('click', () => setWide(!wideView));
+
+function nearestFreeSeat() {
+  let best = null, bd = 50*50;
+  for (const st of seats) {
+    if (st.occupant) continue;
+    const dx = (player.x + player.w/2) - st.cx;
+    const dy = (player.y + player.h/2) - st.cy;
+    const d = dx*dx + dy*dy;
+    if (d < bd) { bd = d; best = st; }
+  }
+  return best;
+}
+function toggleSit() {
+  if (player.seat) {
+    // stand up: step into the aisle
+    player.seat.occupant = null;
+    player.seat = null;
+    zoomed = false;
+    closeBag();
+    player.x = (player.x < W/2) ? AISLE_L + 4 : AISLE_R - player.w - 4;
+    toast('You stand up and stretch.');
+    return;
+  }
+  const st = nearestFreeSeat();
+  if (st) {
+    st.occupant = { player: true };
+    player.seat = st;
+    player.x = st.sitX - player.w/2;
+    player.y = st.sitY - player.h/2;
+    toast(st.window ? 'You settle into the window seat. 🪟' : 'You take a seat.');
+  } else {
+    toast('No seat within reach — walk closer.');
+  }
+}
+
+let toastT = 0;
+const toastEl = document.getElementById('toast');
+function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); toastT = 2.2; }
+
+// shared movement (used by keyboard and tap-to-walk); axis-separated collision
+function moveBy(dx, dy, dt) {
+  const len = Math.hypot(dx, dy) || 1;
+  const mvx = (dx/len) * player.speed * dt;
+  const mvy = (dy/len) * player.speed * dt;
+  if (!hits(player.x + mvx, player.y, player.w, player.h)) player.x += mvx;
+  if (!hits(player.x, player.y + mvy, player.w, player.h)) player.y += mvy;
+  if (dx) player.facing = dx > 0 ? 1 : -1;
+  player.walkT += dt * 10;
+}
+function arriveTarget() {
+  const wantSit = autoSit;
+  target = null; autoSit = false;
+  if (wantSit) toggleSit();
+}
+
+// --- world / journey state -------------------------------------------------
+let scroll = 0;          // scenery scroll offset (px)
+let speed = 26;          // px/sec of scenery (the train's apparent speed)
+let miles = 0;
+const JOURNEY = 7 * 60;  // 7 minute journey (mock)
+let elapsed = 0;
+
+// deterministic scenery features so they scroll consistently
+const feats = [];
+(function seedScenery(){
+  let y = 0;
+  for (let i = 0; i < 60; i++) {
+    y += 30 + (i * 37 % 60);
+    const t = i % 5;
+    feats.push({ y, side: i % 2 ? 'L':'R',
+      kind: t===0?'tree': t===1?'pole': t===2?'tree': t===3?'bush':'pole',
+      off: (i*53 % 18) });
+  }
+})();
+
+// stations that glide past on one side every so often
+const STATION_NAMES = ['Maple Halt','Briar Cross','Fenwick','Lake End','Old Mill','Thornbury','Wren Sidings','Ashcombe'];
+const STN_GAP = 1400;                       // world px between stations
+const stations = STATION_NAMES.map((name, i) => ({
+  y: 760 + i * STN_GAP, side: i % 2 ? 'L' : 'R', name, announced: false,
+}));
+const STN_LOOP = STATION_NAMES.length * STN_GAP;
+
+// --- living-window state ----------------------------------------------------
+let dayT = 0;            // 0..1 position in a looping day/night cycle
+let tunnelAmount = 0;    // 0..1 how deep we are inside a tunnel
+
+// time-of-day palette (cyclic: last stop == first so it loops seamlessly)
+const SKY = [
+  { t: 0.00, c: [255, 244, 210], a: 0.02 },  // early morning
+  { t: 0.25, c: [255, 250, 235], a: 0.00 },  // bright midday
+  { t: 0.50, c: [255, 158,  86], a: 0.20 },  // golden afternoon
+  { t: 0.68, c: [120,  92, 150], a: 0.30 },  // dusk
+  { t: 0.82, c: [ 28,  34,  78], a: 0.46 },  // night
+  { t: 0.93, c: [ 78,  72, 122], a: 0.30 },  // pre-dawn
+  { t: 1.00, c: [255, 244, 210], a: 0.02 },  // == t0
+];
+function lightingFor(t) {
+  let a = SKY[0], b = SKY[SKY.length - 1];
+  for (let i = 0; i < SKY.length - 1; i++) {
+    if (t >= SKY[i].t && t <= SKY[i + 1].t) { a = SKY[i]; b = SKY[i + 1]; break; }
+  }
+  const f = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
+  return {
+    r: Math.round(a.c[0] + (b.c[0] - a.c[0]) * f),
+    g: Math.round(a.c[1] + (b.c[1] - a.c[1]) * f),
+    b: Math.round(a.c[2] + (b.c[2] - a.c[2]) * f),
+    a: a.a + (b.a - a.a) * f,
+  };
+}
+// smoothly enters/exits a tunnel based on how far we've scrolled
+function tunnelAt(s) {
+  const period = 1150, len = 150, edge = 38;
+  const p = ((s % period) + period) % period;
+  const start = period - len;
+  if (p < start) return 0;
+  const into = p - start;
+  if (into < edge) return into / edge;
+  if (into > len - edge) return (len - into) / edge;
+  return 1;
+}
+
+// --- update ----------------------------------------------------------------
+let last = performance.now();
+function update(dt) {
+  // movement (disabled while seated or in the whole-train view)
+  if (!player.seat && !wideView) {
+    let dx = 0, dy = 0;
+    if (keys['a'] || keys['arrowleft'])  dx -= 1;
+    if (keys['d'] || keys['arrowright']) dx += 1;
+    if (keys['w'] || keys['arrowup'])    dy -= 1;
+    if (keys['s'] || keys['arrowdown'])  dy += 1;
+
+    if (dx || dy) {
+      target = null;                       // keyboard overrides a tapped target
+      moveBy(dx, dy, dt);
+    } else if (target) {
+      // walk toward the tapped destination
+      const cx = player.x + player.w/2, cy = player.y + player.h/2;
+      let tx = target.x - cx, ty = target.y - cy;
+      const dist = Math.hypot(tx, ty);
+      if (dist < 3) { arriveTarget(); }
+      else {
+        const before = { x: player.x, y: player.y };
+        moveBy(tx/dist, ty/dist, dt);
+        const stepped = Math.hypot(player.x - before.x, player.y - before.y);
+        if (stepped < 0.4) arriveTarget(); // arrived, or wedged against the seat edge
+      }
+    } else player.walkT = 0;
+  }
+
+  // journey + scenery
+  elapsed += dt;
+  scroll += speed * dt;
+  miles += (speed * dt) / 42;     // arbitrary cozy mileage rate
+  dayT = (elapsed / 150) % 1;     // a full, gentle day/night cycle every 2.5 min
+  tunnelAmount = tunnelAt(scroll);
+  if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
+
+  // the sound sits at its level's tone, muffling further in a tunnel — smoothed
+  if (soundLevel > 0 && loopLP) {
+    const target = loopBaseLP - tunnelAmount * (loopBaseLP - 1400);
+    const cur = loopLP.frequency.value;
+    loopLP.frequency.value = cur + (target - cur) * Math.min(1, dt * 4);
+  }
+
+  // smooth camera toward its target (zoomed into seat, or the whole car)
+  const ts  = (zoomed && player.seat) ? 2.6 : 1;
+  const tfx = (zoomed && player.seat) ? player.seat.cx : W/2;
+  const tfy = (zoomed && player.seat) ? player.seat.cy : H/2;
+  const k = 1 - Math.pow(0.0015, dt);
+  cam.s += (ts - cam.s) * k; cam.fx += (tfx - cam.fx) * k; cam.fy += (tfy - cam.fy) * k;
+
+  // HUD
+  const remain = Math.max(0, JOURNEY - elapsed);
+  document.getElementById('eta').textContent =
+    Math.floor(remain/60) + ':' + String(Math.floor(remain%60)).padStart(2,'0');
+  document.getElementById('miles').textContent = miles.toFixed(1);
+  if (isTouch) {
+    actBtn.textContent = player.seat ? 'Stand up' : 'Sit';
+    hintEl.innerHTML = wideView
+      ? 'The whole train · tap anywhere to come back to your car 🚃'
+      : player.seat
+        ? (zoomed ? 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; tap a thing to use it &nbsp;·&nbsp; double-tap to zoom out'
+                  : 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; double-tap to zoom in')
+        : 'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; 🗺️ see the whole train';
+  }
+}
+
+// --- draw helpers ----------------------------------------------------------
+function px(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x|0,y|0,w|0,h|0); }
+
+// three slots on the table; players fill them left→right with chosen items
+function itemSlots(st) {
+  const ty = st.y - 15;
+  return [
+    { x: st.x + 2,  y: ty + 1, w: 9,  h: 10 },
+    { x: st.x + 12, y: ty + 1, w: 9,  h: 10 },
+    { x: st.x + 22, y: ty + 1, w: 10, h: 10 },
+  ];
+}
+function drawTable(st) {
+  const tw = st.w, th = 13, tx = st.x, ty = st.y - 16;
+  px(tx, ty + 3, tw, th, C.shadow);
+  px(tx, ty, tw, th, '#7c5236');           // table top
+  px(tx, ty, tw, 2, '#9a6a44');            // highlight edge
+  px(tx, ty + th - 1, tw, 1, '#5e3d28');
+}
+function drawCoffee(r, t) {
+  px(r.x + 1, r.y + 3, r.w - 2, r.h - 3, '#efe6d6');           // mug
+  px(r.x + 1, r.y + 3, r.w - 2, 2, '#5a3a22');                 // coffee surface
+  px(r.x + r.w - 1, r.y + 5, 1, 3, '#cfc6b6');                 // handle
+  px(r.x + 2, r.y + 1 - ((t * 9) % 4), 1, 2, 'rgba(255,255,255,.55)'); // steam
+  px(r.x + 4, r.y      - ((t * 9 + 2) % 4), 1, 2, 'rgba(255,255,255,.4)');
+}
+function drawTea(r, t) {
+  px(r.x + 1, r.y + 3, r.w - 2, r.h - 3, '#f0ece0');           // cup
+  px(r.x + 1, r.y + 3, r.w - 2, 2, '#9bbf6a');                 // green tea
+  px(r.x + r.w - 1, r.y + 5, 1, 3, '#cfc6b6');                 // handle
+  px(r.x, r.y + 6, 2, 1, '#caa24e');                           // a little tag
+  px(r.x + 2, r.y + 1 - ((t * 9) % 4), 1, 2, 'rgba(255,255,255,.5)');
+}
+function drawWater(r) {
+  px(r.x + 2, r.y + 2, r.w - 4, r.h - 2, 'rgba(196,230,240,.55)'); // glass
+  px(r.x + 2, r.y + 5, r.w - 4, r.h - 5, 'rgba(120,190,215,.8)');  // water
+  px(r.x + 3, r.y + 3, 1, r.h - 4, 'rgba(255,255,255,.5)');        // shine
+}
+function drawBook(r) {
+  px(r.x, r.y + 2, r.w, r.h - 3, '#9c5a4a');                   // covers
+  px(r.x + 1, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');         // left page
+  px(r.x + r.w/2, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');     // right page
+  px(r.x + r.w/2 - 0.5, r.y + 2, 1, r.h - 3, '#6e3d31');       // spine
+}
+function drawNotepad(r) {
+  px(r.x + 1, r.y + 1, r.w - 3, r.h - 1, '#f3ead2');           // pad
+  for (let i = 3; i < r.h - 1; i += 2) px(r.x + 2, r.y + i, r.w - 6, 1, '#cdbf9a');
+  px(r.x + r.w - 2, r.y, 2, r.h, '#caa24e');                   // pencil body
+  px(r.x + r.w - 2, r.y, 2, 2, '#3a2c24');                     // pencil tip
+}
+function drawLaptop(r, t) {
+  px(r.x, r.y + 5, r.w, r.h - 5, '#9aa0a8');                   // keyboard base
+  px(r.x + 1, r.y, r.w - 2, 6, '#33383f');                    // lid back
+  const glow = 0.45 + 0.3 * Math.sin(t * 3);
+  px(r.x + 2, r.y + 1, r.w - 4, 4, `rgba(130,205,255,${glow})`); // screen
+}
+function drawPastry(r) {
+  px(r.x + 1, r.y + 4, r.w - 2, r.h - 5, '#caa24e');           // croissant body
+  px(r.x + 2, r.y + 3, r.w - 4, 3, '#d9b562');
+  px(r.x + 1, r.y + 5, 1, 3, '#a9842f'); px(r.x + r.w - 2, r.y + 5, 1, 3, '#a9842f');
+}
+function drawHeadphones(r) {
+  px(r.x + 2, r.y + 2, r.w - 4, 2, '#3a3f47');                 // band
+  px(r.x + 1, r.y + 3, 2, 5, '#2b2f36'); px(r.x + r.w - 3, r.y + 3, 2, 5, '#2b2f36'); // ear cups
+}
+function drawItemKind(key, r, t) {
+  switch (key) {
+    case 'coffee': return drawCoffee(r, t);
+    case 'tea': return drawTea(r, t);
+    case 'water': return drawWater(r);
+    case 'book': return drawBook(r);
+    case 'laptop': return drawLaptop(r, t);
+    case 'notepad': return drawNotepad(r);
+    case 'pastry': return drawPastry(r);
+    case 'headphones': return drawHeadphones(r);
+  }
+}
+function drawSeatItems(st) {
+  drawTable(st);
+  const slots = itemSlots(st);
+  if (st.occupant && st.occupant.player) {
+    player.items.forEach((k, i) => { if (slots[i]) drawItemKind(k, slots[i], elapsed); });
+  } else if (st.occupant && st.occupant.npc && st.occupant.item) {
+    drawItemKind(st.occupant.item, slots[1], elapsed + st.cy);
+  }
+}
+
+function drawScenery() {
+  // outer ground bands (visible "outside" the windows), left strip & right strip
+  for (const band of [{x:0,w:WALL_L},{x:WALL_R,w:W-WALL_R}]) {
+    // base field with subtle horizontal banding that scrolls
+    for (let y=-40; y<H+40; y+=8) {
+      const yy = ((y + scroll*0.9) % (H+80)) - 40;
+      px(band.x, yy, band.w, 8, (Math.floor((yy+scroll)/8)%2)? C.fieldA : C.fieldB);
+    }
+    // a dirt path edge nearest the track
+    px(band.x===0? WALL_L-4:WALL_R, 0, 4, H, C.dirt);
+  }
+  // scrolling features (trees / poles / bushes)
+  for (const f of feats) {
+    const yy = ((f.y + scroll) % (H + 60)) - 30;
+    const bx = f.side==='L' ? 4 + f.off*0.4 : WALL_R + 2 + f.off*0.4;
+    if (f.kind==='tree') {
+      px(bx+4, yy+9, 3, 6, '#6b4a2e');
+      px(bx, yy, 11, 11, C.treeDk); px(bx+1, yy+1, 9, 8, C.tree); px(bx+3, yy+2, 4, 3, '#3f9450');
+    } else if (f.kind==='bush') {
+      px(bx+1, yy+4, 9, 6, C.treeDk); px(bx+2, yy+3, 7, 5, C.tree);
+    } else { // pole
+      px(bx+4, yy, 2, 16, C.pole); px(bx+1, yy+2, 8, 2, C.pole);
+    }
+  }
+  // stations sliding past + their announcements
+  for (const s of stations) {
+    const yy = ((s.y + scroll) % STN_LOOP) - 100;
+    if (yy < 60) s.announced = false;
+    if (!s.announced && yy > H * 0.5) { s.announced = true; toast('Now passing · ' + s.name); }
+    if (yy > -100 && yy < H + 10) drawStation(s, yy);
+  }
+}
+
+function drawStation(s, yy) {
+  const left = s.side === 'L';
+  const bx = left ? 0 : WALL_R, bw = left ? WALL_L : (W - WALL_R);
+  px(bx, yy, bw, 92, '#8f867d');                       // platform concrete
+  px(bx, yy, bw, 2, '#766e66'); px(bx, yy + 90, bw, 2, '#766e66');
+  const edgeX = left ? WALL_L - 5 : WALL_R;            // tactile safety strip by the track
+  for (let k = 0; k < 92; k += 6) px(edgeX, yy + k, 5, 3, '#c9a44e');
+  const sx = left ? 5 : WALL_R + 7;                    // a name sign on a post
+  px(sx + 4, yy + 30, 2, 30, '#5a5048');
+  px(sx - 1, yy + 18, 16, 13, '#2f6d8a'); px(sx, yy + 19, 14, 11, '#3f87aa');
+  px(sx + 2, yy + 22, 10, 1, '#cfeefb'); px(sx + 2, yy + 25, 8, 1, '#cfeefb');
+  px(sx + 4, yy + 70, 6, 6, '#caa07b'); px(sx + 4, yy + 68, 6, 3, '#3a2a1d'); // a waiting passenger
+}
+
+function drawCar() {
+  // floor planks
+  px(WALL_L, 0, WALL_R-WALL_L, H, C.floor);
+  for (let y=0; y<H; y+=14) px(WALL_L, y, WALL_R-WALL_L, 1, C.plank);
+  // centre aisle runner (slightly lighter)
+  px(AISLE_L, CAR_TOP, AISLE_R-AISLE_L, CAR_BOT-CAR_TOP, '#c2925f');
+  for (let y=CAR_TOP; y<CAR_BOT; y+=14) px(AISLE_L, y, AISLE_R-AISLE_L, 1, '#b07f4d');
+
+  // side walls (inner trim) with window openings between rows
+  for (const [wx, dir] of [[WALL_L-6, 1],[WALL_R, -1]]) {
+    px(wx, 0, 6, H, C.wall);
+    px(wx + (dir>0?5:0), 0, 1, H, C.wallHi);
+  }
+  // window panels aligned to each seat row — the cosy bit
+  for (const st of seats) {
+    const wy = st.row - 14, wh = 28;
+    if (st.side==='L') {
+      px(WALL_L-6, wy, 6, wh, C.trim);
+      px(WALL_L-5, wy+2, 4, wh-4, C.glass1);
+      px(WALL_L-5, wy+2, 4, 3, C.glass2);
+    } else {
+      px(WALL_R, wy, 6, wh, C.trim);
+      px(WALL_R+1, wy+2, 4, wh-4, C.glass1);
+      px(WALL_R+1, wy+2, 4, 3, C.glass2);
+    }
+  }
+
+  // end caps: doors
+  px(WALL_L, 0, WALL_R-WALL_L, CAR_TOP, C.wall);
+  px(AISLE_L-6, CAR_TOP-9, (AISLE_R-AISLE_L)+12, 9, C.trim);   // top door frame
+  px(AISLE_L-2, CAR_TOP-7, (AISLE_R-AISLE_L)+4, 6, '#3a2c24');
+  px(WALL_L, CAR_BOT, WALL_R-WALL_L, H-CAR_BOT, C.wall);
+  px(AISLE_L-6, CAR_BOT, (AISLE_R-AISLE_L)+12, 9, C.trim);     // bottom door frame
+  px(AISLE_L-2, CAR_BOT+1, (AISLE_R-AISLE_L)+4, 6, '#3a2c24');
+
+  // overhead luggage rail hint along both sides
+  px(WALL_L, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.06)');
+  px(WALL_R-4, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.06)');
+}
+
+function drawSeat(st) {
+  const {x,y,w,h} = st;
+  px(x, y+3, w, h, C.shadow);                 // soft shadow
+  px(x, y, w, h, C.seatDk);                    // base/frame
+  px(x+2, y+2, w-4, h-4, C.seat);              // cushion
+  px(x+2, y+2, w-4, 3, C.seatHi);              // cushion highlight
+  // headrest toward the front (top) of the car
+  px(x+5, y-4, w-10, 6, C.head);
+  // little armrests on either side of the single seat
+  px(x-2, y+4, 3, h-8, C.seatDk);
+  px(x+w-1, y+4, 3, h-8, C.seatDk);
+}
+
+function drawPerson(cx, cy, p, t) {
+  const bob = Math.sin(t) * 0.6;
+  // shadow
+  px(cx-5, cy+6+bob, 10, 3, C.shadow);
+  // body / shoulders
+  px(cx-5, cy-2+bob, 10, 8, p.shirt);
+  px(cx-5, cy-2+bob, 10, 2, 'rgba(255,255,255,.12)');
+  // head
+  px(cx-4, cy-9+bob, 8, 8, p.skin);
+  // hair (top-down: covers crown)
+  px(cx-4, cy-9+bob, 8, 4, p.hair);
+  px(cx-4, cy-9+bob, 8, 1, 'rgba(0,0,0,.15)');
+}
+
+function drawPlayer() {
+  if (player.seat) {
+    drawPerson(player.x+player.w/2, player.y+player.h/2, player, 0);
+    return;
+  }
+  const cx = player.x + player.w/2, cy = player.y + player.h/2;
+  const step = Math.sin(player.walkT) * 1.2;
+  px(cx-5, cy+6, 10, 3, C.shadow);
+  // legs/step
+  px(cx-4, cy+3+Math.max(0,step), 3, 4, '#3a2c24');
+  px(cx+1, cy+3+Math.max(0,-step), 3, 4, '#3a2c24');
+  // body
+  px(cx-5, cy-2, 10, 8, player.shirt);
+  px(cx-5, cy-2, 10, 2, 'rgba(255,255,255,.15)');
+  // head + hair, facing
+  px(cx-4, cy-10, 8, 8, player.skin);
+  px(cx-4, cy-10, 8, 4, player.hair);
+  // a tiny nose-dot to show facing
+  px(cx + (player.facing>0?2:-3), cy-4, 1, 1, 'rgba(0,0,0,.3)');
+
+  // "sit here" prompt if near a free seat (keyboard hint only)
+  const st = isTouch ? null : nearestFreeSeat();
+  if (st) {
+    const dx=(player.x+player.w/2)-st.cx, dy=(player.y+player.h/2)-st.cy;
+    if (dx*dx+dy*dy < 42*42) {
+      ctx.fillStyle='#fff'; ctx.font='8px monospace'; ctx.textAlign='center';
+      px(st.cx-9, st.cy-22, 18, 9, 'rgba(20,18,26,.8)');
+      ctx.fillText('sit · E', st.cx, st.cy-15);
+    }
+  }
+}
+
+// --- main loop -------------------------------------------------------------
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  update(dt);
+
+  ctx.clearRect(0,0,W,H);
+  if (wideView) {
+    drawWideView();
+  } else {
+    ctx.save();
+    ctx.translate(W/2, H/2); ctx.scale(cam.s, cam.s); ctx.translate(-cam.fx, -cam.fy);
+
+    drawScenery();
+    drawCar();
+    // seat, then its passenger, then the table + things in front of them
+    for (const st of seats) {
+      drawSeat(st);
+      if (st.occupant && st.occupant.npc) {
+        st.occupant.bob += dt;
+        drawPerson(st.sitX, st.sitY, st.occupant, st.occupant.bob);
+      }
+      drawSeatItems(st, dt);
+    }
+    drawPlayer();
+
+    ctx.restore();
+  }
+  applyAmbient();
+
+  // gentle vignette for cosiness
+  const g = ctx.createRadialGradient(W/2,H/2,80, W/2,H/2,260);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.28)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  requestAnimationFrame(frame);
+}
+
+// time-of-day wash + tunnel darkness + cosy interior lamp glow
+function applyAmbient() {
+  const L = lightingFor(dayT);
+  if (L.a > 0.001) { ctx.fillStyle = `rgba(${L.r},${L.g},${L.b},${L.a})`; ctx.fillRect(0,0,W,H); }
+  if (tunnelAmount > 0.001) {
+    ctx.fillStyle = `rgba(6,6,14,${tunnelAmount*0.9})`;
+    if (wideView) {
+      ctx.fillRect(0,0,W,H);                                   // the train enters a tunnel: all dark
+    } else {
+      ctx.fillRect(0,0,WALL_L,H); ctx.fillRect(WALL_R,0,W-WALL_R,H);  // dark through the windows only
+    }
+  }
+  if (!wideView) {   // carriage lamps warm the interior as it darkens
+    const dark = Math.max(tunnelAmount, Math.min(1, (L.a - 0.15) / 0.3));
+    if (dark > 0.001) {
+      ctx.fillStyle = `rgba(255,188,110,${dark*0.10})`;
+      ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
+    }
+  }
+}
+
+// --- whole-train overview ---------------------------------------------------
+function drawWideView() {
+  const cx = W/2;
+  // 1) countryside, scrolling past
+  for (let y = -16; y < H+16; y += 16) {
+    const yy = ((y + scroll*0.8) % (H+32)) - 16;
+    px(0, yy, W, 16, (Math.floor((yy+scroll)/16) % 2) ? C.fieldA : C.fieldB);
+  }
+  for (const f of feats) {                                     // scattered trees, off the track
+    const yy = ((f.y*1.3 + scroll) % (H+60)) - 30;
+    const bx = f.side === 'L' ? (10 + f.off) : (W - 24 - f.off);
+    px(bx+4, yy+9, 3, 6, '#6b4a2e');
+    px(bx, yy, 11, 11, C.treeDk); px(bx+1, yy+1, 9, 8, C.tree); px(bx+3, yy+2, 4, 3, '#3f9450');
+  }
+  // 2) the track: ballast, scrolling sleepers, two rails
+  px(cx-17, 0, 34, H, '#9b8c74'); px(cx-17, 0, 2, H, '#857862'); px(cx+15, 0, 2, H, '#857862');
+  for (let y = -12; y < H+12; y += 12) {
+    const yy = ((y + scroll) % (H+24)) - 12;
+    px(cx-15, yy, 30, 4, '#7a5a3a');
+  }
+  px(cx-10, 0, 2, H, '#5c6066'); px(cx+8, 0, 2, H, '#5c6066');
+  // 3) the train: locomotive + carriages, your car marked
+  for (let i = 0; i < TRAIN.length; i++) {
+    const s = TRAIN[i];
+    const w = s.type === 'loco' ? 34 : 40, x = cx - w/2;
+    px(cx-1, s.y + s.h, 2, 8, '#2c2c30');                       // coupler to next
+    px(x+2, s.y+3, w, s.h, C.shadow);                           // shadow
+    if (s.type === 'loco') {
+      px(x, s.y, w, s.h, '#3a3f47');
+      px(x+6, s.y-5, w-12, 7, '#2b2f36');                       // nose
+      px(x+w/2-2, s.y+3, 4, 6, '#ffcf86');                      // headlight
+      px(x+4, s.y+16, w-8, 4, '#54606a'); px(x+4, s.y+26, w-8, 4, '#54606a');
+    } else {
+      if (s.player) { px(x-4, s.y-3, w+8, s.h+6, 'rgba(255,217,160,.35)'); }  // glow
+      px(x, s.y, w, s.h, '#9c4a3f');                            // body
+      px(x+2, s.y+2, w-4, s.h-4, '#b0584a');                    // roof
+      px(x+w/2-1, s.y, 2, s.h, '#7a3a31');                      // ridge
+      for (let wy = s.y+6; wy < s.y+s.h-5; wy += 9) {           // windows both sides
+        px(x+2, wy, 3, 5, '#cfeefb'); px(x+w-5, wy, 3, 5, '#cfeefb');
+      }
+      if (s.player) {
+        px(x+w/2-2, s.y-9, 4, 6, '#ffd24a');                    // a little pin
+        px(x+w/2-1, s.y-3, 2, 3, '#ffd24a');
+      }
+    }
+  }
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
