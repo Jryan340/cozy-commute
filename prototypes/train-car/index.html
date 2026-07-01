@@ -282,11 +282,15 @@
     border: none; font: 700 15px ui-monospace, monospace; letter-spacing: 1px;
   }
   #bdGo:active { transform: translateY(1px); }
+  #bdGo:disabled { background: #ddd6c4; color: #8f866f; cursor: default; }
+  #bdGo:disabled:active { transform: none; }
   .bd-status {
     margin: 12px 2px 0; text-align: center; font-size: 10.5px; color: #6f6857;
     letter-spacing: .3px; line-height: 1.5;
   }
   .bd-status b { color: #2f7d6e; }
+  .bd-status.away { color: #9a6a2a; }
+  .cx-elsewhere { margin-top: 10px; font-size: 10px; color: #ffcf8a; letter-spacing: .2px; opacity: .85; }
   .bd-dismiss {
     position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 50%;
     border: none; background: rgba(0,0,0,.06); color: #8a8170; font-size: 14px; cursor: pointer; line-height: 1;
@@ -463,10 +467,11 @@
     <div class="ph-screen">
       <!-- Plan a trip (SBB-style journey planner) -->
       <div class="app-panel" data-panel="search">
-        <div class="ph-title">Plan a trip<span id="sbSub">Departures from your station</span></div>
+        <div class="ph-title">Plan a trip<span id="sbSub">Any trip on the corridor · board where you are</span></div>
         <div class="sb-od">
-          <div class="sb-field"><span class="sb-ic from"></span><input id="sbFrom" placeholder="From" autocomplete="off" readonly></div>
+          <div class="sb-field"><span class="sb-ic from"></span><input id="sbFrom" placeholder="From" autocomplete="off"></div>
           <div class="sb-field"><span class="sb-ic to"></span><input id="sbTo" placeholder="Where to?" autocomplete="off"></div>
+          <button class="sb-swap" id="sbSwap" aria-label="swap">⇅</button>
         </div>
         <div class="sb-suggest" id="sbSuggest"></div>
         <div id="sbResults"></div>
@@ -1056,7 +1061,7 @@ function setTab(t) {
   activeTab = t;
   for (const b of document.querySelectorAll('.ph-nav button')) b.classList.toggle('on', b.dataset.tab === t);
   for (const p of document.querySelectorAll('#trip .app-panel')) p.hidden = p.dataset.panel !== t;
-  if (t === 'search') renderSearch();
+  if (t === 'search') { if (!sbFromEl.value.trim()) sbFromEl.value = save.lastCity; renderSearch(); }
   if (t === 'pass')   renderPassport();
   if (t === 'now')    updateTripCard();
 }
@@ -1064,36 +1069,23 @@ for (const b of document.querySelectorAll('.ph-nav button')) b.addEventListener(
 
 // --- SBB-style journey planner ---------------------------------------------
 const sbFromEl = document.getElementById('sbFrom'), sbToEl = document.getElementById('sbTo');
-function cityMatches(q) {
-  q = q.trim().toLowerCase(); if (!q) return [];
-  const seen = new Set(), out = [];
-  for (const r of ROUTES) for (const c of [r.from, r.to]) {
-    const k = c.toLowerCase();
-    if (k.includes(q) && !seen.has(k)) { seen.add(k); out.push(c); }
-  }
-  return out.slice(0, 6);
-}
-function routeMatches(fromV, toV) {
-  const f = fromV.trim().toLowerCase(), t = toV.trim().toLowerCase();
-  return ROUTES.filter(r => {
-    const fromOk = !f || r.from.toLowerCase().includes(f);
-    const toOk   = !t || r.to.toLowerCase().includes(t);   // match where you're actually going
-    return fromOk && toOk;
-  });
-}
+function cityList() { return [...new Set(ROUTES.flatMap(r => [r.from, r.to]))]; }   // the terminals (lazy: ROUTES is defined later)
+let sbFocus = 'to';                                                    // which field you're editing
 function connectionCard(r, deps) {
   const locked = save.lifetimeMiles < r.minMiles;
+  const here = r.from === save.lastCity;                               // can you board this now?
   const card = document.createElement('div'); card.className = 'cx-card' + (locked ? ' locked' : '');
   const dep0 = deps[0], arr0 = dep0 + RIDE_MINUTES * 60000;
   card.innerHTML =
     `<div class="cx-head"><div class="cx-route">${r.from}<span>→</span>${r.to}</div>
-       <div class="cx-cls${locked ? ' lock' : ''}">${locked ? '🔒 ' + r.minMiles + ' mi' : 'Direct'}</div></div>
+       <div class="cx-cls${locked ? ' lock' : ''}">${locked ? '🔒 ' + r.minMiles + ' mi' : (here ? 'Board here' : 'Board at ' + r.fromCode)}</div></div>
      <div class="cx-times">
        <div class="cx-end"><b>${fmtETClock(dep0)}</b><small>${r.fromCode}</small></div>
        <div class="cx-mid"><div class="dur">${RIDE_MINUTES} min · ${r.stations.length} stops</div><div class="rail"></div></div>
        <div class="cx-end"><b>${fmtETClock(arr0)}</b><small>${r.toCode}</small></div>
      </div>
-     <div class="cx-deps"></div>`;
+     <div class="cx-deps"></div>
+     ${here ? '' : `<div class="cx-elsewhere">🎟 Buy ahead — be in ${r.from} by departure to board</div>`}`;
   const depsEl = card.querySelector('.cx-deps');
   deps.forEach((ts, i) => {
     const b = document.createElement('button');
@@ -1105,34 +1097,45 @@ function connectionCard(r, deps) {
   return card;
 }
 function renderSearch() {
-  // You can only board where you're standing — the planner is fixed to this city.
-  const city = save.lastCity;
-  sbFromEl.value = city;
-  document.getElementById('sbSub').textContent = 'Departures from ' + city;
-  const toV = sbToEl.value, q = toV.trim().toLowerCase();
-  const reachable = ROUTES.filter(r => r.from === city);          // direct trains from here
-  const dests = [...new Set(reachable.map(r => r.to))];
-  // destination autocomplete (only places you can actually get to from here)
+  const fromV = sbFromEl.value.trim(), toV = sbToEl.value.trim();
+  const originCity = cityList().find(c => c.toLowerCase() === fromV.toLowerCase()) || (fromV ? null : save.lastCity);
+  // autocomplete for whichever field you're editing
   const sug = document.getElementById('sbSuggest'); sug.innerHTML = '';
-  const exact = dests.some(d => d.toLowerCase() === q);
-  if (q && !exact) for (const c of dests.filter(d => d.toLowerCase().includes(q)).slice(0, 6)) {
+  const addSug = (label, sub, pick) => {
     const d = document.createElement('div'); d.className = 'sb-sug';
-    d.innerHTML = `<span class="pin">📍</span><b>${c}</b><span>from ${city}</span>`;
-    d.onclick = () => { sbToEl.value = c; renderSearch(); };
-    sug.appendChild(d);
+    d.innerHTML = `<span class="pin">📍</span><b>${label}</b><span>${sub}</span>`;
+    d.onclick = pick; sug.appendChild(d);
+  };
+  if (sbFocus === 'from' && fromV) {
+    for (const c of cityList().filter(c => c.toLowerCase().includes(fromV.toLowerCase()) && c.toLowerCase() !== fromV.toLowerCase()).slice(0, 6))
+      addSug(c, c === save.lastCity ? 'you are here' : 'terminal', () => { sbFromEl.value = c; renderSearch(); });
+  } else if (sbFocus === 'to' && toV) {
+    const base = originCity || save.lastCity;
+    const dests = [...new Set(ROUTES.filter(r => r.from === base).map(r => r.to))];
+    for (const c of dests.filter(d => d.toLowerCase().includes(toV.toLowerCase()) && d.toLowerCase() !== toV.toLowerCase()).slice(0, 6))
+      addSug(c, 'from ' + base, () => { sbToEl.value = c; renderSearch(); });
   }
-  // connection results — direct routes from here to the searched destination
+  // results — default origin is where you are; change From to plan from elsewhere
   const res = document.getElementById('sbResults'); res.innerHTML = '';
-  const routes = reachable.filter(r => !q || r.to.toLowerCase().includes(q))
-    .sort((a, b) => (save.lifetimeMiles >= a.minMiles ? 0 : 1) - (save.lifetimeMiles >= b.minMiles ? 0 : 1));
+  const routes = ROUTES.filter(r => {
+    const fOk = fromV ? r.from.toLowerCase().includes(fromV.toLowerCase()) : r.from === save.lastCity;
+    const tOk = !toV || r.to.toLowerCase().includes(toV.toLowerCase());
+    return fOk && tOk;
+  }).sort((a, b) => ((a.from === save.lastCity ? 0 : 1) - (b.from === save.lastCity ? 0 : 1))
+                 || ((save.lifetimeMiles >= a.minMiles ? 0 : 1) - (save.lifetimeMiles >= b.minMiles ? 0 : 1)));
   const head = document.createElement('div'); head.className = 'sb-sec';
-  head.textContent = routes.length ? (toV ? 'Connections' : 'Departures from ' + city)
-                                   : 'No direct service to “' + toV + '” from ' + city;
+  head.textContent = routes.length ? ((fromV || toV) ? 'Connections' : 'Departures from ' + save.lastCity) : 'No direct service found';
   res.appendChild(head);
   const deps = upcomingDepartures(3);
   for (const r of routes) res.appendChild(connectionCard(r, deps));
 }
+sbFromEl.addEventListener('focus', () => { sbFocus = 'from'; });
+sbToEl.addEventListener('focus', () => { sbFocus = 'to'; });
+sbFromEl.addEventListener('input', renderSearch);
 sbToEl.addEventListener('input', renderSearch);
+document.getElementById('sbSwap').addEventListener('click', () => {
+  const a = sbFromEl.value || save.lastCity; sbFromEl.value = sbToEl.value || save.lastCity; sbToEl.value = a; renderSearch();
+});
 
 // book a specific departure (from the planner) — or the next one
 let chosenDepartTs = 0;
@@ -1213,13 +1216,18 @@ function showBoarding() {
   setTab('now');                    // the fare / ticket lives on the Ride tab
   tripEl.classList.add('show'); tripScrim.classList.add('show');
 }
-// swap the ticket card between "fare to buy" and "paid boarding pass"
+// swap the ticket card between "fare to buy" and "paid boarding pass" — and gate
+// boarding on actually being in the origin city at departure (no teleporting).
 function renderTicket() {
+  const atOrigin = save.lastCity === ROUTE.from;
   document.getElementById('bdTitle').childNodes[0].nodeValue = purchased ? 'Your ticket' : 'Buy a ticket';
   document.getElementById('bdSub').textContent = purchased ? 'Boarding pass · Cozy Rail' : 'Fare · Cozy Rail';
   document.getElementById('bdHead').textContent = purchased ? 'BOARDING PASS' : 'TICKET';
-  document.getElementById('bdGo').textContent = purchased ? 'Board this train →' : 'Buy ticket →';
   document.getElementById('bdStamp').hidden = !purchased;
+  const go = document.getElementById('bdGo');
+  if (!purchased)      { go.textContent = 'Buy ticket →';        go.disabled = false; }
+  else if (atOrigin)   { go.textContent = 'Board this train →';  go.disabled = false; }
+  else                 { go.textContent = 'Board at ' + ROUTE.from; go.disabled = true; }
 }
 function buyTicket() {
   purchased = true;
@@ -1228,6 +1236,7 @@ function buyTicket() {
 }
 function board() {
   if (!purchased) return;           // can't board without a ticket
+  if (save.lastCity !== ROUTE.from) { toast('Be in ' + ROUTE.from + ' by departure to board'); return; }
   departTs = effectiveDepartTs();
   timetable = buildTimetable();
   boarding = false; purchased = false; boarded = true; atStation = false;
@@ -1314,8 +1323,14 @@ function updateWorldClock() {
     // keep the pass's departure + countdown live against the wall clock
     departTs = effectiveDepartTs();
     document.getElementById('bdDepart').textContent = fmtETClock(departTs);
-    document.getElementById('bdStatus').innerHTML =
-      'Boarding open · departs ' + fmtETClock(departTs) + ' <b>(in ' + fmtMMSS((departTs - now) / 1000) + ')</b>';
+    const st = document.getElementById('bdStatus');
+    if (save.lastCity === ROUTE.from) {
+      st.classList.remove('away');
+      st.innerHTML = 'Boarding open · departs ' + fmtETClock(departTs) + ' <b>(in ' + fmtMMSS((departTs - now) / 1000) + ')</b>';
+    } else {
+      st.classList.add('away');
+      st.innerHTML = 'Be in <b>' + ROUTE.from + '</b> by ' + fmtETClock(departTs) + ' to board this ticket';
+    }
   }
 }
 
