@@ -1622,13 +1622,26 @@ function drawWideView() {
   }
 }
 
-// --- first-person: seated at your desk, looking out the window --------------
-const FPW = { x: 16, y: 22, w: 208, h: 176 };   // the window rectangle
+// --- first-person: seated at your desk, window on your seat's side ----------
 function drawFirstPerson() {
+  const left = !player.seat || player.seat.side === 'L';   // window is on whichever side you're sitting
   px(0, 0, W, H, C.wall);                        // interior wall behind everything
-  drawFPScene(FPW.x, FPW.y, FPW.w, FPW.h);       // the moving view out the window
-  drawFPFrame();                                 // window frame + interior below
+  const win = left ? { x: 12, y: 24, w: 100, h: 224 } : { x: W - 12 - 100, y: 24, w: 100, h: 224 };
+  drawFPScene(win.x, win.y, win.w, win.h);       // the moving view out the side window
+  drawFPFrame(win);                              // window frame
+  drawFPSeatback(left, win);                     // the seat ahead of you (interior side)
   drawFPDesk();                                  // your tray table + things on it
+}
+function drawFPSeatback(left, win) {
+  const c = currentClass();
+  const ix = left ? win.x + win.w + 14 : 14;
+  const iw = left ? (W - 14 - (win.x + win.w + 14)) : (win.x - 28);
+  const iy = 50, ih = 176;
+  px(ix - 2, 24, iw + 4, 12, '#5d4438'); px(ix - 2, 24, iw + 4, 3, C.wallHi);   // overhead luggage rack
+  px(ix, iy, iw, ih, c.seatDk);                                                 // the seat in front of you
+  px(ix + 3, iy + 3, iw - 6, ih - 6, c.seat);
+  px(ix + 3, iy + 3, iw - 6, 5, c.seatHi);
+  px(ix + iw/2 - 13, iy - 7, 26, 9, c.head);                                    // its headrest
 }
 
 function drawFPScene(x, y, w, h) {
@@ -1666,23 +1679,21 @@ function drawFPScene(x, y, w, h) {
   if (tunnelAmount > 0.001) { ctx.fillStyle = `rgba(6,6,14,${tunnelAmount * 0.92})`; ctx.fillRect(x, y, w, h); }
 }
 
-function drawFPFrame() {
-  const { x, y, w, h } = FPW;
+function drawFPFrame(win) {
+  const { x, y, w, h } = win;
   for (const [rx, ry, rw, rh] of [[x-7, y-7, w+14, 7], [x-7, y+h, w+14, 7], [x-7, y-7, 7, h+14], [x+w, y-7, 7, h+14]])
     px(rx, ry, rw, rh, C.trim);                  // window frame
   px(x-7, y-7, w+14, 2, C.wallHi);
-  px(x-3, y+h+7, w+6, 10, '#5d4438');            // sill / interior wall below the window
 }
 
 function drawFPDesk() {
-  const ty = H - 132;                            // tray table starts here
-  px(0, FPW.y + FPW.h + 17, W, ty - (FPW.y + FPW.h + 17), C.wall);  // wall between window and desk
+  const ty = H - 124;                            // tray table (folds down in front of you)
+  px(0, ty - 3, W, 3, C.shadow);                 // lip shadow above the table
   px(0, ty, W, H - ty, '#7c5236');               // wood tray table (foreground)
   px(0, ty, W, 4, '#9a6a44');
   for (let yy = ty + 10; yy < H; yy += 11) px(0, yy, W, 1, '#6e4a30');   // grain
-  px(0, ty - 3, W, 3, C.shadow);                 // lip shadow above the table
   const items = tableItems(), n = items.length;
-  const gap = 60, startX = W/2 - (n - 1) * gap / 2;
+  const gap = 58, startX = W/2 - (n - 1) * gap / 2;
   items.forEach((k, i) => {
     const cx = startX + i * gap;
     drawItemKind(k, { x: cx - 15, y: ty + 34, w: 30, h: 30 }, elapsed);   // enlarged for the desk
