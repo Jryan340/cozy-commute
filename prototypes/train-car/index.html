@@ -430,7 +430,7 @@
         <div class="stn-board-head"><span>Departures · tap for a ticket</span><span>Plat</span></div>
         <div id="stnDeps"></div>
       </div>
-      <button class="stn-plan2" id="stnPlan">Plan a trip elsewhere →</button>
+      <button class="stn-plan2" id="stnPlan">Search departures →</button>
     </div>
   </div>
 
@@ -456,11 +456,10 @@
     <div class="ph-screen">
       <!-- Plan a trip (SBB-style journey planner) -->
       <div class="app-panel" data-panel="search">
-        <div class="ph-title">Plan a trip<span>Search the Northeast Corridor</span></div>
+        <div class="ph-title">Plan a trip<span id="sbSub">Departures from your station</span></div>
         <div class="sb-od">
-          <div class="sb-field"><span class="sb-ic from"></span><input id="sbFrom" placeholder="From" autocomplete="off"></div>
+          <div class="sb-field"><span class="sb-ic from"></span><input id="sbFrom" placeholder="From" autocomplete="off" readonly></div>
           <div class="sb-field"><span class="sb-ic to"></span><input id="sbTo" placeholder="Where to?" autocomplete="off"></div>
-          <button class="sb-swap" id="sbSwap" aria-label="swap">⇅</button>
         </div>
         <div class="sb-suggest" id="sbSuggest"></div>
         <div id="sbResults"></div>
@@ -502,7 +501,7 @@
             <div><b id="tripAboard">0:00</b><span>ABOARD</span></div>
             <div><b id="tripRiders">5</b><span>RIDERS</span></div>
           </div>
-          <button id="nowAction" hidden>Ride again ↺</button>
+          <button id="nowAction" hidden>Step onto the platform →</button>
         </div>
         <div id="nowEmpty" class="ph-empty" hidden>
           <div class="em">🚉</div>
@@ -1022,11 +1021,10 @@ function updateTripCard() {
   status.textContent = arrived ? 'Arrived' : atPlatform ? 'Boarding' : 'En route';
   status.classList.toggle('arrived', arrived);
   status.classList.toggle('boarding', atPlatform && !arrived);
-  // context action: board a held ticket, or ride again after arrival
+  // after arrival, step off onto the destination platform (no teleporting back)
   const act = document.getElementById('nowAction');
-  if (arrived)       { act.hidden = false; act.textContent = 'Ride again ↺';      act.dataset.mode = 'again'; }
-  else if (boarding) { act.hidden = false; act.textContent = 'Board this train →'; act.dataset.mode = 'board'; }
-  else               { act.hidden = true;  act.dataset.mode = ''; }
+  if (arrived) { act.hidden = false; act.textContent = 'Step onto the platform →'; act.dataset.mode = 'platform'; }
+  else         { act.hidden = true;  act.dataset.mode = ''; }
 }
 function openTrip()  {
   tripOpen = true; lastScrolled = -1;
@@ -1040,9 +1038,7 @@ tripScrim.addEventListener('click', closeTrip);
 document.getElementById('phGrip').addEventListener('click', closeTrip);
 document.getElementById('nowPlan').addEventListener('click', () => setTab('search'));
 document.getElementById('nowAction').addEventListener('click', () => {
-  const mode = document.getElementById('nowAction').dataset.mode;
-  if (mode === 'board') { board(); closeTrip(); }
-  else if (mode === 'again') { chosenDepartTs = 0; resetJourney(); }
+  if (document.getElementById('nowAction').dataset.mode === 'platform') closeTrip();  // reveal the destination platform
 });
 
 // --- phone hub tabs: Plan / Ride / Passport --------------------------------
@@ -1100,32 +1096,34 @@ function connectionCard(r, deps) {
   return card;
 }
 function renderSearch() {
-  const fromV = sbFromEl.value, toV = sbToEl.value;
-  // destination autocomplete
+  // You can only board where you're standing — the planner is fixed to this city.
+  const city = save.lastCity;
+  sbFromEl.value = city;
+  document.getElementById('sbSub').textContent = 'Departures from ' + city;
+  const toV = sbToEl.value, q = toV.trim().toLowerCase();
+  const reachable = ROUTES.filter(r => r.from === city);          // direct trains from here
+  const dests = [...new Set(reachable.map(r => r.to))];
+  // destination autocomplete (only places you can actually get to from here)
   const sug = document.getElementById('sbSuggest'); sug.innerHTML = '';
-  const q = toV.trim().toLowerCase();
-  const exact = ROUTES.some(r => r.to.toLowerCase() === q || r.from.toLowerCase() === q);
-  if (q && !exact) for (const c of cityMatches(toV)) {
+  const exact = dests.some(d => d.toLowerCase() === q);
+  if (q && !exact) for (const c of dests.filter(d => d.toLowerCase().includes(q)).slice(0, 6)) {
     const d = document.createElement('div'); d.className = 'sb-sug';
-    d.innerHTML = `<span class="pin">📍</span><b>${c}</b><span>station</span>`;
+    d.innerHTML = `<span class="pin">📍</span><b>${c}</b><span>from ${city}</span>`;
     d.onclick = () => { sbToEl.value = c; renderSearch(); };
     sug.appendChild(d);
   }
-  // connection results
+  // connection results — direct routes from here to the searched destination
   const res = document.getElementById('sbResults'); res.innerHTML = '';
-  const routes = routeMatches(fromV, toV)
+  const routes = reachable.filter(r => !q || r.to.toLowerCase().includes(q))
     .sort((a, b) => (save.lifetimeMiles >= a.minMiles ? 0 : 1) - (save.lifetimeMiles >= b.minMiles ? 0 : 1));
   const head = document.createElement('div'); head.className = 'sb-sec';
-  head.textContent = (fromV || toV) ? (routes.length ? 'Connections' : 'No direct service') : 'Popular routes';
+  head.textContent = routes.length ? (toV ? 'Connections' : 'Departures from ' + city)
+                                   : 'No direct service to “' + toV + '” from ' + city;
   res.appendChild(head);
   const deps = upcomingDepartures(3);
   for (const r of routes) res.appendChild(connectionCard(r, deps));
 }
-sbFromEl.addEventListener('input', renderSearch);
 sbToEl.addEventListener('input', renderSearch);
-document.getElementById('sbSwap').addEventListener('click', () => {
-  const a = sbFromEl.value; sbFromEl.value = sbToEl.value; sbToEl.value = a; renderSearch();
-});
 
 // book a specific departure (from the planner) — or the next one
 let chosenDepartTs = 0;
@@ -1474,35 +1472,64 @@ const feats = [];
   }
 })();
 
-// --- bookable routes (real Northeast Corridor lines; approx. mileposts) -----
-const ROUTES = [
-  { id:'bosprov', from:'Boston', to:'Providence', fromCode:'BOS', toCode:'PVD', depart:'3:15 PM', minMiles:0,
-    stations:[ {name:'Boston South Station',mile:0},{name:'Back Bay',mile:1},{name:'Route 128',mile:11},{name:'Providence',mile:43} ] },
-  { id:'bosny', from:'Boston', to:'New York', fromCode:'BOS', toCode:'NYC', depart:'3:15 PM', minMiles:0,
-    stations:[ {name:'Boston South Station',mile:0},{name:'Back Bay',mile:1},{name:'Route 128',mile:11},{name:'Providence',mile:43},
-      {name:'Kingston',mile:75},{name:'Westerly',mile:92},{name:'Mystic',mile:105},{name:'New London',mile:118},
-      {name:'Old Saybrook',mile:136},{name:'New Haven',mile:156},{name:'Bridgeport',mile:175},{name:'Stamford',mile:193},
-      {name:'New Rochelle',mile:207},{name:'New York Penn Station',mile:229} ],
-    // real corridor character: RI sprint, the CT shoreline, tidal-river bridges, underground into Penn
-    fast:[[43,90]], slow:[[92,156]], coast:[[92,156]], underground:214,
-    bridges:[{m:105,name:'Mystic River'},{m:112,name:'Niantic River'},{m:118,name:'Thames River'},{m:136,name:'Connecticut River'}] },
-  { id:'nybos', from:'New York', to:'Boston', fromCode:'NYC', toCode:'BOS', depart:'hourly', minMiles:0,
-    stations:[ {name:'New York Penn Station',mile:0},{name:'New Rochelle',mile:22},{name:'Stamford',mile:36},{name:'Bridgeport',mile:54},
-      {name:'New Haven',mile:73},{name:'Old Saybrook',mile:93},{name:'New London',mile:111},{name:'Mystic',mile:124},
-      {name:'Westerly',mile:137},{name:'Kingston',mile:154},{name:'Providence',mile:186},{name:'Route 128',mile:218},
-      {name:'Back Bay',mile:228},{name:'Boston South Station',mile:229} ],
-    // the corridor in reverse: underground out of Penn, shoreline crawl, RI sprint home
-    fast:[[139,186]], slow:[[73,137]], coast:[[73,137]], underground:15,
-    bridges:[{m:93,name:'Connecticut River'},{m:111,name:'Thames River'},{m:117,name:'Niantic River'},{m:124,name:'Mystic River'}] },
-  { id:'nydc', from:'New York', to:'Washington', fromCode:'NYC', toCode:'WAS', depart:'9:00 AM', minMiles:300,
-    stations:[ {name:'New York Penn Station',mile:0},{name:'Newark',mile:10},{name:'Metropark',mile:25},{name:'Trenton',mile:58},
-      {name:'Philadelphia 30th St',mile:91},{name:'Wilmington',mile:116},{name:'Baltimore Penn',mile:184},
-      {name:'BWI Airport',mile:194},{name:'New Carrollton',mile:214},{name:'Washington Union',mile:226} ] },
-  { id:'bosdc', from:'Boston', to:'Washington DC', fromCode:'BOS', toCode:'WAS', depart:'6:10 AM', minMiles:1500,
-    stations:[ {name:'Boston South Station',mile:0},{name:'Providence',mile:43},{name:'New Haven',mile:156},
-      {name:'New York Penn Station',mile:229},{name:'Newark',mile:239},{name:'Philadelphia 30th St',mile:320},
-      {name:'Baltimore Penn',mile:413},{name:'Washington Union',mile:455} ] },
+// --- the Northeast Corridor as one line (Boston = mile 0, south to Washington) ---
+const LINE = [
+  { name:'Boston South Station', mile:0 },   { name:'Back Bay', mile:1 },        { name:'Route 128', mile:11 },
+  { name:'Providence', mile:43 },            { name:'Kingston', mile:75 },       { name:'Westerly', mile:92 },
+  { name:'Mystic', mile:105 },               { name:'New London', mile:118 },    { name:'Old Saybrook', mile:136 },
+  { name:'New Haven', mile:156 },            { name:'Bridgeport', mile:175 },    { name:'Stamford', mile:193 },
+  { name:'New Rochelle', mile:207 },         { name:'New York Penn Station', mile:229 },
+  { name:'Newark', mile:239 },               { name:'Metropark', mile:254 },     { name:'Trenton', mile:287 },
+  { name:'Philadelphia 30th St', mile:320 }, { name:'Wilmington', mile:345 },    { name:'Baltimore Penn', mile:413 },
+  { name:'BWI Airport', mile:423 },          { name:'New Carrollton', mile:443 },{ name:'Washington Union', mile:455 },
 ];
+// terminals we run trains between (every terminal gets inbound + outbound to every other one)
+const TERMINALS = [
+  { city:'Boston',     code:'BOS', slug:'bos', station:'Boston South Station' },
+  { city:'Providence', code:'PVD', slug:'prv', station:'Providence' },
+  { city:'New York',   code:'NYC', slug:'ny',  station:'New York Penn Station' },
+  { city:'Washington', code:'WAS', slug:'dc',  station:'Washington Union' },
+];
+// corridor character in absolute (Boston-based) mileposts — rebased per route below
+const CORR = {
+  fast:  [[43, 90]],                          // the Rhode Island sprint
+  slow:  [[92, 156]],                         // the Connecticut shoreline crawl
+  coast: [[92, 156]],
+  bridges: [ {m:105,name:'Mystic River'}, {m:112,name:'Niantic River'}, {m:118,name:'Thames River'}, {m:136,name:'Connecticut River'} ],
+  nyMile: 229,                                // NY Penn — trains dive underground to arrive here
+};
+function buildRoutes() {
+  const idx = name => LINE.findIndex(s => s.name === name);
+  const out = [];
+  for (const A of TERMINALS) for (const B of TERMINALS) {
+    if (A === B) continue;
+    const ai = idx(A.station), bi = idx(B.station), O = LINE[ai].mile;
+    const loAbs = Math.min(LINE[ai].mile, LINE[bi].mile), hiAbs = Math.max(LINE[ai].mile, LINE[bi].mile);
+    let slice = LINE.slice(Math.min(ai, bi), Math.max(ai, bi) + 1);
+    if (bi < ai) slice = slice.slice().reverse();
+    const stations = slice.map(s => ({ name:s.name, mile:Math.abs(s.mile - O) }));
+    const total = Math.abs(LINE[bi].mile - O);
+    // rebase an absolute point / span onto this route's local mileposts (clipped to the segment)
+    const rebasePt = p => (p >= loAbs && p <= hiAbs) ? Math.abs(p - O) : null;
+    const rebaseSpan = ([a, b]) => {
+      const s = Math.max(a, loAbs), e = Math.min(b, hiAbs);
+      if (s >= e) return null;
+      const la = Math.abs(s - O), lb = Math.abs(e - O);
+      return [Math.min(la, lb), Math.max(la, lb)];
+    };
+    const spans = arr => arr.map(rebaseSpan).filter(Boolean);
+    const bridges = CORR.bridges.map(b => { const m = rebasePt(b.m); return m == null ? null : { m, name:b.name }; }).filter(Boolean);
+    const has = c => A.city === c || B.city === c;
+    const minMiles = has('Washington') ? (has('New York') ? 300 : 1500) : 0;   // the long southern hauls unlock later
+    out.push({
+      id: A.slug + B.slug, from:A.city, to:B.city, fromCode:A.code, toCode:B.code, depart:'hourly', minMiles,
+      stations, fast:spans(CORR.fast), slow:spans(CORR.slow), coast:spans(CORR.coast), bridges,
+      underground: B.city === 'New York' ? Math.max(0, total - 15) : null,     // the dark dive into Penn on arrival
+    });
+  }
+  return out;
+}
+const ROUTES = buildRoutes();
 
 // --- classes + saved progress (miles economy) ------------------------------
 const CLASSES = [
