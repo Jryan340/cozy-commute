@@ -689,7 +689,11 @@ function toLogical(clientX, clientY) {
 let tapTimer = null, pendingTap = null;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
-  if (atStation) return;                           // on the platform: the station card handles taps
+  if (atStation) {                                 // on the platform: tap to walk (toward the doors to board)
+    const s = toLogical(e.clientX, e.clientY);
+    stnTarget = clampPlatform(s.x, s.y);
+    return;
+  }
   if (fpView) { setFP(false); return; }            // tap anywhere to come back to your seat
   if (wideView) { setWide(false); return; }        // tap anywhere to come back to your car
 
@@ -1213,6 +1217,10 @@ boardingEl.addEventListener('click', (e) => { if (e.target === boardingEl) dismi
 // ticket. It shows a live departures board of onward trains from this city.
 const stationEl = document.getElementById('station');
 let atStation = false;
+// walkable platform state (declared here so showStation() can use it at init)
+const PLAT_MINX = 14, PLAT_MAXX = W - 14, PLAT_MINY = 74, PLAT_MAXY = 196;
+const DOOR_CX = W / 2;
+let stnX = DOOR_CX, stnY = 150, stnFacing = -1, stnWalkT = 0, stnMoving = false, stnTarget = null, stnBoardLock = false;
 // which routes leave from a given city (their origin), for the departures board
 function departuresFrom(city) {
   return ROUTES.filter(r => r.from === city);
@@ -1238,7 +1246,11 @@ function renderStation() {
     board.appendChild(row);
   });
 }
-function showStation() { atStation = true; document.body.classList.add('at-station'); renderStation(); stationEl.classList.add('show'); }
+function showStation() {
+  atStation = true; document.body.classList.add('at-station');
+  stnX = DOOR_CX; stnY = 150; stnTarget = null; stnBoardLock = true;   // arrive mid-platform; must step to the doors
+  renderStation(); stationEl.classList.add('show');
+}
 function hideStation() { atStation = false; document.body.classList.remove('at-station'); stationEl.classList.remove('show'); }
 document.getElementById('stnPlan').addEventListener('click', () => { openTrip(); });
 
@@ -1544,7 +1556,7 @@ function tunnelAt(s) {
 // --- update ----------------------------------------------------------------
 let last = performance.now();
 function update(dt) {
-  if (atStation) { stationT += dt; updateWorldClock(); if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show'); return; }
+  if (atStation) { updateStation(dt); updateWorldClock(); if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show'); return; }
   // movement (disabled while seated or in the whole-train view)
   if (!player.seat && !wideView) {
     let dx = 0, dy = 0;
@@ -1965,54 +1977,106 @@ function drawStationBench(bx, by) {
   px(bx, by - 5, 22, 3, '#5a4a3a');                             // backrest
   px(bx + 1, by + 7, 3, 4, '#3f342a'); px(bx + 18, by + 7, 3, 4, '#3f342a'); // legs
 }
-function drawStandingPerson(cx, cy, p, t, faceUp) {
+// walkable platform helpers (state is declared up near `atStation`)
+function clampPlatform(x, y) {
+  return { x: Math.max(PLAT_MINX, Math.min(PLAT_MAXX, x)), y: Math.max(PLAT_MINY, Math.min(PLAT_MAXY, y)) };
+}
+// the train waiting at this platform = the first unlocked onward departure
+function platformRoute() { return departuresFrom(save.lastCity).find(r => save.lifetimeMiles >= r.minMiles) || null; }
+function boardFromPlatform() { const r = platformRoute(); if (r) { toast('All aboard →'); bookRoute(r); } }
+function updateStation(dt) {
+  stationT += dt;
+  let dx = 0, dy = 0;
+  if (keys['a'] || keys['arrowleft'])  dx -= 1;
+  if (keys['d'] || keys['arrowright']) dx += 1;
+  if (keys['w'] || keys['arrowup'])    dy -= 1;
+  if (keys['s'] || keys['arrowdown'])  dy += 1;
+  if (dx || dy) { stnTarget = null; const m = Math.hypot(dx, dy) || 1; dx /= m; dy /= m; }
+  else if (stnTarget) {
+    const tx = stnTarget.x - stnX, ty = stnTarget.y - stnY, d = Math.hypot(tx, ty);
+    if (d < 2) stnTarget = null; else { dx = tx / d; dy = ty / d; }
+  }
+  stnMoving = !!(dx || dy);
+  if (stnMoving) {
+    const sp = 58;
+    stnX = Math.max(PLAT_MINX, Math.min(PLAT_MAXX, stnX + dx * sp * dt));
+    stnY = Math.max(PLAT_MINY, Math.min(PLAT_MAXY, stnY + dy * sp * dt));
+    if (dx) stnFacing = dx > 0 ? 1 : -1;
+    stnWalkT += dt * 11;
+  }
+  // walk into the open doors to board the waiting train (once, until you step away)
+  if (stnY <= PLAT_MINY + 1.4 && Math.abs(stnX - DOOR_CX) < 18 && platformRoute()) {
+    if (!stnBoardLock) { stnBoardLock = true; boardFromPlatform(); }
+  } else if (stnY > PLAT_MINY + 10) stnBoardLock = false;
+}
+function drawStationPerson(cx, cy, p, t, facing, walking, faceUp) {
   const bob = Math.sin(t * 2) * 0.5;
   px(cx - 5, cy + 6 + bob, 10, 3, C.shadow);                    // shadow
-  const step = Math.sin(t * 3) * 0.6;
-  px(cx - 4, cy + 3 + bob + Math.max(0, step),  3, 4, '#3a2c24');   // legs (idle shift)
+  const step = walking ? Math.sin(t) * 1.2 : Math.sin(t * 3) * 0.5;
+  px(cx - 4, cy + 3 + bob + Math.max(0, step),  3, 4, '#3a2c24');   // legs
   px(cx + 1, cy + 3 + bob + Math.max(0, -step), 3, 4, '#3a2c24');
   px(cx - 5, cy - 2 + bob, 10, 8, p.shirt);                    // body
   px(cx - 5, cy - 2 + bob, 10, 2, 'rgba(255,255,255,.14)');
   px(cx - 4, cy - 10 + bob, 8, 8, p.skin);                     // head
-  px(cx - 4, cy - 10 + bob, 8, 4, p.hair);                     // hair (crown)
-  if (faceUp) px(cx - 1, cy - 6 + bob, 2, 1, 'rgba(0,0,0,.25)'); // facing the train
+  px(cx - 4, cy - 10 + bob, 8, 4, p.hair);                     // hair
+  if (faceUp) px(cx - 1, cy - 6 + bob, 2, 1, 'rgba(0,0,0,.25)');           // facing the train
+  else px(cx + (facing > 0 ? 2 : -3), cy - 5 + bob, 1, 1, 'rgba(0,0,0,.3)'); // facing L/R
+  if (p.items && p.items.includes('headphones')) {
+    px(cx - 6, cy - 9 + bob, 2, 6, '#2b2f36'); px(cx + 4, cy - 9 + bob, 2, 6, '#2b2f36');
+    px(cx - 6, cy - 11 + bob, 12, 2, '#474d56');
+  }
 }
 function drawStationScene() {
-  // --- the track + waiting train across the top -----------------------------
+  const pr = platformRoute();                                  // the train at this platform (if any)
+  // --- track + waiting train across the top ---------------------------------
   px(0, 0, W, 46, '#20242f');                                  // track hall shadow
   px(0, 40, W, 18, '#39352f');                                 // ballast
   for (let x = 4; x < W; x += 11) px(x, 41, 5, 16, '#2c2924'); // sleepers
   px(0, 43, W, 2, '#6f6862'); px(0, 53, W, 2, '#6f6862');      // two rails
-  // train car body sitting at the platform
-  px(0, 0, W, 40, '#3f6d9c'); px(0, 0, W, 6, '#4f7cab'); px(0, 34, W, 6, '#33587f');
+  px(0, 0, W, 40, '#3f6d9c'); px(0, 0, W, 6, '#4f7cab'); px(0, 34, W, 6, '#33587f');   // car body
   px(0, 6, W, 1, 'rgba(255,255,255,.18)');
-  for (let x = 6; x < W; x += 27) { px(x, 12, 18, 16, C.glass1); px(x, 12, 18, 4, C.glass2); px(x, 12, 18, 1, 'rgba(255,255,255,.4)'); }
-  const doorX = Math.round(W / 2 - 12);                        // open doors, aligned to you
-  px(doorX, 6, 24, 32, '#243b52'); px(doorX + 2, 9, 20, 27, '#16222f');
+  for (let x = 6; x < W; x += 27) { px(x, 14, 18, 15, C.glass1); px(x, 14, 18, 4, C.glass2); px(x, 14, 18, 1, 'rgba(255,255,255,.4)'); }
+  const doorX = Math.round(W / 2 - 12);
+  if (pr) {                                                    // open, lit doors + destination roll-sign
+    px(doorX, 6, 24, 32, '#243b52'); px(doorX + 2, 9, 20, 27, '#16222f');
+    px(doorX + 3, 30, 18, 3, '#c9a44e');                       // warm light on the platform
+    const dst = ('▸ ' + pr.to).toUpperCase();
+    ctx.font = 'bold 6px ui-monospace, monospace'; ctx.textAlign = 'center';
+    const rw = ctx.measureText(dst).width + 8;
+    px(Math.round(W/2 - rw/2), 1, rw, 9, '#0d0d0d');
+    ctx.fillStyle = '#ffcf6b'; ctx.fillText(dst, W / 2, 8);
+  } else {                                                     // no onward service: doors shut
+    px(doorX, 6, 24, 32, '#345a82'); px(doorX + 11, 6, 2, 32, '#243b52');
+  }
   px(doorX - 2, 6, 2, 32, '#2a2f36'); px(doorX + 22, 6, 2, 32, '#2a2f36');
-  px(doorX + 3, 30, 18, 3, '#c9a44e');                         // warm light spilling from the door
   // --- platform -------------------------------------------------------------
   px(0, 58, W, 6, '#c9a44e');                                  // tactile safety strip
   for (let x = 0; x < W; x += 8) px(x, 59, 4, 4, '#a8863b');
   px(0, 64, W, H - 64, '#8f867d');                             // concrete
-  for (let y = 78; y < H; y += 22) px(0, y, W, 1, '#7d756c');  // slab seams
+  for (let y = 78; y < H; y += 22) px(0, y, W, 1, '#7d756c');
   px(0, 64, W, 2, '#9d948a');
-  // --- hanging station sign -------------------------------------------------
+  // --- hanging station name sign --------------------------------------------
   const name = (save.lastCity || 'Station').toUpperCase();
   ctx.font = 'bold 9px ui-monospace, monospace'; ctx.textAlign = 'center';
   const sw = ctx.measureText(name).width + 18, sx = Math.round(W / 2 - sw / 2);
-  px(sx + sw / 2 - 1, 64, 2, 6, '#4a4038');                    // little bracket to the sign
+  px(sx + sw / 2 - 1, 64, 2, 6, '#4a4038');
   px(sx, 70, sw, 16, '#245e7a'); px(sx + 1, 71, sw - 2, 14, '#2f6d8a'); px(sx + 1, 71, sw - 2, 4, '#3f87aa');
   ctx.fillStyle = '#eaf6fb'; ctx.fillText(name, W / 2, 82);
-  // --- platform furniture ---------------------------------------------------
+  // --- furniture + other travellers -----------------------------------------
   drawStationBench(16, 128); drawStationBench(W - 38, 128);
-  px(20, 96, 3, 34, '#5a5048'); px(17, 92, 9, 7, '#ffd98f'); px(17, 92, 9, 2, '#fff2c8');  // lamp (L)
-  px(W - 23, 96, 3, 34, '#5a5048'); px(W - 26, 92, 9, 7, '#ffd98f'); px(W - 26, 92, 9, 2, '#fff2c8'); // lamp (R)
-  // a couple of other waiting travellers, gently bobbing
-  drawStandingPerson(48, 176, { shirt:'#6f7f8a', skin:'#caa07b', hair:'#2c2118' }, stationT + 1.7, true);
-  drawStandingPerson(W - 52, 188, { shirt:'#8a6f9a', skin:'#e2b58c', hair:'#3a2a1d' }, stationT + 3.1, false);
+  px(20, 96, 3, 34, '#5a5048'); px(17, 92, 9, 7, '#ffd98f'); px(17, 92, 9, 2, '#fff2c8');
+  px(W - 23, 96, 3, 34, '#5a5048'); px(W - 26, 92, 9, 7, '#ffd98f'); px(W - 26, 92, 9, 2, '#fff2c8');
+  drawStationPerson(44, 176, { shirt:'#6f7f8a', skin:'#caa07b', hair:'#2c2118' }, stationT + 1.7, 1, false, true);
+  drawStationPerson(W - 50, 186, { shirt:'#8a6f9a', skin:'#e2b58c', hair:'#3a2a1d' }, stationT + 3.1, -1, false, false);
+  // --- "walk aboard" prompt below the open doors (hidden once you're close) -
+  if (pr && stnY > 118) {
+    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(stationT * 4);
+    ctx.font = 'bold 7px ui-monospace, monospace'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffe6a8'; ctx.fillText('▲ walk aboard', W / 2, 100);
+    ctx.globalAlpha = 1;
+  }
   // --- you ------------------------------------------------------------------
-  drawStandingPerson(W / 2, 168, player, stationT, true);
+  drawStationPerson(stnX, stnY, player, stnMoving ? stnWalkT : stationT, stnFacing, stnMoving, !stnMoving && stnY > 90);
 }
 
 // --- main loop -------------------------------------------------------------
