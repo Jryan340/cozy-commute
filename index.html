@@ -1944,6 +1944,18 @@ function drawHouse(bx, yy, r) {
 function triFill(cxp, top, half, height, color) {   // a filled pixel triangle (point up)
   for (let y = 0; y < height; y++) { const hw = Math.max(0, Math.round(half * (y / height))); px(cxp - hw, top + y, hw * 2 + 1, 1, color); }
 }
+// hand-drawn pine trees (a fuller one and a slimmer one) for the lineside forest
+const treeAImg = new Image(); let treeAOK = false; treeAImg.onload = () => { treeAOK = true; };
+treeAImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAWCAYAAADwza0nAAADOElEQVR4nJWTS2hcVRzGv3PuuffO3LmZmWYybRNa02ihLbQaohSTkNhWakQagwSSooUuaqmPTYWKEBRBXBQVEawWIhZ00yx004WahRRTQagPQm3DaBISiiaTSZxmMvc55+XKobaJ1LM75zs/vv8T2OAcPtL1weNPdj23kU43EliDd0yQ8Nn/BfYP9JzINBq5SNf6unq7eu4Z5IlgpFQJVESUAZs/f0/gkcGej4Xl35+0tGZaioBXjg4Odb9zVyp3PswXSyd5iqtNjNHVYqBrUrO8ne/4T8dn+g8e2txm+jt2pBBEAoJoYrmGLq791Xr65aGOdcETRwcfXEXl8/xWkrEVSK6JkWyjTRyHaZ+GOyd+vn52XfDTsS+vhTFfKEwG+uZsqE1Dwr/FUfMBGREd1ySGB/rqFa7n2D/c/kY5inbHZYCHNco4hVAMtmvSBqqkCvXhydmZGwCu/MtxrRq/yUXUkMlQ5FpskLQN0yWQsUC1GNJKtSp27mp66fz7p4fq4KG+R0c4U7FpGpISTVJpE8mMCccBQCUMhxEdaaK5otNzi/vroebcdLHwx3KishLppq0WBI+Ra7Uwfy2CVBJMGooqSm9Mlea/uvTjmbojTep22mjqTKtDy2WJpZkIS79G4J6CEAYEM6iRs6A36baHex+6AgCks7d9TKajYdsh2k1RUloRiH0JbyVGKmfBSBAICfBQI4i4zloOaU7nxxgPxNRiqeLdt9d1Ys5IMqGRbTAgpAEFBRoCQUVAelLHcU2KHLseGf5lqhRgZUzL90FvLSrNfaWDSKI64yEq10CSCR3FRHHXAEuYzFIW/X7il1EmhBxP2YkDKze9/YQoqxZL03UtGDkbNa6xVvaIaYO4zFZuU+Zq0k6/BQDknz6+fubUN9tbtvSNT/wwv7qwLGdWiw8QZXht27ZN5zdn/S3ZxvK50YsDd01O5yMddjadenXv7j2vnB+9kJ39fVpm3JQ9/MTBtRdHzh5YdzsuffZhZxiE73Y/dey97y5/27I8N+3s2541mI7Mqcmrj1049/bFO0Fy+2X8i0+65wqFp6cKv1lLfy6c3NfR7jW3NH/NUumPjr/w2k+3//0b2Tp1PiGHGssAAAAASUVORK5CYII=';
+const treeBImg = new Image(); let treeBOK = false; treeBImg.onload = () => { treeBOK = true; };
+treeBImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAARCAYAAADkIz3lAAABzUlEQVR4nIXRzWsTQRgG8Hdmd2eTNUlptsmatLVBC5aKLTYk+BVSIomIVw+Fih+HnqQnT4JeehW8eLJHbwqCIHj0j/CiUGmgNVZNstvsZj+6MzvjqUGzFN/j8/54Lg/A2JUby9UrNyovx3McCzitccm7919YmDv1QMlA5nr96saJ8GajscJweIEjEFZg3z0RHqoH2zyiIAPjOMEXbreuLcfg+tqtVyHl5f22x839AFzHzZuOtx6DMhVvk6riK5MqUFlBmEiMSXDnH9hq1ao/1P52OksTGmI4awBGIKTuUX+usrr0YgTPTecyypC47S+BcCwOrhmJXicQeIi82ampCABABgDYG3btgXALIcYIYQVkhCA3LwMbAjnw7e+jRmbzks98faakRoUCQoHjo1QyAttyyKE5eP5k8+EiKteXPjksPK/nWJEQGXybQfurC7n5NAgqwLUpZBLJbzhvGM8Q5Va3feT92hG71oDDxHSKS0z2NY3Yuqr19NTEGzQ+4cWF2TCMGCrlzzaN01nz9bsPn2PLPH50f3VGBqFHkVQsZmvHKAZ7uzsf04ogGsFo8Htv6+nm2qXRIH/DlcvV9z87Zyrpbr/TbNZJyIVx/PsD6qK9Qkt9QO8AAAAASUVORK5CYII=';
+function drawTreeSprite(img, ok, cx, groundY, scale) {
+  if (!ok) return false;
+  const w = Math.max(4, Math.round(img.width * scale)), h = Math.max(6, Math.round(img.height * scale));
+  px(cx - w / 2 + 2, groundY, w - 4, 2, 'rgba(18,26,12,.22)');   // ground shadow
+  ctx.drawImage(img, Math.round(cx - w / 2), Math.round(groundY - h), w, h);
+  return true;
+}
 function drawPine(bx, top, s) {                       // a layered, shaded conifer
   s = s || 1;
   const tw = Math.max(10, Math.round(12 * s)), th = Math.max(13, Math.round(17 * s)), cxp = bx + Math.floor(tw / 2), half = Math.floor(tw / 2);
@@ -1963,9 +1975,10 @@ function drawTreeish(f, bx, yy) {
   if (f.kind === 'bush') {                            // a leafy round shrub
     px(bx, yy + 3, 11, 8, C.treeDk); px(bx + 1, yy + 2, 9, 7, C.tree); px(bx + 2, yy + 2, 5, 2, '#5aa457'); px(bx + 4, yy + 11, 3, 2, '#4a3a24');
   } else if (f.kind === 'pole') {
-    drawPine(bx, yy - 2, 0.82);                       // a smaller pine (more forest)
+    if (!drawTreeSprite(treeBImg, treeBOK, bx + 6, yy + 12, 1)) drawPine(bx, yy - 2, 0.82); // a slimmer pine
   } else {
-    drawPine(bx - 1, yy - 4, 1 + (f.off % 6) / 12);   // full pine, size varies
+    const s = 0.9 + (f.off % 6) / 20;                 // full pine, size varies (0.9..1.15)
+    if (!drawTreeSprite(treeAImg, treeAOK, bx + 6, yy + 12, s)) drawPine(bx - 1, yy - 4, 1 + (f.off % 6) / 12);
   }
 }
 // scattered grass tufts + wildflowers along the line
