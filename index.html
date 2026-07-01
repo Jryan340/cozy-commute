@@ -2009,19 +2009,37 @@ function drawCar() {
 function drawSeat(st) {
   const c = currentClass();                    // seats take on your class's upholstery
   const { x, y, w, h } = st, O = C.outline;
-  px(x - 1, y + 5, w + 2, h - 2, C.shadow);    // soft shadow
-  px(x + 3, y - 6, w - 6, 7, O);               // seat-back outline
-  px(x + 4, y - 5, w - 8, 6, c.head);          // seat back / headrest
-  px(x + 4, y - 5, w - 8, 1, shade(c.head, 20));
-  px(x - 1, y - 1, w + 2, h + 2, O);           // cushion outline
-  px(x, y, w, h, c.seatDk);                     // frame
-  px(x + 1, y + 1, w - 2, h - 2, c.seat);       // cushion
-  px(x + 1, y + 1, w - 2, 2, c.seatHi);         // top highlight
-  px(x + 1, y + h - 3, w - 2, 2, c.seatDk);     // bottom shade
-  for (let ix = x + 3; ix < x + w - 2; ix += 5) // tufting dimples
-    for (let iy = y + 3; iy < y + h - 3; iy += 5) px(ix, iy, 1, 1, shade(c.seat, -22));
-  px(x - 2, y + 3, 3, h - 6, '#6b4a30'); px(x + w - 1, y + 3, 3, h - 6, '#6b4a30'); // wood armrests
-  px(x - 2, y + 3, 3, 1, '#835d3d'); px(x + w - 1, y + 3, 3, 1, '#835d3d');
+  const dk = c.seatDk, mid = c.seat, hi = c.seatHi, deep = shade(dk, -12);
+  px(x - 1, y + 6, w + 2, h - 2, C.shadow);    // ground shadow
+
+  // wooden frame around the bench
+  px(x - 3, y - 2, w + 6, h + 5, O);           // outline
+  px(x - 2, y - 1, w + 4, h + 3, '#6b4a30');   // frame
+  px(x - 2, y - 1, w + 4, 1, '#8a6340');       // frame top light
+  px(x - 2, y + h + 1, w + 4, 1, '#4d341f');   // frame bottom shade
+  px(x - 2, y - 1, 2, h + 3, '#5a3d26'); px(x + w, y - 1, 2, h + 3, '#5a3d26'); // armrests
+
+  // upholstery
+  const cx0 = x, cy0 = y, cw = w, ch = h;
+  px(cx0, cy0, cw, ch, dk);                     // piping / seam base
+  px(cx0 + 1, cy0 + 3, cw - 2, ch - 6, mid);    // cushion face
+  px(cx0 + 1, cy0 + 1, cw - 2, 2, hi);          // rounded front lip (bright)
+  px(cx0 + 1, cy0 + 3, cw - 2, 1, shade(hi, -20));
+  px(cx0 + 1, cy0 + ch - 3, cw - 2, 2, deep);   // back shade
+  px(cx0 + 1, cy0 + 3, 1, ch - 6, shade(mid, 12));   // left sheen
+  px(cx0 + cw - 2, cy0 + 3, 1, ch - 6, shade(mid, -16)); // right shade
+
+  // diamond button tufting — puckered buttons in an offset (diamond) grid
+  for (let r = 0, by = cy0 + 8; by < cy0 + ch - 4; by += 7, r++) {
+    for (let bx = cx0 + 7 + (r % 2 ? 6 : 0); bx < cx0 + cw - 4; bx += 12) {
+      px(bx - 2, by - 2, 2, 1, shade(mid, 14));  // pucker highlight (up-left)
+      px(bx + 1, by + 1, 2, 1, dk);              // pucker shadow (down-right)
+      px(bx, by, 1, 1, deep);                    // the button
+    }
+  }
+  // rounded corners
+  px(cx0, cy0, 1, 1, '#6b4a30'); px(cx0 + cw - 1, cy0, 1, 1, '#6b4a30');
+  px(cx0, cy0 + ch - 1, 1, 1, '#6b4a30'); px(cx0 + cw - 1, cy0 + ch - 1, 1, 1, '#6b4a30');
 }
 
 // shared cozy character: chunky, outlined, softly shaded (top-down)
