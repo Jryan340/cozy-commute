@@ -563,15 +563,17 @@ for (const it of BAG) {
   b.addEventListener('click', () => pickItem(it.key));
   bagGrid.appendChild(b);
 }
+function tableItems() { return player.items.filter(k => k !== 'headphones'); }   // headphones are worn, not on the table
 function refreshBag() {
-  bagCount.textContent = `${player.items.length}/${MAX_ITEMS} out`;
+  bagCount.textContent = `${tableItems().length}/${MAX_ITEMS} out`;
   for (const b of bagGrid.children) b.classList.toggle('on', player.items.includes(b.dataset.key));
 }
 function pickItem(key) {
   const i = player.items.indexOf(key);
   if (i >= 0) player.items.splice(i, 1);
-  else if (player.items.length >= MAX_ITEMS) { toast("Table's full — set something down first."); return; }
-  else player.items.push(key);
+  else if (key !== 'headphones' && tableItems().length >= MAX_ITEMS) {   // headphones don't use a table slot
+    toast("Table's full — set something down first."); return;
+  } else player.items.push(key);
   refreshBag();
   if (key === 'headphones') setHeadphones(player.items.includes('headphones'));   // music + duck the train
 }
@@ -1225,8 +1227,8 @@ function drawSeatItems(st) {
   drawTable(st);
   const slots = itemSlots(st);
   if (st.occupant && st.occupant.player) {
-    // headphones are worn (drawn on the head), not set on the table
-    player.items.forEach((k, i) => { if (slots[i] && k !== 'headphones') drawItemKind(k, slots[i], elapsed); });
+    // headphones are worn (drawn on the head), not set on the table — pack the rest into slots
+    tableItems().forEach((k, i) => { if (slots[i]) drawItemKind(k, slots[i], elapsed); });
   } else if (st.occupant && st.occupant.npc && st.occupant.item && st.occupant.item !== 'headphones') {
     drawItemKind(st.occupant.item, slots[1], elapsed + st.cy);
   }
