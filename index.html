@@ -34,24 +34,17 @@
     -webkit-tap-highlight-color: transparent;
   }
   #act:active { transform: translateY(1px); border-bottom-width: 2px; }
-  #snd {
-    position: fixed; left: 18px; bottom: 64px; width: 46px; height: 46px; border-radius: 50%;
+  #snd, #wide, #fp {
+    position: fixed; width: 46px; height: 46px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(20,18,26,.8); border: 1px solid rgba(255,255,255,.12);
-    color: #efe8da; font-size: 20px; cursor: pointer; z-index: 6;
-    -webkit-tap-highlight-color: transparent;
+    background: linear-gradient(180deg, #e6d6b2, #d2ba88); border: 2px solid #8a6a42; border-bottom-width: 4px;
+    color: #4a3826; font-size: 20px; cursor: pointer; z-index: 6;
+    box-shadow: 0 3px 8px rgba(0,0,0,.3); -webkit-tap-highlight-color: transparent;
   }
-  #snd:active { transform: translateY(1px); }
-  #wide, #fp {
-    position: fixed; width: 46px; height: 46px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(20,18,26,.8); border: 1px solid rgba(255,255,255,.12);
-    color: #efe8da; font-size: 20px; cursor: pointer; z-index: 6;
-    -webkit-tap-highlight-color: transparent;
-  }
+  #snd { left: 18px; bottom: 64px; }
   #wide { right: 18px; top: 64px; }
   #fp   { left: 18px; top: 64px; display: none; }
-  #wide:active, #fp:active { transform: translateY(1px); }
+  #snd:active, #wide:active, #fp:active { transform: translateY(1px); border-bottom-width: 3px; }
   /* first-person mode hides the rest of the chrome for a clean look */
   body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp { display: none !important; }
   /* at the station you're on the platform, not in the car — hide the in-car chrome */
@@ -62,9 +55,9 @@
   #tripTab {
     position: fixed; left: 50%; bottom: env(safe-area-inset-bottom); transform: translateX(-50%);
     display: flex; align-items: center; gap: 7px;
-    background: rgba(34,31,42,.92); color: #cfc8ba; border: 1px solid rgba(255,255,255,.1); border-bottom: none;
+    background: linear-gradient(180deg, #e6d6b2, #d2ba88); color: #4a3826; border: 2px solid #8a6a42; border-bottom: none;
     border-radius: 14px 14px 0 0; padding: 7px 22px 9px; cursor: pointer; z-index: 6;
-    font: 600 11px ui-monospace, monospace; letter-spacing: 1.5px; -webkit-tap-highlight-color: transparent;
+    font: 700 11px ui-monospace, monospace; letter-spacing: 1.5px; -webkit-tap-highlight-color: transparent;
   }
   #tripTab::before { content: '▴'; font-size: 12px; opacity: .8; }
   #tripTab:active { color: #fff; }
@@ -367,13 +360,13 @@
   #wclock {
     position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     display: flex; gap: 7px; align-items: baseline; z-index: 7;
-    background: rgba(20,18,26,.82); padding: 5px 12px; border-radius: 13px;
-    font: 700 13px ui-monospace, monospace; letter-spacing: .4px; color: #f2ecdd;
-    backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.08);
+    background: linear-gradient(180deg, #f0e4c8, #e0cea4); padding: 6px 13px; border-radius: 12px;
+    font: 700 13px ui-monospace, monospace; letter-spacing: .4px; color: #4a3826;
+    border: 2px solid #8a6a42; box-shadow: 0 3px 0 #6f5334, 0 5px 12px rgba(0,0,0,.35);
     pointer-events: none; white-space: nowrap;
   }
-  #wclock .z { font-size: 8.5px; font-weight: 600; color: #8f88a0; letter-spacing: 1px; }
-  #wclock .dep { color: #ffd9a0; font-size: 10.5px; font-weight: 600; }
+  #wclock .z { font-size: 8.5px; font-weight: 700; color: #8a6a42; letter-spacing: 1px; }
+  #wclock .dep { color: #a65c26; font-size: 10.5px; font-weight: 700; }
   #hud {
     position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 8px; align-items: center;
@@ -385,12 +378,13 @@
   #hud .sep { opacity: .3; }
   #hint {
     position: fixed; bottom: 46px; left: 50%; transform: translateX(-50%);
-    font-size: 12px; opacity: .65; text-align: center; line-height: 1.5;
-    background: rgba(20,18,26,.6); padding: 6px 14px; border-radius: 10px;
+    font-size: 12px; text-align: center; line-height: 1.6; color: #4a3826;
+    background: linear-gradient(180deg, #f0e4c8, #e0cea4); padding: 7px 15px; border-radius: 11px;
+    border: 2px solid #8a6a42; box-shadow: 0 3px 0 #6f5334; max-width: calc(100vw - 24px);
   }
   #hint kbd {
-    background: #3a3542; border: 1px solid #534c5e; border-bottom-width: 2px;
-    border-radius: 4px; padding: 1px 6px; margin: 0 1px; font-size: 11px; color: #f0e9da;
+    background: #d2ba88; border: 1.5px solid #8a6a42; border-bottom-width: 3px;
+    border-radius: 4px; padding: 1px 6px; margin: 0 1px; font-size: 11px; color: #3a2c1c; font-weight: 700;
   }
   .toast {
     position: fixed; top: 56px; left: 50%; transform: translateX(-50%) translateY(-8px);
@@ -583,13 +577,13 @@ window.addEventListener('resize', fit); fit();
 
 // --- palette ---------------------------------------------------------------
 const C = {
-  floor:  '#b98a5e', plank: '#a9774d', plankHi: '#c79a6c',
-  wall:   '#5d4438', wallHi: '#6f5343', trim: '#8a6650',
-  glass1: '#bfe3ef', glass2: '#a9d4e4',
-  seat:   '#3f7d6e', seatDk:'#2c5a4f', seatHi:'#54998a', head:'#274c43',
-  rail:   '#caa46f', shadow: 'rgba(0,0,0,.18)',
-  fieldA: '#86c267', fieldB: '#74b257', dirt:'#c7a878', tree:'#2f7a3e', treeDk:'#236030',
-  pole:'#7a6a55', water:'#6fb3c4',
+  floor:  '#9c6b41', plank: '#875a34', plankHi: '#b0824f',
+  wall:   '#5a3d2a', wallHi: '#6e4c34', trim: '#7a5334', panel: '#4a3120',
+  glass1: '#bfe3ef', glass2: '#9fd0e2',
+  seat:   '#5b8a52', seatDk:'#3f6b41', seatHi:'#7aa863', head:'#355f39',
+  rail:   '#caa46f', shadow: 'rgba(30,18,10,.22)', outline: '#2b1d14',
+  fieldA: '#6fae54', fieldB: '#5f9c48', dirt:'#b79866', tree:'#3c7a3e', treeDk:'#2b5c30',
+  pole:'#7a6a55', water:'#5fa2bf',
 };
 
 // --- car layout ------------------------------------------------------------
@@ -1595,9 +1589,9 @@ const ROUTES = buildRoutes();
 
 // --- classes + saved progress (miles economy) ------------------------------
 const CLASSES = [
-  { name:'3rd Class', short:'3rd', at:0,    seat:'#3f7d6e', seatDk:'#2c5a4f', seatHi:'#54998a', head:'#274c43' },
-  { name:'2nd Class', short:'2nd', at:500,  seat:'#3f6d9c', seatDk:'#2c4f74', seatHi:'#5a86b8', head:'#26405e' },
-  { name:'1st Class', short:'1st', at:2500, seat:'#8a4c6a', seatDk:'#5f3049', seatHi:'#b0688a', head:'#4a2438' },
+  { name:'3rd Class', short:'3rd', at:0,    seat:'#5b8a52', seatDk:'#3f6b41', seatHi:'#7aa863', head:'#355f39' },
+  { name:'2nd Class', short:'2nd', at:500,  seat:'#4a75a0', seatDk:'#345676', seatHi:'#6e9cc0', head:'#2b4a66' },
+  { name:'1st Class', short:'1st', at:2500, seat:'#9c5a72', seatDk:'#6f3c4f', seatHi:'#c07f96', head:'#4f2a38' },
 ];
 const SAVE_KEY = 'cozycommute.v1';
 let save = { lifetimeMiles:0, trips:0, classCurrent:0, stations:{}, lastStation:'Boston South Station', lastCity:'Boston' };
@@ -1763,11 +1757,13 @@ function itemSlots(st) {
   ];
 }
 function drawTable(st) {
-  const tw = st.w, th = 13, tx = st.x, ty = st.y - 16;
+  const tw = st.w, th = 13, tx = st.x, ty = st.y - 16, O = C.outline;
   px(tx, ty + 3, tw, th, C.shadow);
-  px(tx, ty, tw, th, '#7c5236');           // table top
-  px(tx, ty, tw, 2, '#9a6a44');            // highlight edge
-  px(tx, ty + th - 1, tw, 1, '#5e3d28');
+  px(tx - 1, ty - 1, tw + 2, th + 2, O);          // outline
+  px(tx, ty, tw, th, '#8a5a34');                  // table top
+  px(tx, ty, tw, 2, '#a9744a');                   // highlight edge
+  for (let gx = tx + 2; gx < tx + tw - 1; gx += 4) px(gx, ty + 3, 1, th - 5, '#7a4a2a'); // wood grain
+  px(tx, ty + th - 1, tw, 1, '#5e3a22');
 }
 function drawCoffee(r, t) {
   px(r.x + 1, r.y + 3, r.w - 2, r.h - 3, '#efe6d6');           // mug
@@ -1969,98 +1965,104 @@ function drawStation(s, yy) {
 }
 
 function drawCar() {
-  // floor planks
+  // floor planks with grain + seams
   px(WALL_L, 0, WALL_R-WALL_L, H, C.floor);
-  for (let y=0; y<H; y+=14) px(WALL_L, y, WALL_R-WALL_L, 1, C.plank);
-  // centre aisle runner (slightly lighter)
-  px(AISLE_L, CAR_TOP, AISLE_R-AISLE_L, CAR_BOT-CAR_TOP, '#c2925f');
-  for (let y=CAR_TOP; y<CAR_BOT; y+=14) px(AISLE_L, y, AISLE_R-AISLE_L, 1, '#b07f4d');
+  for (let y=0; y<H; y+=12) { px(WALL_L, y, WALL_R-WALL_L, 1, C.plank); px(WALL_L, y+6, WALL_R-WALL_L, 1, shade(C.floor, 10)); }
+  for (let x=WALL_L+18; x<WALL_R; x+=42) px(x, 0, 1, H, 'rgba(40,24,12,.14)');
 
-  // side walls (inner trim) with window openings between rows
+  // centre aisle: a patterned red runner (like the reference)
+  const AW = AISLE_R-AISLE_L, AY = CAR_TOP, AH = CAR_BOT-CAR_TOP;
+  px(AISLE_L, AY, AW, AH, '#7d3a33');
+  px(AISLE_L+2, AY+2, AW-4, AH-4, '#8c463c');
+  px(AISLE_L, AY, AW, 2, '#b5854a'); px(AISLE_L, AY+AH-2, AW, 2, '#b5854a');   // gold border
+  px(AISLE_L, AY, 2, AH, '#9a6a3e'); px(AISLE_R-2, AY, 2, AH, '#9a6a3e');
+  for (let y=AY+8; y<CAR_BOT-4; y+=16) { px(AISLE_L+AW/2-2, y, 4, 4, '#6e2f2a'); px(AISLE_L+AW/2-1, y+1, 2, 2, '#a85a4e'); }
+
+  // side walls: warm wood panelling
   for (const [wx, dir] of [[WALL_L-6, 1],[WALL_R, -1]]) {
     px(wx, 0, 6, H, C.wall);
     px(wx + (dir>0?5:0), 0, 1, H, C.wallHi);
+    for (let y=8; y<H; y+=26) px(wx, y, 6, 1, C.panel);        // panel seams
   }
   // window panels aligned to each seat row — the cosy bit
   for (const st of seats) {
-    const wy = st.row - 14, wh = 28;
-    if (st.side==='L') {
-      px(WALL_L-6, wy, 6, wh, C.trim);
-      px(WALL_L-5, wy+2, 4, wh-4, C.glass1);
-      px(WALL_L-5, wy+2, 4, 3, C.glass2);
-    } else {
-      px(WALL_R, wy, 6, wh, C.trim);
-      px(WALL_R+1, wy+2, 4, wh-4, C.glass1);
-      px(WALL_R+1, wy+2, 4, 3, C.glass2);
-    }
+    const wy = st.row - 14, wh = 28, wx = st.side==='L' ? WALL_L-6 : WALL_R;
+    px(wx, wy, 6, wh, C.trim); px(wx, wy, 6, 1, shade(C.trim, 18)); px(wx, wy+wh-1, 6, 1, C.panel);
+    const gx = st.side==='L' ? WALL_L-5 : WALL_R+1;
+    px(gx, wy+2, 4, wh-4, C.glass1); px(gx, wy+2, 4, 3, C.glass2);
+    px(gx, wy+2, 1, wh-4, 'rgba(255,255,255,.35)');            // glass sheen
   }
 
   // end caps: doors
   px(WALL_L, 0, WALL_R-WALL_L, CAR_TOP, C.wall);
   px(AISLE_L-6, CAR_TOP-9, (AISLE_R-AISLE_L)+12, 9, C.trim);   // top door frame
-  px(AISLE_L-2, CAR_TOP-7, (AISLE_R-AISLE_L)+4, 6, '#3a2c24');
+  px(AISLE_L-2, CAR_TOP-7, (AISLE_R-AISLE_L)+4, 6, C.panel);
   px(WALL_L, CAR_BOT, WALL_R-WALL_L, H-CAR_BOT, C.wall);
   px(AISLE_L-6, CAR_BOT, (AISLE_R-AISLE_L)+12, 9, C.trim);     // bottom door frame
-  px(AISLE_L-2, CAR_BOT+1, (AISLE_R-AISLE_L)+4, 6, '#3a2c24');
+  px(AISLE_L-2, CAR_BOT+1, (AISLE_R-AISLE_L)+4, 6, C.panel);
 
   // overhead luggage rail hint along both sides
-  px(WALL_L, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.06)');
-  px(WALL_R-4, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.06)');
+  px(WALL_L, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.07)');
+  px(WALL_R-4, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.07)');
 }
 
 function drawSeat(st) {
   const c = currentClass();                    // seats take on your class's upholstery
-  const {x,y,w,h} = st;
-  px(x, y+3, w, h, C.shadow);                  // soft shadow
-  px(x, y, w, h, c.seatDk);                     // base/frame
-  px(x+2, y+2, w-4, h-4, c.seat);               // cushion
-  px(x+2, y+2, w-4, 3, c.seatHi);               // cushion highlight
-  px(x+5, y-4, w-10, 6, c.head);                // headrest
-  px(x-2, y+4, 3, h-8, c.seatDk);               // armrests
-  px(x+w-1, y+4, 3, h-8, c.seatDk);
+  const { x, y, w, h } = st, O = C.outline;
+  px(x - 1, y + 5, w + 2, h - 2, C.shadow);    // soft shadow
+  px(x + 3, y - 6, w - 6, 7, O);               // seat-back outline
+  px(x + 4, y - 5, w - 8, 6, c.head);          // seat back / headrest
+  px(x + 4, y - 5, w - 8, 1, shade(c.head, 20));
+  px(x - 1, y - 1, w + 2, h + 2, O);           // cushion outline
+  px(x, y, w, h, c.seatDk);                     // frame
+  px(x + 1, y + 1, w - 2, h - 2, c.seat);       // cushion
+  px(x + 1, y + 1, w - 2, 2, c.seatHi);         // top highlight
+  px(x + 1, y + h - 3, w - 2, 2, c.seatDk);     // bottom shade
+  for (let ix = x + 3; ix < x + w - 2; ix += 5) // tufting dimples
+    for (let iy = y + 3; iy < y + h - 3; iy += 5) px(ix, iy, 1, 1, shade(c.seat, -22));
+  px(x - 2, y + 3, 3, h - 6, '#6b4a30'); px(x + w - 1, y + 3, 3, h - 6, '#6b4a30'); // wood armrests
+  px(x - 2, y + 3, 3, 1, '#835d3d'); px(x + w - 1, y + 3, 3, 1, '#835d3d');
 }
 
-function drawPerson(cx, cy, p, t, hp) {
-  const bob = Math.sin(t) * 0.6;
-  // shadow
-  px(cx-5, cy+6+bob, 10, 3, C.shadow);
-  // body / shoulders
-  px(cx-5, cy-2+bob, 10, 8, p.shirt);
-  px(cx-5, cy-2+bob, 10, 2, 'rgba(255,255,255,.12)');
-  // head
-  px(cx-4, cy-9+bob, 8, 8, p.skin);
-  // hair (top-down: covers crown)
-  px(cx-4, cy-9+bob, 8, 4, p.hair);
-  px(cx-4, cy-9+bob, 8, 1, 'rgba(0,0,0,.15)');
-  if (hp) {                                  // headphones over the head (top-down)
-    px(cx-6, cy-8+bob, 2, 6, '#2b2f36'); px(cx+4, cy-8+bob, 2, 6, '#2b2f36');  // ear cups
-    px(cx-6, cy-10+bob, 12, 2, '#474d56');                                     // band over the crown
+// shared cozy character: chunky, outlined, softly shaded (top-down)
+function drawChar(cx, cy, p, o) {
+  o = o || {};
+  const O = C.outline, y = cy + (o.bob || 0);
+  px(cx - 6, y + 8, 12, 2, C.shadow); px(cx - 5, y + 7, 10, 2, C.shadow);   // soft shadow
+  if (o.walk) {                                                            // stepping legs
+    const s = Math.sin(o.walkT || 0) * 1.4;
+    px(cx - 4, y + 5 + Math.max(0, s), 3, 4, '#3a2c24'); px(cx + 1, y + 5 + Math.max(0, -s), 3, 4, '#3a2c24');
   }
+  // body
+  px(cx - 6, y - 2, 12, 9, O);                                             // outline
+  px(cx - 5, y - 1, 10, 7, p.shirt);
+  px(cx - 5, y - 1, 10, 2, shade(p.shirt, 24));                            // shoulder highlight
+  px(cx - 5, y + 4, 10, 2, shade(p.shirt, -22));                           // lower shade
+  px(cx - 5, y, 2, 4, shade(p.shirt, -14)); px(cx + 3, y, 2, 4, shade(p.shirt, -14)); // arms
+  // head
+  px(cx - 5, y - 12, 10, 11, O);                                           // outline
+  px(cx - 4, y - 11, 8, 9, p.skin);
+  px(cx - 4, y - 4, 8, 2, shade(p.skin, -18));                             // jaw shade
+  px(cx - 4, y - 11, 8, 6, p.hair);                                        // hair
+  px(cx - 4, y - 11, 8, 2, shade(p.hair, 20));
+  px(cx - 4, y - 6, 8, 1, shade(p.hair, -22));
+  if (p.hat === 'cap')    { px(cx - 5, y - 13, 10, 5, p.hatc); px(cx - 6, y - 9, 13, 2, shade(p.hatc, -12)); px(cx - 2, y - 12, 4, 2, shade(p.hatc, 26)); }
+  if (p.hat === 'ranger') { px(cx - 6, y - 8, 12, 2, '#6b5236'); px(cx - 4, y - 13, 8, 6, '#7d6140'); px(cx - 4, y - 13, 8, 2, '#93744e'); }
+  if (p.hat === 'chef')   { px(cx - 4, y - 14, 8, 7, '#f3efe6'); px(cx - 5, y - 8, 10, 2, '#f3efe6'); px(cx - 4, y - 14, 8, 2, '#fff'); }
+  if (o.hp) { px(cx - 7, y - 9, 2, 6, '#33383f'); px(cx + 5, y - 9, 2, 6, '#33383f'); px(cx - 7, y - 11, 14, 2, '#4a5058'); }
+  if (o.faceUp) px(cx - 1, y - 3, 2, 1, 'rgba(0,0,0,.3)');
+  else if (o.facing) px(cx + (o.facing > 0 ? 3 : -4), y - 4, 1, 1, 'rgba(0,0,0,.35)');
+}
+function drawPerson(cx, cy, p, t, hp) {
+  drawChar(cx, cy, p, { bob: Math.sin(t) * 0.6, hp });
 }
 
 function drawPlayer() {
-  if (player.seat) {
-    drawPerson(player.x+player.w/2, player.y+player.h/2, player, 0, player.items.includes('headphones'));
-    return;
-  }
   const cx = player.x + player.w/2, cy = player.y + player.h/2;
-  const step = Math.sin(player.walkT) * 1.2;
-  px(cx-5, cy+6, 10, 3, C.shadow);
-  // legs/step
-  px(cx-4, cy+3+Math.max(0,step), 3, 4, '#3a2c24');
-  px(cx+1, cy+3+Math.max(0,-step), 3, 4, '#3a2c24');
-  // body
-  px(cx-5, cy-2, 10, 8, player.shirt);
-  px(cx-5, cy-2, 10, 2, 'rgba(255,255,255,.15)');
-  // head + hair, facing
-  px(cx-4, cy-10, 8, 8, player.skin);
-  px(cx-4, cy-10, 8, 4, player.hair);
-  // a tiny nose-dot to show facing
-  px(cx + (player.facing>0?2:-3), cy-4, 1, 1, 'rgba(0,0,0,.3)');
-  if (player.items.includes('headphones')) {  // wearing headphones
-    px(cx-6, cy-9, 2, 6, '#2b2f36'); px(cx+4, cy-9, 2, 6, '#2b2f36');
-    px(cx-6, cy-11, 12, 2, '#474d56');
-  }
+  const hp = player.items.includes('headphones');
+  if (player.seat) { drawChar(cx, cy, player, { hp }); return; }
+  const moving = Math.abs(Math.sin(player.walkT)) > 0.01 && player.walkT !== 0;
+  drawChar(cx, cy, player, { hp, facing: player.facing, walk: moving, walkT: player.walkT });
 
   // "sit here" prompt if near a free seat (keyboard hint only)
   const st = isTouch ? null : nearestFreeSeat();
@@ -2079,9 +2081,12 @@ function drawPlayer() {
 // a train waiting at the edge with its doors open, the station name overhead.
 let stationT = 0;
 function drawStationBench(bx, by) {
-  px(bx, by, 22, 7, '#6a5947'); px(bx, by, 22, 2, '#7d6b56');   // seat
-  px(bx, by - 5, 22, 3, '#5a4a3a');                             // backrest
-  px(bx + 1, by + 7, 3, 4, '#3f342a'); px(bx + 18, by + 7, 3, 4, '#3f342a'); // legs
+  const O = C.outline;
+  px(bx - 1, by - 6, 24, 15, O);                               // outline
+  px(bx, by - 5, 22, 3, '#6b5236');                            // backrest
+  px(bx, by, 22, 7, '#7a5f3f'); px(bx, by, 22, 2, '#8f6f49');  // seat
+  for (let gx = bx + 2; gx < bx + 20; gx += 4) px(gx, by + 2, 1, 4, '#5f4429'); // slats
+  px(bx + 1, by + 7, 3, 4, '#3f342a'); px(bx + 18, by + 7, 3, 4, '#3f342a');    // legs
 }
 // walkable platform helpers (state is declared up near `atStation`)
 function clampPlatform(x, y) {
@@ -2116,21 +2121,10 @@ function updateStation(dt) {
   } else if (stnY > PLAT_MINY + 10) stnBoardLock = false;
 }
 function drawStationPerson(cx, cy, p, t, facing, walking, faceUp) {
-  const bob = Math.sin(t * 2) * 0.5;
-  px(cx - 5, cy + 6 + bob, 10, 3, C.shadow);                    // shadow
-  const step = walking ? Math.sin(t) * 1.2 : Math.sin(t * 3) * 0.5;
-  px(cx - 4, cy + 3 + bob + Math.max(0, step),  3, 4, '#3a2c24');   // legs
-  px(cx + 1, cy + 3 + bob + Math.max(0, -step), 3, 4, '#3a2c24');
-  px(cx - 5, cy - 2 + bob, 10, 8, p.shirt);                    // body
-  px(cx - 5, cy - 2 + bob, 10, 2, 'rgba(255,255,255,.14)');
-  px(cx - 4, cy - 10 + bob, 8, 8, p.skin);                     // head
-  px(cx - 4, cy - 10 + bob, 8, 4, p.hair);                     // hair
-  if (faceUp) px(cx - 1, cy - 6 + bob, 2, 1, 'rgba(0,0,0,.25)');           // facing the train
-  else px(cx + (facing > 0 ? 2 : -3), cy - 5 + bob, 1, 1, 'rgba(0,0,0,.3)'); // facing L/R
-  if (p.items && p.items.includes('headphones')) {
-    px(cx - 6, cy - 9 + bob, 2, 6, '#2b2f36'); px(cx + 4, cy - 9 + bob, 2, 6, '#2b2f36');
-    px(cx - 6, cy - 11 + bob, 12, 2, '#474d56');
-  }
+  drawChar(cx, cy, p, {
+    bob: Math.sin(t * 2) * 0.5, walk: walking, walkT: t, facing, faceUp,
+    hp: p.items && p.items.includes('headphones'),
+  });
 }
 // each city gets its own skyline + palette so they feel a little different
 const CITY_THEME = {
@@ -2218,8 +2212,8 @@ function drawStationScene() {
   drawStationBench(16, 128); drawStationBench(W - 38, 128);
   px(20, 96, 3, 34, '#5a5048'); px(17, 92, 9, 7, '#ffd98f'); px(17, 92, 9, 2, '#fff2c8');
   px(W - 23, 96, 3, 34, '#5a5048'); px(W - 26, 92, 9, 7, '#ffd98f'); px(W - 26, 92, 9, 2, '#fff2c8');
-  drawStationPerson(44, 176, { shirt:'#6f7f8a', skin:'#caa07b', hair:'#2c2118' }, stationT + 1.7, 1, false, true);
-  drawStationPerson(W - 50, 186, { shirt:'#8a6f9a', skin:'#e2b58c', hair:'#3a2a1d' }, stationT + 3.1, -1, false, false);
+  drawStationPerson(44, 176, { shirt:'#3f5170', skin:'#caa07b', hair:'#2c2118', hat:'cap', hatc:'#2c3f66' }, stationT + 1.7, 1, false, true);
+  drawStationPerson(W - 50, 186, { shirt:'#6f6a4a', skin:'#e2b58c', hair:'#3a2a1d', hat:'ranger' }, stationT + 3.1, -1, false, false);
   // --- "walk aboard" prompt below the open doors (hidden once you're close) -
   if (pr && stnY > 118) {
     ctx.globalAlpha = 0.5 + 0.5 * Math.sin(stationT * 4);
