@@ -321,6 +321,9 @@
     border-bottom: 1px solid rgba(255,255,255,.05); }
   .stn-dep:last-child { border-bottom: none; }
   .stn-dep:active { background: rgba(255,207,107,.08); }
+  .stn-dep.sel { background: rgba(255,207,107,.10); box-shadow: inset 3px 0 0 #ffcf6b; }
+  .stn-dep .go { color: #6f6980; }
+  .stn-dep.sel .go { color: #ffcf6b; }
   .stn-dep .t { font: 800 16px ui-monospace, monospace; color: #ffcf6b; letter-spacing: .5px; flex: 0 0 auto;
     text-shadow: 0 0 10px rgba(255,207,107,.35); }
   .stn-dep .d { flex: 1; color: #f2ecdd; font-size: 14px; font-weight: 700; }
@@ -334,6 +337,11 @@
     border: 1px solid #54998a; border-bottom-width: 3px; font: 700 15px ui-monospace, monospace; letter-spacing: .8px;
   }
   .stn-plan:active { transform: translateY(1px); border-bottom-width: 2px; }
+  .stn-plan2 {
+    width: 100%; margin-top: -4px; padding: 10px; border-radius: 12px; cursor: pointer; background: none;
+    border: none; color: #8f88a0; font: 600 12px ui-monospace, monospace; letter-spacing: .4px;
+  }
+  .stn-plan2:active { color: #cfc8ba; }
   #wclock {
     position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     display: flex; gap: 7px; align-items: baseline; z-index: 7;
@@ -418,10 +426,11 @@
         <div class="stn-city" id="stnCity">Boston · <b id="stnClock">3:15 PM</b></div>
       </div>
       <div class="stn-board">
-        <div class="stn-board-head"><span>Departures</span><span>Plat</span></div>
+        <div class="stn-board-head"><span>Departures · tap to choose</span><span>Plat</span></div>
         <div id="stnDeps"></div>
       </div>
-      <button class="stn-plan" id="stnPlan">Plan a trip →</button>
+      <button class="stn-plan" id="stnBoard">Board →</button>
+      <button class="stn-plan2" id="stnPlan">Plan a trip elsewhere →</button>
     </div>
   </div>
 
@@ -1225,26 +1234,44 @@ let stnX = DOOR_CX, stnY = 150, stnFacing = -1, stnWalkT = 0, stnMoving = false,
 function departuresFrom(city) {
   return ROUTES.filter(r => r.from === city);
 }
+function onwardRoutes() { return departuresFrom(save.lastCity).filter(r => save.lifetimeMiles >= r.minMiles); }
+let selectedDepId = null;                     // the departure you've chosen = the train at the platform
+function platformNo(id) { return departuresFrom(save.lastCity).findIndex(r => r.id === id) + 3; }
+function selectDep(id) {
+  selectedDepId = id; renderStation();
+  const r = platformRoute();
+  if (r) toast('Platform ' + platformNo(id) + ' · ' + r.to + ' — walk aboard or tap Board');
+}
+function boardSelected() { const r = platformRoute(); if (r) bookRoute(r); }
 function renderStation() {
   document.getElementById('stnName').textContent = save.lastStation;
   document.getElementById('stnCity').innerHTML = save.lastCity + ' · <b id="stnClock">' + fmtETClock(Date.now()) + '</b>';
   const board = document.getElementById('stnDeps'); board.innerHTML = '';
+  const boardBtn = document.getElementById('stnBoard');
   const deps = departuresFrom(save.lastCity);
   const t = fmtETClock(nextDepartTs());
   if (!deps.length) {
     board.innerHTML = `<div class="stn-empty">No scheduled departures from here right now.<br>Plan a trip to ride from another city.</div>`;
+    boardBtn.hidden = true;
     return;
   }
+  // keep the selection valid (default to the first unlocked departure)
+  const unlocked = deps.filter(r => save.lifetimeMiles >= r.minMiles);
+  if (!unlocked.some(r => r.id === selectedDepId)) selectedDepId = unlocked[0] ? unlocked[0].id : null;
   deps.forEach((r, i) => {
     const locked = save.lifetimeMiles < r.minMiles;
-    const row = document.createElement('div'); row.className = 'stn-dep';
+    const sel = r.id === selectedDepId;
+    const row = document.createElement('div'); row.className = 'stn-dep' + (sel ? ' sel' : '');
     row.innerHTML =
       `<span class="t">${t}</span>
        <span class="d">${r.to}<small>${locked ? '🔒 ' + r.minMiles + ' mi to unlock' : r.stations.length + ' stops · ' + RIDE_MINUTES + ' min'}</small></span>
-       <span class="p">${i + 3}</span><span class="go">${locked ? '🔒' : '›'}</span>`;
-    if (!locked) row.onclick = () => bookRoute(r);
+       <span class="p">${i + 3}</span><span class="go">${locked ? '🔒' : (sel ? '●' : '○')}</span>`;
+    if (!locked) row.onclick = () => selectDep(r.id);
     board.appendChild(row);
   });
+  const pr = platformRoute();
+  boardBtn.hidden = !pr;
+  if (pr) boardBtn.textContent = 'Board · ' + pr.to + ' →';
 }
 function showStation() {
   atStation = true; document.body.classList.add('at-station');
@@ -1252,6 +1279,7 @@ function showStation() {
   renderStation(); stationEl.classList.add('show');
 }
 function hideStation() { atStation = false; document.body.classList.remove('at-station'); stationEl.classList.remove('show'); }
+document.getElementById('stnBoard').addEventListener('click', boardSelected);
 document.getElementById('stnPlan').addEventListener('click', () => { openTrip(); });
 
 function fmtMMSS(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
@@ -1981,9 +2009,9 @@ function drawStationBench(bx, by) {
 function clampPlatform(x, y) {
   return { x: Math.max(PLAT_MINX, Math.min(PLAT_MAXX, x)), y: Math.max(PLAT_MINY, Math.min(PLAT_MAXY, y)) };
 }
-// the train waiting at this platform = the first unlocked onward departure
-function platformRoute() { return departuresFrom(save.lastCity).find(r => save.lifetimeMiles >= r.minMiles) || null; }
-function boardFromPlatform() { const r = platformRoute(); if (r) { toast('All aboard →'); bookRoute(r); } }
+// the train waiting at this platform = the departure you've selected (else the first unlocked one)
+function platformRoute() { const ow = onwardRoutes(); return ow.find(r => r.id === selectedDepId) || ow[0] || null; }
+function boardFromPlatform() { const r = platformRoute(); if (r) { toast('All aboard · ' + r.to + ' →'); bookRoute(r); } }
 function updateStation(dt) {
   stationT += dt;
   let dx = 0, dy = 0;
