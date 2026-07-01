@@ -522,6 +522,7 @@ function pickItem(key) {
   else if (player.items.length >= MAX_ITEMS) { toast("Table's full — set something down first."); return; }
   else player.items.push(key);
   refreshBag();
+  if (key === 'headphones') setHeadphones(player.items.includes('headphones'));   // music + duck the train
 }
 function openBag()  { bagOpen = true;  bagEl.classList.add('show');  scrimEl.classList.add('show'); refreshBag(); }
 function closeBag() { bagOpen = false; bagEl.classList.remove('show'); scrimEl.classList.remove('show'); }
@@ -530,7 +531,8 @@ document.getElementById('bagDone').addEventListener('click', closeBag);
 scrimEl.addEventListener('click', closeBag);
 
 // --- audio: looped train-interior recording; tap 🔇 to cycle Off/Background/Prominent ---
-let actx = null, master = null, loopLP = null, loopSrc = null, soundBuf = null;
+let actx = null, master = null, trainBus = null, lofiBus = null, loopLP = null, loopSrc = null;
+let soundBuf = null, noiseBuf = null, headphonesOn = false;
 const sndBtn = document.getElementById('snd');
 const SND_URL = 'trainsound.mp3';
 const SOUND_LEVELS = [
@@ -546,9 +548,15 @@ async function buildAudio() {
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
   // nudge iOS fully awake with a 1-sample blip
   try { const u = actx.createBufferSource(); u.buffer = actx.createBuffer(1,1,actx.sampleRate); u.connect(actx.destination); u.start(); } catch (e) {}
-  master = actx.createGain(); master.gain.value = 0.0001; master.connect(actx.destination);
+  master = actx.createGain(); master.gain.value = 1.0; master.connect(actx.destination);
+  trainBus = actx.createGain(); trainBus.gain.value = 0.0001; trainBus.connect(master);  // train level lives here
+  lofiBus  = actx.createGain(); lofiBus.gain.value  = 0.0001; lofiBus.connect(master);    // headphone music
   loopLP = actx.createBiquadFilter(); loopLP.type = 'lowpass'; loopLP.frequency.value = 20000;
-  loopLP.connect(master);
+  loopLP.connect(trainBus);
+  // small noise buffer for lofi hats / crackle
+  noiseBuf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
+  const nd = noiseBuf.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
   // fetch + decode the recording once
   const res = await fetch(SND_URL);
   const ab = await res.arrayBuffer();
@@ -565,15 +573,17 @@ function startLoop() {
   loopSrc.start(0, loopSrc.loopStart);
 }
 
-// effective volume: way low when we've pulled out to the whole-train view
+// effective train volume: low in the whole-train view, and ducked under headphones
 function effectiveGain() {
   if (soundLevel === 0) return 0.0001;
-  return wideView ? 0.05 : SOUND_LEVELS[soundLevel].gain;
+  let g = wideView ? 0.05 : SOUND_LEVELS[soundLevel].gain;
+  if (headphonesOn) g *= 0.3;          // train recedes when you put your headphones on
+  return g;
 }
 function applyMaster() {
-  if (!actx || !master) return;
-  master.gain.cancelScheduledValues(actx.currentTime);
-  master.gain.setTargetAtTime(effectiveGain(), actx.currentTime, 0.4);
+  if (!actx || !trainBus) return;
+  trainBus.gain.cancelScheduledValues(actx.currentTime);
+  trainBus.gain.setTargetAtTime(effectiveGain(), actx.currentTime, 0.4);
 }
 async function cycleSound() {
   try {
@@ -591,6 +601,92 @@ async function cycleSound() {
   }
 }
 sndBtn.addEventListener('click', cycleSound);
+
+// --- lofi music (plays when you put on headphones) --------------------------
+let lofiOn = false, lofiTimer = null, lofiNextBar = 0, lofiBarIdx = 0, lofiCrackle = null;
+const BPM = 72, BEAT = 60 / BPM, BAR = BEAT * 4;
+const LOFI_CHORDS = [                         // Dm7 · G7 · Cmaj7 · Am7 (cosy ii–V–I–vi)
+  [146.83, 174.61, 220.00, 261.63],
+  [196.00, 246.94, 293.66, 174.61],
+  [130.81, 164.81, 196.00, 246.94],
+  [220.00, 261.63, 329.63, 196.00],
+];
+function lofiPad(t, f, dur) {
+  const o = actx.createOscillator(); o.type = 'triangle'; o.frequency.value = f;
+  const o2 = actx.createOscillator(); o2.type = 'sine'; o2.frequency.value = f; o2.detune.value = -8;  // tape warble
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.085, t + 0.45);
+  g.gain.setValueAtTime(0.085, t + dur - 0.6);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1700;
+  o.connect(g); o2.connect(g); g.connect(lp).connect(lofiBus);
+  o.start(t); o2.start(t); o.stop(t + dur); o2.stop(t + dur);
+}
+function lofiKick(t) {
+  const o = actx.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.12);
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+  o.connect(g).connect(lofiBus); o.start(t); o.stop(t + 0.24);
+}
+function lofiNoise(t, rate, hz, type, peak, dur) {
+  const n = actx.createBufferSource(); n.buffer = noiseBuf; n.playbackRate.value = rate;
+  const f = actx.createBiquadFilter(); f.type = type; f.frequency.value = hz; f.Q.value = 0.7;
+  const g = actx.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  n.connect(f).connect(g).connect(lofiBus); n.start(t, Math.random(), dur + 0.02);
+}
+function lofiScheduleBar(t, idx) {
+  for (const f of LOFI_CHORDS[idx % 4]) lofiPad(t, f, BAR * 0.96);
+  lofiKick(t); lofiKick(t + 2 * BEAT);
+  for (let i = 0; i < 4; i++) lofiNoise(t + (i + 0.5) * BEAT, 1.7, 8000, 'highpass', 0.05, 0.05);  // hats
+  lofiNoise(t + BEAT, 1.0, 1800, 'bandpass', 0.11, 0.12);                                          // snare
+  lofiNoise(t + 3 * BEAT, 1.0, 1800, 'bandpass', 0.11, 0.12);
+}
+function lofiTick() {
+  if (!lofiOn || !actx) return;
+  while (lofiNextBar < actx.currentTime + 0.5) { lofiScheduleBar(lofiNextBar, lofiBarIdx); lofiNextBar += BAR; lofiBarIdx++; }
+}
+function startLofi() {
+  if (lofiOn) return;
+  lofiOn = true;
+  lofiCrackle = actx.createBufferSource(); lofiCrackle.buffer = noiseBuf; lofiCrackle.loop = true;  // vinyl crackle
+  const hp = actx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 4500;
+  const cg = actx.createGain(); cg.gain.value = 0.02;
+  lofiCrackle.connect(hp).connect(cg).connect(lofiBus); lofiCrackle.start();
+  lofiBus.gain.cancelScheduledValues(actx.currentTime);
+  lofiBus.gain.setTargetAtTime(0.8, actx.currentTime, 0.6);
+  lofiNextBar = actx.currentTime + 0.15; lofiBarIdx = 0;
+  lofiTimer = setInterval(lofiTick, 80);
+}
+function stopLofi() {
+  if (!lofiOn) return;
+  lofiOn = false;
+  lofiBus.gain.setTargetAtTime(0.0001, actx.currentTime, 0.4);
+  clearInterval(lofiTimer); lofiTimer = null;
+  if (lofiCrackle) { try { lofiCrackle.stop(actx.currentTime + 0.5); } catch (e) {} lofiCrackle = null; }
+}
+
+// put on / take off the headphones: duck the train, play lofi
+async function setHeadphones(on) {
+  headphonesOn = on;
+  try {
+    if (on) {
+      if (!actx) await buildAudio();
+      if (actx.state === 'suspended') { try { await actx.resume(); } catch (e) {} }
+      if (!loopSrc && soundBuf) startLoop();
+      startLofi();
+      toast('Headphones on · lofi ♪');
+    } else {
+      stopLofi();
+      toast('Headphones off');
+    }
+    applyMaster();
+  } catch (e) {}
+}
 
 // --- whole-train overview toggle -------------------------------------------
 const wideBtn = document.getElementById('wide');
@@ -969,8 +1065,9 @@ function drawSeatItems(st) {
   drawTable(st);
   const slots = itemSlots(st);
   if (st.occupant && st.occupant.player) {
-    player.items.forEach((k, i) => { if (slots[i]) drawItemKind(k, slots[i], elapsed); });
-  } else if (st.occupant && st.occupant.npc && st.occupant.item) {
+    // headphones are worn (drawn on the head), not set on the table
+    player.items.forEach((k, i) => { if (slots[i] && k !== 'headphones') drawItemKind(k, slots[i], elapsed); });
+  } else if (st.occupant && st.occupant.npc && st.occupant.item && st.occupant.item !== 'headphones') {
     drawItemKind(st.occupant.item, slots[1], elapsed + st.cy);
   }
 }
@@ -1106,7 +1203,7 @@ function drawSeat(st) {
   px(x+w-1, y+4, 3, h-8, C.seatDk);
 }
 
-function drawPerson(cx, cy, p, t) {
+function drawPerson(cx, cy, p, t, hp) {
   const bob = Math.sin(t) * 0.6;
   // shadow
   px(cx-5, cy+6+bob, 10, 3, C.shadow);
@@ -1118,11 +1215,15 @@ function drawPerson(cx, cy, p, t) {
   // hair (top-down: covers crown)
   px(cx-4, cy-9+bob, 8, 4, p.hair);
   px(cx-4, cy-9+bob, 8, 1, 'rgba(0,0,0,.15)');
+  if (hp) {                                  // headphones over the head (top-down)
+    px(cx-6, cy-8+bob, 2, 6, '#2b2f36'); px(cx+4, cy-8+bob, 2, 6, '#2b2f36');  // ear cups
+    px(cx-6, cy-10+bob, 12, 2, '#474d56');                                     // band over the crown
+  }
 }
 
 function drawPlayer() {
   if (player.seat) {
-    drawPerson(player.x+player.w/2, player.y+player.h/2, player, 0);
+    drawPerson(player.x+player.w/2, player.y+player.h/2, player, 0, player.items.includes('headphones'));
     return;
   }
   const cx = player.x + player.w/2, cy = player.y + player.h/2;
@@ -1139,6 +1240,10 @@ function drawPlayer() {
   px(cx-4, cy-10, 8, 4, player.hair);
   // a tiny nose-dot to show facing
   px(cx + (player.facing>0?2:-3), cy-4, 1, 1, 'rgba(0,0,0,.3)');
+  if (player.items.includes('headphones')) {  // wearing headphones
+    px(cx-6, cy-9, 2, 6, '#2b2f36'); px(cx+4, cy-9, 2, 6, '#2b2f36');
+    px(cx-6, cy-11, 12, 2, '#474d56');
+  }
 
   // "sit here" prompt if near a free seat (keyboard hint only)
   const st = isTouch ? null : nearestFreeSeat();
@@ -1171,7 +1276,7 @@ function frame(now) {
       drawSeat(st);
       if (st.occupant && st.occupant.npc) {
         st.occupant.bob += dt;
-        drawPerson(st.sitX, st.sitY, st.occupant, st.occupant.bob);
+        drawPerson(st.sitX, st.sitY, st.occupant, st.occupant.bob, st.occupant.item === 'headphones');
       }
       drawSeatItems(st, dt);
     }
