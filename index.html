@@ -1859,15 +1859,49 @@ function drawBuilding(bx, yy, urban, r) {
   for (let wy = top + 3; wy < yy + 8; wy += 4) px(bx+2, wy, w-4, 1, 'rgba(255,228,168,.4)'); // lit windows
 }
 function drawHouse(bx, yy, r) {
-  const w = 10 + Math.round(r*3), h = 7 + Math.round(r*2), y = yy + 12 - h;
-  px(bx, y, w, h, '#b98a63');                     // wall
-  px(bx-1, y-3, w+2, 4, '#7a4a37');               // roof
-  px(bx+2, y+2, 2, 2, '#ffe6a8');                 // window
+  const w = 12 + Math.round(r*3), h = 8, y = yy + 12 - h;
+  px(bx-1, y+h, w+2, 2, 'rgba(20,30,15,.18)');    // ground shadow
+  px(bx-1, y-1, w+2, h+1, C.outline);             // outline
+  px(bx, y, w, h, '#cba379'); px(bx, y, w, 1, '#ddb78c');   // cream cabin wall
+  for (let k = 0; k < 6; k++) px(bx-2+k, y-1-k, w+4-2*k, 1, k < 2 ? '#8a4636' : '#a85c44'); // pitched shingle roof
+  px(bx-2, y-1, w+4, 1, C.outline);
+  px(bx+2, y+3, 3, 3, '#5a3f28');                 // door
+  px(bx+w-4, y+2, 2, 2, '#ffe6a8');               // lit window
+}
+function triFill(cxp, top, half, height, color) {   // a filled pixel triangle (point up)
+  for (let y = 0; y < height; y++) { const hw = Math.max(0, Math.round(half * (y / height))); px(cxp - hw, top + y, hw * 2 + 1, 1, color); }
+}
+function drawPine(bx, top, s) {                       // a layered, shaded conifer
+  s = s || 1;
+  const tw = Math.max(10, Math.round(12 * s)), th = Math.max(13, Math.round(17 * s)), cxp = bx + Math.floor(tw / 2), half = Math.floor(tw / 2);
+  px(bx + 2, top + th, tw - 2, 2, 'rgba(18,26,12,.22)');           // ground shadow
+  px(cxp - 1, top + th - 4, 3, 5, '#553622'); px(cxp - 1, top + th - 4, 1, 5, '#3f281a'); // trunk
+  triFill(cxp, top, half, th - 2, '#2b5c30');                       // dark body
+  triFill(cxp, top + 2, half - 1, th - 5, '#3c7a3e');               // mid
+  triFill(cxp - 1, top + 3, Math.max(1, half - 3), th - 8, '#5aa457'); // sunlit left
+  for (let k = 1; k <= 2; k++) { const yy = top + Math.round(th * k * 0.3), hw = Math.round(half * (k * 0.3) + 1); px(cxp - hw, yy, hw * 2, 1, '#234c28'); } // tier notches
+}
+function drawRock(bx, by, s) {
+  s = s || 1; const w = Math.max(5, Math.round(7 * s)), h = Math.max(3, Math.round(4 * s));
+  px(bx - 1, by + 1, w + 2, h, 'rgba(20,30,15,.18)');
+  px(bx, by, w, h, '#7f7c76'); px(bx, by, w, 1, '#9d9a92'); px(bx, by + h - 1, w, 1, '#5c5952'); px(bx + 1, by + 1, 1, 1, '#b2afa6');
 }
 function drawTreeish(f, bx, yy) {
-  if (f.kind === 'bush') { px(bx+1, yy+4, 9, 6, C.treeDk); px(bx+2, yy+3, 7, 5, C.tree); }
-  else if (f.kind === 'pole') { px(bx+4, yy, 2, 16, C.pole); px(bx+1, yy+2, 8, 2, C.pole); }
-  else { px(bx+4, yy+9, 3, 6, '#6b4a2e'); px(bx, yy, 11, 11, C.treeDk); px(bx+1, yy+1, 9, 8, C.tree); px(bx+3, yy+2, 4, 3, '#3f9450'); }
+  if (f.kind === 'bush') {                            // a leafy round shrub
+    px(bx, yy + 3, 11, 8, C.treeDk); px(bx + 1, yy + 2, 9, 7, C.tree); px(bx + 2, yy + 2, 5, 2, '#5aa457'); px(bx + 4, yy + 11, 3, 2, '#4a3a24');
+  } else if (f.kind === 'pole') {
+    drawPine(bx, yy - 2, 0.82);                       // a smaller pine (more forest)
+  } else {
+    drawPine(bx - 1, yy - 4, 1 + (f.off % 6) / 12);   // full pine, size varies
+  }
+}
+// scattered grass tufts + wildflowers along the line
+const groundBits = [];
+(function () { for (let i = 0; i < 80; i++) groundBits.push({ y: i * 19 + (i * 7 % 14), fx: (i * 37 % 1000) / 1000, kind: i % 5 }); })();
+function drawGrassBit(bx, yy, kind) {
+  if (kind < 2) { px(bx, yy, 1, 2, '#4c8a3c'); px(bx - 1, yy + 1, 3, 1, '#4c8a3c'); }        // grass tuft
+  else if (kind === 2) { px(bx, yy, 2, 2, '#e6cf4a'); px(bx, yy - 1, 1, 1, '#fff0a0'); }     // buttercup
+  else if (kind === 3) { px(bx, yy, 2, 2, '#d8708c'); px(bx, yy - 1, 1, 1, '#f2aec2'); }     // pink flower
 }
 
 // --- corridor character (the real ride's geography) ------------------------
@@ -1889,10 +1923,15 @@ function drawSea(a) {                       // the Sound on the left window
   ctx.globalAlpha = a;
   for (let y=-8; y<H+8; y+=8) {
     const yy = ((y + scroll*0.5) % (H+16)) - 8;
-    px(0, yy, WALL_L, 8, (Math.floor((yy+scroll)/8)%2) ? '#5b9fb8' : '#4e93ac');
+    px(0, yy, WALL_L, 8, (Math.floor((yy+scroll)/8)%2) ? '#4f97b4' : '#448aa6');
   }
-  px(WALL_L-5, 0, 5, H, '#79bdd1');         // bright band nearest the track (shore/shimmer)
-  for (let y=0; y<H; y+=12) px(WALL_L-5, ((y + scroll*0.5) % H), 5, 2, 'rgba(255,255,255,.22)');
+  for (const b of groundBits) {             // ripple flecks + the odd rock in the shallows
+    const yy = ((b.y*1.3 + scroll*0.5) % (H+40)) - 20, bx = 2 + b.fx * (WALL_L - 8);
+    if (b.kind === 4) drawRock(bx, yy, 0.8);
+    else px(bx, yy, 2, 1, 'rgba(230,246,252,.4)');
+  }
+  px(WALL_L-5, 0, 5, H, '#7fc0d3');         // bright shore band nearest the track
+  for (let y=0; y<H; y+=12) px(WALL_L-5, ((y + scroll*0.5) % H), 5, 2, 'rgba(255,255,255,.28)');
   for (const f of feats) {                  // sailboats + buoys drifting on the water
     if (f.side !== 'L') continue;
     const yy = ((f.y*1.1 + scroll*0.5) % (H+60)) - 30, k = f.off % 3;
@@ -1922,12 +1961,16 @@ function drawScenery() {
   const uc = Math.min(1, urban);
   const coast = coastAmount();
   const gA = hexMix(C.fieldA, '#9a958c', uc*0.85), gB = hexMix(C.fieldB, '#8b867d', uc*0.85);
-  for (const band of [{x:0,w:WALL_L},{x:WALL_R,w:W-WALL_R}]) {
+  for (const band of [{x:0,w:WALL_L,left:true},{x:WALL_R,w:W-WALL_R,left:false}]) {
     for (let y=-40; y<H+40; y+=8) {
       const yy = ((y + scroll*0.9) % (H+80)) - 40;
       px(band.x, yy, band.w, 8, (Math.floor((yy+scroll)/8)%2) ? gA : gB);
     }
-    px(band.x===0 ? WALL_L-4 : WALL_R, 0, 4, H, hexMix(C.dirt, '#7c7a78', uc*0.7));
+    px(band.x===0 ? WALL_L-4 : WALL_R, 0, 4, H, hexMix(C.dirt, '#7c7a78', uc*0.7));  // ballast edge
+    if (uc < 0.5 && !(band.left && coast > 0.5)) for (const b of groundBits) {       // countryside wildflowers
+      const yy = ((b.y + scroll*0.9) % (H+40)) - 20;
+      drawGrassBit(band.x + 3 + b.fx * (band.w - 8), yy, b.kind);
+    }
   }
   // lineside features morph with the region: skyline ↔ houses ↔ trees (left side gives way to the sea)
   for (const f of feats) {
@@ -1937,7 +1980,7 @@ function drawScenery() {
     const r = (f.off % 18) / 18;                  // stable per-feature 0..1
     const u = urban + (r - 0.5) * 0.4;            // soft blending at region edges
     if (u > 0.62) drawBuilding(bx, yy, urban, r);
-    else if (u > 0.30) drawHouse(bx, yy, r);
+    else if (u > 0.46) drawHouse(bx, yy, r);
     else drawTreeish(f, bx, yy);
   }
   if (coast > 0.01) drawSea(coast);               // Long Island Sound out the left window
@@ -2326,13 +2369,19 @@ function drawWideView() {
     const yy = ((y + scroll*0.8) % (H+32)) - 16;
     px(0, yy, W, 16, (Math.floor((yy+scroll)/16) % 2) ? gA : gB);
   }
-  // the sea takes over the left of the line along the shoreline
+  if (uc < 0.5) for (const b of groundBits) {          // wildflowers across the meadow (not on the track)
+    const yy = ((b.y + scroll*0.8) % (H+40)) - 20, bx = b.fx * W;
+    if (Math.abs(bx - cx) > 22 && !(coast > 0.5 && bx < cx)) drawGrassBit(bx, yy, b.kind);
+  }
+  // the sea takes over the left of the line along the shoreline, with rocks at the water's edge
   if (coast > 0.01) {
     ctx.globalAlpha = coast;
     for (let y = -8; y < H+8; y += 8) {
       const yy = ((y + scroll*0.5) % (H+16)) - 8;
-      px(0, yy, cx-17, 8, (Math.floor((yy+scroll)/8)%2) ? '#5b9fb8' : '#4e93ac');
+      px(0, yy, cx-19, 8, (Math.floor((yy+scroll)/8)%2) ? '#4f97b4' : '#448aa6');
     }
+    px(cx-22, 0, 3, H, '#7fc0d3');
+    for (const b of groundBits) { const yy = ((b.y*1.3 + scroll*0.5) % (H+40)) - 20; if (b.kind === 4) drawRock(cx - 30 + b.fx * 10, yy, 0.9); }
     ctx.globalAlpha = 1;
   }
   // 2) lineside on both sides of the track: skyline ↔ houses ↔ trees, matching the region
@@ -2342,17 +2391,18 @@ function drawWideView() {
     const sides = coast > 0.5 ? [W - 22 - f.off*1.3] : [10 + f.off*1.3, W - 22 - f.off*1.3];  // left is sea
     for (const bx of sides) {
       if (u > 0.62) drawBuilding(bx, yy, urban, r);
-      else if (u > 0.30) drawHouse(bx, yy, r);
+      else if (u > 0.46) drawHouse(bx, yy, r);
       else drawTreeish(f, bx, yy);
     }
   }
-  // 2) the track: ballast, scrolling sleepers, two rails
-  px(cx-17, 0, 34, H, '#9b8c74'); px(cx-17, 0, 2, H, '#857862'); px(cx+15, 0, 2, H, '#857862');
-  for (let y = -12; y < H+12; y += 12) {
-    const yy = ((y + scroll) % (H+24)) - 12;
-    px(cx-15, yy, 30, 4, '#7a5a3a');
+  // 2) the track: gravel ballast, wooden sleepers, two steel rails
+  px(cx-19, 0, 38, H, '#8a8278'); px(cx-19, 0, 2, H, '#736c62'); px(cx+17, 0, 2, H, '#736c62');
+  for (const b of groundBits) { const yy = ((b.y + scroll) % (H+18)) - 9; px(cx-16 + b.fx*30, yy, 1, 1, (b.kind%2) ? '#6f685f' : '#a49b8c'); } // gravel
+  for (let y = -14; y < H+14; y += 10) {
+    const yy = ((y + scroll) % (H+28)) - 14;
+    px(cx-16, yy, 32, 5, '#6b4a2c'); px(cx-16, yy, 32, 1, '#7d5836');   // sleepers
   }
-  px(cx-10, 0, 2, H, '#5c6066'); px(cx+8, 0, 2, H, '#5c6066');
+  for (const rx of [cx-12, cx+9]) { px(rx, 0, 3, H, '#4c5157'); px(rx, 0, 1, H, '#90969d'); } // rails + shine
   // 3) the train: locomotive + carriages, your car marked
   for (let i = 0; i < TRAIN.length; i++) {
     const s = TRAIN[i];
