@@ -640,6 +640,19 @@ const player = {
   speed: 64, facing: 1, walkT: 0, seat: null,
   items: ['coffee', 'book'],   // what's out on your table (max 3); chosen from your bag
 };
+// your character — a hand-drawn sprite (background keyed out + resized to 17×30)
+const playerImg = new Image(); let playerImgOK = false;
+playerImg.onload = () => { playerImgOK = true; };
+playerImg.src = 'data:image/png;base64,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';
+function drawPlayerSprite(cx, cy, facing, bob) {
+  if (!playerImgOK) return false;
+  const w = playerImg.width, h = playerImg.height;       // drawn 1:1 for crisp pixels
+  const dx = Math.round(cx - w / 2), dy = Math.round(cy + 8 - h + (bob || 0));
+  px(cx - 6, cy + 7, 12, 2, C.shadow); px(cx - 5, cy + 9, 10, 1, C.shadow);   // soft shadow
+  if (facing < 0) { ctx.save(); ctx.translate(dx + w, dy); ctx.scale(-1, 1); ctx.drawImage(playerImg, 0, 0, w, h); ctx.restore(); }
+  else ctx.drawImage(playerImg, dx, dy, w, h);
+  return true;
+}
 
 // everything you can take out of your bag
 const BAG = [
@@ -2121,9 +2134,15 @@ function drawPerson(cx, cy, p, t, hp) {
 function drawPlayer() {
   const cx = player.x + player.w/2, cy = player.y + player.h/2;
   const hp = player.items.includes('headphones');
-  if (player.seat) { drawChar(cx, cy, player, { hp }); return; }
-  const moving = Math.abs(Math.sin(player.walkT)) > 0.01 && player.walkT !== 0;
-  drawChar(cx, cy, player, { hp, facing: player.facing, walk: moving, walkT: player.walkT });
+  const moving = !player.seat && player.walkT !== 0;
+  const bob = moving ? -Math.abs(Math.sin(player.walkT)) * 1.5 : 0;   // a little hop while walking
+  if (drawPlayerSprite(cx, cy, player.facing, bob)) {                 // the hand-drawn sprite
+    if (player.seat) return;
+  } else if (player.seat) {
+    drawChar(cx, cy, player, { hp }); return;
+  } else {
+    drawChar(cx, cy, player, { hp, facing: player.facing, walk: moving, walkT: player.walkT });
+  }
 
   // "sit here" prompt if near a free seat (keyboard hint only)
   const st = isTouch ? null : nearestFreeSeat();
@@ -2283,7 +2302,9 @@ function drawStationScene() {
     ctx.globalAlpha = 1;
   }
   // --- you ------------------------------------------------------------------
-  drawStationPerson(stnX, stnY, player, stnMoving ? stnWalkT : stationT, stnFacing, stnMoving, !stnMoving && stnY > 90);
+  const pbob = stnMoving ? -Math.abs(Math.sin(stnWalkT)) * 1.5 : 0;
+  if (!drawPlayerSprite(stnX, stnY, stnFacing, pbob))
+    drawStationPerson(stnX, stnY, player, stnMoving ? stnWalkT : stationT, stnFacing, stnMoving, !stnMoving && stnY > 90);
 }
 
 // --- main loop -------------------------------------------------------------
