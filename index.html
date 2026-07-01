@@ -283,6 +283,61 @@
   .bd-dismiss:active { background: rgba(0,0,0,.12); }
   .bd-back { margin-top: 10px; width: 100%; padding: 10px; border-radius: 11px; cursor: pointer;
     background: none; border: none; color: #8a8170; font: 600 11px ui-monospace, monospace; letter-spacing: .5px; }
+
+  /* ---- station "home" screen (opens here, at your last station) ---------- */
+  #station {
+    position: fixed; inset: 0; z-index: 8; display: flex; flex-direction: column;
+    justify-content: flex-end; align-items: center;
+    background:
+      radial-gradient(130% 70% at 50% 8%, rgba(255,196,120,.10) 0%, rgba(255,196,120,0) 55%),
+      linear-gradient(180deg, #1b1722 0%, #14111b 60%, #100e16 100%);
+    opacity: 0; pointer-events: none; transition: opacity .45s;
+    padding: 0 0 calc(18px + env(safe-area-inset-bottom));
+  }
+  #station.show { opacity: 1; pointer-events: auto; }
+  /* far platform silhouette + rails for a stationy backdrop */
+  #station::before {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 46%;
+    background:
+      repeating-linear-gradient(90deg, transparent 0 46px, rgba(255,255,255,.03) 46px 48px),
+      linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.28) 100%);
+    border-top: 2px solid rgba(255,255,255,.06);
+  }
+  .stn-card {
+    position: relative; z-index: 1; width: min(400px, 92vw);
+    display: flex; flex-direction: column; gap: 16px;
+    transition: transform .5s cubic-bezier(.2,.85,.25,1), opacity .5s;
+  }
+  #station:not(.show) .stn-card { transform: translateY(24px); opacity: 0; }
+  .stn-top { text-align: center; }
+  .stn-eyebrow { font: 700 10px ui-monospace, monospace; letter-spacing: 2.5px; color: #7fd3bd; margin-bottom: 8px; }
+  .stn-eyebrow::before { content: '● '; }
+  .stn-name { font-size: 27px; font-weight: 800; letter-spacing: -.4px; color: #fff; line-height: 1.1; }
+  .stn-city { margin-top: 7px; font: 600 12px ui-monospace, monospace; letter-spacing: .4px; color: #a49db3; }
+  .stn-city b { color: #ffd9a0; }
+  /* split-flap style departures board */
+  .stn-board { background: #100d0a; border: 1px solid rgba(255,207,107,.16);
+    border-radius: 16px; overflow: hidden; box-shadow: 0 14px 40px rgba(0,0,0,.5) inset, 0 10px 30px rgba(0,0,0,.4); }
+  .stn-board-head { display: flex; justify-content: space-between; padding: 9px 15px;
+    font: 700 8.5px ui-monospace, monospace; letter-spacing: 2px; color: #8a7a52;
+    background: rgba(255,207,107,.06); border-bottom: 1px solid rgba(255,207,107,.12); }
+  .stn-dep { display: flex; align-items: center; gap: 12px; padding: 13px 15px; cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,.05); }
+  .stn-dep:last-child { border-bottom: none; }
+  .stn-dep:active { background: rgba(255,207,107,.08); }
+  .stn-dep .t { font: 800 16px ui-monospace, monospace; color: #ffcf6b; letter-spacing: .5px; flex: 0 0 auto;
+    text-shadow: 0 0 10px rgba(255,207,107,.35); }
+  .stn-dep .d { flex: 1; color: #f2ecdd; font-size: 14px; font-weight: 700; }
+  .stn-dep .d small { display: block; color: #8f88a0; font-size: 9.5px; font-weight: 500; margin-top: 2px; letter-spacing: .2px; }
+  .stn-dep .p { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center;
+    background: rgba(255,207,107,.12); color: #ffcf6b; font: 800 13px ui-monospace, monospace; }
+  .stn-dep .go { flex: 0 0 auto; color: #7fd3bd; font-size: 15px; }
+  .stn-empty { padding: 20px 15px; text-align: center; color: #6f6980; font-size: 12px; line-height: 1.5; }
+  .stn-plan {
+    width: 100%; padding: 15px; border-radius: 15px; cursor: pointer; background: #2f7d6e; color: #fff;
+    border: 1px solid #54998a; border-bottom-width: 3px; font: 700 15px ui-monospace, monospace; letter-spacing: .8px;
+  }
+  .stn-plan:active { transform: translateY(1px); border-bottom-width: 2px; }
   #wclock {
     position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     display: flex; gap: 7px; align-items: baseline; z-index: 7;
@@ -358,6 +413,21 @@
   <div id="wrap"><canvas id="game"></canvas></div>
 
   <div id="wclock"><span id="wcTime">—</span><span class="z">ET</span><span class="dep" id="wcDep"></span></div>
+
+  <div id="station">
+    <div class="stn-card">
+      <div class="stn-top">
+        <div class="stn-eyebrow">YOU ARE AT</div>
+        <div class="stn-name" id="stnName">Boston South Station</div>
+        <div class="stn-city" id="stnCity">Boston · <b id="stnClock">3:15 PM</b></div>
+      </div>
+      <div class="stn-board">
+        <div class="stn-board-head"><span>Departures</span><span>Plat</span></div>
+        <div id="stnDeps"></div>
+      </div>
+      <button class="stn-plan" id="stnPlan">Plan a trip →</button>
+    </div>
+  </div>
 
   <button id="act">Sit</button>
   <button id="snd" aria-label="toggle train sounds">🔇</button>
@@ -1095,6 +1165,8 @@ function creditTrip() {
   save.lifetimeMiles += ROUTE.totalMiles;
   save.trips += 1;
   STATIONS.forEach(s => { save.stations[s.name] = 1; });
+  save.lastStation = STATIONS[STATIONS.length - 1].name;   // you're now at the destination
+  save.lastCity = ROUTE.to;
   persist();
   const after = classUnlocked();
   if (after > before) setTimeout(() => toast('✦ Unlocked ' + CLASSES[after].name + '!'), 1400);
@@ -1102,7 +1174,7 @@ function creditTrip() {
 
 // --- boarding pass ---------------------------------------------------------
 const boardingEl = document.getElementById('boarding');
-let boarding = true;     // boarding pass is up / not yet committed to a departure
+let boarding = false;    // boarding pass is up / not yet committed to a departure
 let boarded  = false;    // aboard the scheduled train (schedule is now driving position)
 let departTs = 0;        // wall-clock (epoch ms) this train departs — clock-driven from here
 function showBoarding() {
@@ -1124,25 +1196,61 @@ function board() {
   // time — you're aboard early, sitting at the platform until the clock hits it.
   departTs = effectiveDepartTs();   // lock in against the live clock
   timetable = buildTimetable();
-  boarding = false; boarded = true;
+  boarding = false; boarded = true; atStation = false;
+  hideStation();
   boardingEl.classList.remove('show');
   const wait = Math.round((departTs - Date.now()) / 1000);
   toast(wait > 45 ? 'Aboard · departs ' + fmtETClock(departTs)
                   : 'Aboard · departing shortly from ' + STATIONS[0].name);
 }
 document.getElementById('bdGo').addEventListener('click', board);
-// dismiss the pass without boarding — you keep the ticket, train stays at the platform,
-// and the phone hub becomes reachable so you can plan another trip.
-function dismissBoarding() { boardingEl.classList.remove('show'); }
+// dismiss the pass without boarding — the train stays at the platform and you
+// drop back to the station concourse, where you can plan another trip.
+function dismissBoarding() { boarding = false; boardingEl.classList.remove('show'); showStation(); }
 document.getElementById('bdDismiss').addEventListener('click', dismissBoarding);
 document.getElementById('bdBack').addEventListener('click', () => { dismissBoarding(); openTrip(); });
 boardingEl.addEventListener('click', (e) => { if (e.target === boardingEl) dismissBoarding(); });
+
+// --- station "home" concourse ----------------------------------------------
+// The app opens here, at the last station you were at — never straight to a
+// ticket. It shows a live departures board of onward trains from this city.
+const stationEl = document.getElementById('station');
+let atStation = false;
+// which routes leave from a given city (their origin), for the departures board
+function departuresFrom(city) {
+  return ROUTES.filter(r => r.from === city);
+}
+function renderStation() {
+  document.getElementById('stnName').textContent = save.lastStation;
+  document.getElementById('stnCity').innerHTML = save.lastCity + ' · <b id="stnClock">' + fmtETClock(Date.now()) + '</b>';
+  const board = document.getElementById('stnDeps'); board.innerHTML = '';
+  const deps = departuresFrom(save.lastCity);
+  const t = fmtETClock(nextDepartTs());
+  if (!deps.length) {
+    board.innerHTML = `<div class="stn-empty">No scheduled departures from here right now.<br>Plan a trip to ride from another city.</div>`;
+    return;
+  }
+  deps.forEach((r, i) => {
+    const locked = save.lifetimeMiles < r.minMiles;
+    const row = document.createElement('div'); row.className = 'stn-dep';
+    row.innerHTML =
+      `<span class="t">${t}</span>
+       <span class="d">${r.to}<small>${locked ? '🔒 ' + r.minMiles + ' mi to unlock' : r.stations.length + ' stops · ' + RIDE_MINUTES + ' min'}</small></span>
+       <span class="p">${i + 3}</span><span class="go">${locked ? '🔒' : '›'}</span>`;
+    if (!locked) row.onclick = () => bookRoute(r);
+    board.appendChild(row);
+  });
+}
+function showStation() { atStation = true; renderStation(); stationEl.classList.add('show'); }
+function hideStation() { atStation = false; stationEl.classList.remove('show'); }
+document.getElementById('stnPlan').addEventListener('click', () => { openTrip(); });
 
 function fmtMMSS(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function updateWorldClock() {
   const now = Date.now();
   document.getElementById('wcTime').textContent = fmtETClock(now);
   document.getElementById('phTime').textContent = fmtETClock(now);
+  const sc = document.getElementById('stnClock'); if (sc) sc.textContent = fmtETClock(now);
   const dep = document.getElementById('wcDep');
   const toDep = (departTs - now) / 1000;
   if (arrived) {
@@ -1377,7 +1485,7 @@ const CLASSES = [
   { name:'1st Class', short:'1st', at:2500, seat:'#8a4c6a', seatDk:'#5f3049', seatHi:'#b0688a', head:'#4a2438' },
 ];
 const SAVE_KEY = 'cozycommute.v1';
-let save = { lifetimeMiles:0, trips:0, classCurrent:0, stations:{} };
+let save = { lifetimeMiles:0, trips:0, classCurrent:0, stations:{}, lastStation:'Boston South Station', lastCity:'Boston' };
 try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s); } catch (e) {}
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
 function classUnlocked() { let t = 0; for (let i = 0; i < CLASSES.length; i++) if (save.lifetimeMiles >= CLASSES[i].at) t = i; return t; }
@@ -1393,9 +1501,10 @@ function loadRoute(r) {
             bridges:(r.bridges||[]).map(b => ({ m:b.m, name:b.name, seen:false })) };
   STATIONS = r.stations.map((s, i) => ({ name:s.name, mile:s.mile, side:i % 2 ? 'L' : 'R', announced:false }));
   stRows = null;   // stop list rebuilds for the new route
+  timetable = buildTimetable();   // keep a valid timetable even before you board
 }
-loadRoute(ROUTES[1]);   // default: Boston → New York
-showBoarding();         // start at the platform (now that ROUTE is set)
+loadRoute(ROUTES[1]);   // a route is loaded so ROUTE is defined, but we don't board yet
+showStation();          // open at the station concourse — your last stop, not a ticket
 
 // --- living-window state ----------------------------------------------------
 let dayT = 0;            // 0..1 position in a looping day/night cycle
@@ -1489,7 +1598,7 @@ function update(dt) {
     }
     for (const bg of ROUTE.bridges) if (!bg.seen && Math.abs(miles - bg.m) < 0.5) { bg.seen = true; toast('🌉 Crossing the ' + bg.name); }
 
-    if (e >= timetable[timetable.length - 1].arr) { arrived = true; miles = ROUTE.totalMiles; creditTrip(); openTrip(); }  // journey's end
+    if (e >= timetable[timetable.length - 1].arr) { arrived = true; miles = ROUTE.totalMiles; creditTrip(); showStation(); openTrip(); }  // journey's end → arrive at the station
   }
   if (arrived) trainSpeed += (0 - trainSpeed) * Math.min(1, dt * 2);
   etaSeconds = arrived ? 0 : Math.max(0, timetable[timetable.length - 1].arr - Math.max(0, (Date.now() - departTs) / 1000));
