@@ -603,8 +603,9 @@ async function cycleSound() {
 sndBtn.addEventListener('click', cycleSound);
 
 // --- lofi music (plays when you put on headphones) --------------------------
-let lofiOn = false, lofiTimer = null, lofiNextBar = 0, lofiBarIdx = 0, lofiCrackle = null;
+let lofiOn = false, lofiTimer = null, lofiNextBar = 0, lofiBarIdx = 0, lofiCrackle = null, lofiStartAt = 0;
 const BPM = 72, BEAT = 60 / BPM, BAR = BEAT * 4;
+const DRUM_INTRO = 60;   // chords + crackle only for the first minute, then the beat comes in
 const LOFI_CHORDS = [                         // Dm7 · G7 · Cmaj7 · Am7 (cosy ii–V–I–vi)
   [146.83, 174.61, 220.00, 261.63],
   [196.00, 246.94, 293.66, 174.61],
@@ -623,11 +624,11 @@ function lofiPad(t, f, dur) {
   o.connect(g); o2.connect(g); g.connect(lp).connect(lofiBus);
   o.start(t); o2.start(t); o.stop(t + dur); o2.stop(t + dur);
 }
-function lofiKick(t) {
+function lofiKick(t, vol) {
   const o = actx.createOscillator(); o.type = 'sine';
   o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.12);
   const g = actx.createGain();
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.01);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5 * vol, t + 0.01);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
   o.connect(g).connect(lofiBus); o.start(t); o.stop(t + 0.24);
 }
@@ -641,10 +642,13 @@ function lofiNoise(t, rate, hz, type, peak, dur) {
 }
 function lofiScheduleBar(t, idx) {
   for (const f of LOFI_CHORDS[idx % 4]) lofiPad(t, f, BAR * 0.96);
-  lofiKick(t); lofiKick(t + 2 * BEAT);
-  for (let i = 0; i < 4; i++) lofiNoise(t + (i + 0.5) * BEAT, 1.7, 8000, 'highpass', 0.05, 0.05);  // hats
-  lofiNoise(t + BEAT, 1.0, 1800, 'bandpass', 0.11, 0.12);                                          // snare
-  lofiNoise(t + 3 * BEAT, 1.0, 1800, 'bandpass', 0.11, 0.12);
+  // the beat drops in after the first minute, fading up over a few seconds
+  const dv = Math.max(0, Math.min(1, (t - lofiStartAt - DRUM_INTRO) / 4));
+  if (dv <= 0) return;
+  lofiKick(t, dv); lofiKick(t + 2 * BEAT, dv);
+  for (let i = 0; i < 4; i++) lofiNoise(t + (i + 0.5) * BEAT, 1.7, 8000, 'highpass', 0.05 * dv, 0.05);  // hats
+  lofiNoise(t + BEAT, 1.0, 1800, 'bandpass', 0.11 * dv, 0.12);                                          // snare
+  lofiNoise(t + 3 * BEAT, 1.0, 1800, 'bandpass', 0.11 * dv, 0.12);
 }
 function lofiTick() {
   if (!lofiOn || !actx) return;
@@ -659,6 +663,7 @@ function startLofi() {
   lofiCrackle.connect(hp).connect(cg).connect(lofiBus); lofiCrackle.start();
   lofiBus.gain.cancelScheduledValues(actx.currentTime);
   lofiBus.gain.setTargetAtTime(0.8, actx.currentTime, 0.6);
+  lofiStartAt = actx.currentTime;
   lofiNextBar = actx.currentTime + 0.15; lofiBarIdx = 0;
   lofiTimer = setInterval(lofiTick, 80);
 }
