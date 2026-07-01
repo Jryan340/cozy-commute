@@ -988,7 +988,10 @@ const ROUTES = [
     stations:[ {name:'Boston South Station',mile:0},{name:'Back Bay',mile:1},{name:'Route 128',mile:11},{name:'Providence',mile:43},
       {name:'Kingston',mile:75},{name:'Westerly',mile:92},{name:'Mystic',mile:105},{name:'New London',mile:118},
       {name:'Old Saybrook',mile:136},{name:'New Haven',mile:156},{name:'Bridgeport',mile:175},{name:'Stamford',mile:193},
-      {name:'New Rochelle',mile:207},{name:'New York Penn Station',mile:229} ] },
+      {name:'New Rochelle',mile:207},{name:'New York Penn Station',mile:229} ],
+    // real corridor character: RI sprint, the CT shoreline, tidal-river bridges, underground into Penn
+    fast:[[43,90]], slow:[[92,156]], coast:[[92,156]], underground:214,
+    bridges:[{m:105,name:'Mystic River'},{m:112,name:'Niantic River'},{m:118,name:'Thames River'},{m:136,name:'Connecticut River'}] },
   { id:'nydc', from:'New York', to:'Washington', fromCode:'NYC', toCode:'WAS', depart:'9:00 AM', minMiles:300,
     stations:[ {name:'New York Penn Station',mile:0},{name:'Newark',mile:10},{name:'Metropark',mile:25},{name:'Trenton',mile:58},
       {name:'Philadelphia 30th St',mile:91},{name:'Wilmington',mile:116},{name:'Baltimore Penn',mile:184},
@@ -1017,7 +1020,9 @@ let ROUTE, STATIONS;
 function loadRoute(r) {
   const last = r.stations[r.stations.length - 1].mile;
   ROUTE = { id:r.id, from:r.from, to:r.to, fromCode:r.fromCode, toCode:r.toCode, depart:r.depart,
-            label:`${r.from} → ${r.to}`, totalMiles:last };
+            label:`${r.from} → ${r.to}`, totalMiles:last,
+            fast:r.fast||[], slow:r.slow||[], coast:r.coast||[], underground:(r.underground!=null?r.underground:null),
+            bridges:(r.bridges||[]).map(b => ({ m:b.m, name:b.name, seen:false })) };
   STATIONS = r.stations.map((s, i) => ({ name:s.name, mile:s.mile, side:i % 2 ? 'L' : 'R', announced:false }));
   stRows = null;   // stop list rebuilds for the new route
 }
@@ -1106,19 +1111,21 @@ function update(dt) {
         if (nextStop >= STATIONS.length - 1) { arrived = true; creditTrip(); openTrip(); }  // journey's end
         else { dwellTimer = DWELL; toast('🚉 Now stopping · ' + target.name); }
       } else {                                             // approach: brake near the stop, else cruise
-        const want = d < BRAKE_DIST ? Math.max(0.28, CRUISE * (d / BRAKE_DIST)) : CRUISE;
+        const cruise = CRUISE * speedFactor();             // sprint through RI, crawl the shoreline
+        const want = d < BRAKE_DIST ? Math.max(0.28, cruise * (d / BRAKE_DIST)) : cruise;
         trainSpeed += (want - trainSpeed) * Math.min(1, dt * 3);
         miles = Math.min(target.mile, miles + trainSpeed * dt);
       }
     }
     scroll += trainSpeed * SCROLL_PER_MILE * dt;           // scenery moves with the train
+    for (const bg of ROUTE.bridges) if (!bg.seen && Math.abs(miles - bg.m) < 0.35) { bg.seen = true; toast('🌉 Crossing the ' + bg.name); }
   }
   if (arrived) trainSpeed += (0 - trainSpeed) * Math.min(1, dt * 2);
   const stopsLeft = Math.max(0, (STATIONS.length - 1) - nextStop);
   etaSeconds = arrived ? 0 : (ROUTE.totalMiles - miles) / CRUISE + stopsLeft * DWELL;
   if (tripOpen) updateTripCard();
   dayT = Math.min(1, miles / ROUTE.totalMiles);   // afternoon → dusk over the whole trip
-  tunnelAmount = tunnelAt(scroll);
+  tunnelAmount = Math.max(tunnelAt(scroll), undergroundAmount());   // dark underground into Penn
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
 
   // the sound sits at its level's tone, muffling further in a tunnel — smoothed
@@ -1270,9 +1277,57 @@ function drawTreeish(f, bx, yy) {
   else { px(bx+4, yy+9, 3, 6, '#6b4a2e'); px(bx, yy, 11, 11, C.treeDk); px(bx+1, yy+1, 9, 8, C.tree); px(bx+3, yy+2, 4, 3, '#3f9450'); }
 }
 
+// --- corridor character (the real ride's geography) ------------------------
+function inBands(bands) { for (const [a,b] of bands) if (miles >= a && miles <= b) return true; return false; }
+function coastAmount() {   // 0..1 how much the sea (Long Island Sound) fills the left window
+  let m = 0;
+  for (const [a,b] of ROUTE.coast) {
+    if (miles >= a && miles <= b) m = 1;
+    else if (miles >= a-3 && miles < a) m = Math.max(m, (miles-(a-3))/3);
+    else if (miles > b && miles <= b+3) m = Math.max(m, ((b+3)-miles)/3);
+  }
+  return Math.max(0, Math.min(1, m));
+}
+function speedFactor() { return inBands(ROUTE.fast) ? 1.35 : inBands(ROUTE.slow) ? 0.6 : 1; }  // RI sprint vs shoreline crawl
+function bridgeAmount() { let m = 0; for (const b of ROUTE.bridges) { const d = Math.abs(miles-b.m); if (d<0.6) m = Math.max(m, 1-d/0.6); } return m; }
+function undergroundAmount() { return (ROUTE.underground==null || miles<ROUTE.underground) ? 0 : Math.min(1, (miles-ROUTE.underground)/4); }
+
+function drawSea(a) {                       // the Sound on the left window
+  ctx.globalAlpha = a;
+  for (let y=-8; y<H+8; y+=8) {
+    const yy = ((y + scroll*0.5) % (H+16)) - 8;
+    px(0, yy, WALL_L, 8, (Math.floor((yy+scroll)/8)%2) ? '#5b9fb8' : '#4e93ac');
+  }
+  px(WALL_L-5, 0, 5, H, '#79bdd1');         // bright band nearest the track (shore/shimmer)
+  for (let y=0; y<H; y+=12) px(WALL_L-5, ((y + scroll*0.5) % H), 5, 2, 'rgba(255,255,255,.22)');
+  for (const f of feats) {                  // sailboats + buoys drifting on the water
+    if (f.side !== 'L') continue;
+    const yy = ((f.y*1.1 + scroll*0.5) % (H+60)) - 30, k = f.off % 3;
+    if (k === 0) { px(5, yy+4, 11, 3, '#efe8da'); px(10, yy-4, 2, 8, '#cfc6b6'); px(11, yy-4, 6, 5, '#e6eef4'); }
+    else if (k === 1) { px(9, yy+2, 4, 4, '#c9542e'); px(10, yy-1, 2, 3, '#c9542e'); }
+  }
+  ctx.globalAlpha = 1;
+}
+function drawBridge(a) {                     // crossing a tidal river: water both sides + steel girders
+  ctx.globalAlpha = a;
+  for (const band of [{x:0,w:WALL_L},{x:WALL_R,w:W-WALL_R}]) {
+    for (let y=-8; y<H+8; y+=8) {
+      const yy = ((y + scroll*0.6) % (H+16)) - 8;
+      px(band.x, yy, band.w, 8, (Math.floor((yy+scroll)/8)%2) ? '#5b9fb8' : '#4e93ac');
+    }
+  }
+  for (let y=-24; y<H+24; y+=28) {           // truss beams flicking overhead
+    const yy = ((y + scroll) % (H+48)) - 24;
+    px(0, yy, WALL_L, 4, '#3a3f47'); px(WALL_R, yy, W-WALL_R, 4, '#3a3f47');
+    px(0, yy, 3, 22, '#4b515a'); px(W-3, yy, 3, 22, '#4b515a');
+  }
+  ctx.globalAlpha = 1;
+}
+
 function drawScenery() {
   const urban = urbanAt(miles / ROUTE.totalMiles);
   const uc = Math.min(1, urban);
+  const coast = coastAmount();
   const gA = hexMix(C.fieldA, '#9a958c', uc*0.85), gB = hexMix(C.fieldB, '#8b867d', uc*0.85);
   for (const band of [{x:0,w:WALL_L},{x:WALL_R,w:W-WALL_R}]) {
     for (let y=-40; y<H+40; y+=8) {
@@ -1281,8 +1336,9 @@ function drawScenery() {
     }
     px(band.x===0 ? WALL_L-4 : WALL_R, 0, 4, H, hexMix(C.dirt, '#7c7a78', uc*0.7));
   }
-  // lineside features morph with the region: skyline ↔ houses ↔ trees
+  // lineside features morph with the region: skyline ↔ houses ↔ trees (left side gives way to the sea)
   for (const f of feats) {
+    if (f.side === 'L' && coast > 0.5) continue;
     const yy = ((f.y + scroll) % (H + 60)) - 30;
     const bx = f.side==='L' ? 4 + f.off*0.4 : WALL_R + 2 + f.off*0.4;
     const r = (f.off % 18) / 18;                  // stable per-feature 0..1
@@ -1291,6 +1347,9 @@ function drawScenery() {
     else if (u > 0.30) drawHouse(bx, yy, r);
     else drawTreeish(f, bx, yy);
   }
+  if (coast > 0.01) drawSea(coast);               // Long Island Sound out the left window
+  const br = bridgeAmount();
+  if (br > 0.01) drawBridge(br);                  // crossing a tidal river
   // station platforms glide past as we pull in (announcements handled in update)
   for (const s of STATIONS) {
     const d = s.mile - miles;
@@ -1482,16 +1541,27 @@ function drawWideView() {
   const urban = urbanAt(miles / ROUTE.totalMiles);
   const uc = Math.min(1, urban);
   const gA = hexMix(C.fieldA, '#9a958c', uc*0.85), gB = hexMix(C.fieldB, '#8b867d', uc*0.85);
+  const coast = coastAmount();
   // 1) ground, scrolling past — same region tint as the window view
   for (let y = -16; y < H+16; y += 16) {
     const yy = ((y + scroll*0.8) % (H+32)) - 16;
     px(0, yy, W, 16, (Math.floor((yy+scroll)/16) % 2) ? gA : gB);
   }
+  // the sea takes over the left of the line along the shoreline
+  if (coast > 0.01) {
+    ctx.globalAlpha = coast;
+    for (let y = -8; y < H+8; y += 8) {
+      const yy = ((y + scroll*0.5) % (H+16)) - 8;
+      px(0, yy, cx-17, 8, (Math.floor((yy+scroll)/8)%2) ? '#5b9fb8' : '#4e93ac');
+    }
+    ctx.globalAlpha = 1;
+  }
   // 2) lineside on both sides of the track: skyline ↔ houses ↔ trees, matching the region
   for (const f of feats) {
     const yy = ((f.y*1.3 + scroll) % (H+60)) - 30;
     const r = (f.off % 18) / 18, u = urban + (r - 0.5) * 0.4;
-    for (const bx of [10 + f.off*1.3, W - 22 - f.off*1.3]) {
+    const sides = coast > 0.5 ? [W - 22 - f.off*1.3] : [10 + f.off*1.3, W - 22 - f.off*1.3];  // left is sea
+    for (const bx of sides) {
       if (u > 0.62) drawBuilding(bx, yy, urban, r);
       else if (u > 0.30) drawHouse(bx, yy, r);
       else drawTreeish(f, bx, yy);
