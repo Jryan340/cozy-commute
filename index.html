@@ -1797,9 +1797,11 @@ function update(dt) {
 // --- draw helpers ----------------------------------------------------------
 function px(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x|0,y|0,w|0,h|0); }
 
+// the table sits in front of the seated passenger; its top surface is ~this band
+const TABLE_TOP = 11;  // px below st.y where the wooden table's top edge lands
 // three slots on the table; players fill them left→right with chosen items
 function itemSlots(st) {
-  const ty = st.y - 15;
+  const ty = st.y + TABLE_TOP + 2;
   return [
     { x: st.x + 2,  y: ty + 1, w: 9,  h: 10 },
     { x: st.x + 12, y: ty + 1, w: 9,  h: 10 },
@@ -1809,12 +1811,12 @@ function itemSlots(st) {
 function drawTable(st) {
   if (tableImgOK) {                                 // hand-drawn wooden table sprite
     const w = tableImg.width, h = tableImg.height;
-    const dx = Math.round(st.x + st.w / 2 - w / 2), dy = st.y - 17;   // top surface aligns to old table band
-    px(st.x + 1, st.y + 9, st.w - 2, 2, C.shadow);  // soft shadow under the legs
+    const dx = Math.round(st.x + st.w / 2 - w / 2), dy = st.y + TABLE_TOP;   // in front of the passenger
+    px(st.x + 1, dy + h - 3, st.w - 2, 2, C.shadow);  // soft shadow under the legs
     ctx.drawImage(tableImg, dx, dy, w, h);
     return;
   }
-  const tw = st.w, th = 13, tx = st.x, ty = st.y - 16, O = C.outline;
+  const tw = st.w, th = 13, tx = st.x, ty = st.y + TABLE_TOP, O = C.outline;
   px(tx, ty + 3, tw, th, C.shadow);
   px(tx - 1, ty - 1, tw + 2, th + 2, O);          // outline
   px(tx, ty, tw, th, '#8a5a34');                  // table top
@@ -2189,21 +2191,22 @@ function drawChar(cx, cy, p, o) {
 function drawPerson(cx, cy, p, t, hp) {
   const bob = Math.sin(t) * 0.6;
   if (p.sprite && drawNpcSprite(cx, cy, bob)) return;      // hand-drawn passenger
-  drawChar(cx, cy, p, { bob, hp });
+  drawChar(cx, cy - 10, p, { bob, hp });                   // lifted so head + shoulders clear the table
 }
 
+// the seated player, drawn inside the seat loop so the table sits in front of them
+function drawSeatedPlayer(st) {
+  const cx = st.sitX, cy = st.sitY, hp = player.items.includes('headphones');
+  if (!drawPlayerSprite(cx, cy, player.facing, 0)) drawChar(cx, cy - 10, player, { hp });
+}
 function drawPlayer() {
+  if (player.seat) return;   // the seated player is drawn in the seat loop (behind its table)
   const cx = player.x + player.w/2, cy = player.y + player.h/2;
   const hp = player.items.includes('headphones');
-  const moving = !player.seat && player.walkT !== 0;
+  const moving = player.walkT !== 0;
   const bob = moving ? -Math.abs(Math.sin(player.walkT)) * 1.5 : 0;   // a little hop while walking
-  if (drawPlayerSprite(cx, cy, player.facing, bob)) {                 // the hand-drawn sprite
-    if (player.seat) return;
-  } else if (player.seat) {
-    drawChar(cx, cy, player, { hp }); return;
-  } else {
+  if (!drawPlayerSprite(cx, cy, player.facing, bob))                  // the hand-drawn sprite
     drawChar(cx, cy, player, { hp, facing: player.facing, walk: moving, walkT: player.walkT });
-  }
 
   // "sit here" prompt if near a free seat (keyboard hint only)
   const st = isTouch ? null : nearestFreeSeat();
@@ -2394,16 +2397,15 @@ function frame(now) {
 
     drawScenery();
     drawCar();
-    // seat, then its passenger, then the table + things in front of them
+    // seat, then its passenger, then the table in front of them (covering the lap)
     for (const st of seats) {
       drawSeat(st);
-      const occ = st.occupant && st.occupant.npc ? st.occupant : null;
-      // procedural passengers sit behind the table; the hand-drawn sprite sits on top (like you)
-      if (occ && !occ.sprite) { occ.bob += dt; drawPerson(st.sitX, st.sitY, occ, occ.bob, occ.item === 'headphones'); }
-      drawSeatItems(st, dt);
-      if (occ && occ.sprite) { occ.bob += dt; drawPerson(st.sitX, st.sitY, occ, occ.bob, occ.item === 'headphones'); }
+      const occ = st.occupant;
+      if (occ && occ.npc) { occ.bob += dt; drawPerson(st.sitX, st.sitY, occ, occ.bob, occ.item === 'headphones'); }
+      else if (occ && occ.player) drawSeatedPlayer(st);
+      drawSeatItems(st, dt);        // table sits in front of whoever's seated here
     }
-    drawPlayer();
+    drawPlayer();                   // only the walking (un-seated) player
 
     ctx.restore();
   }
