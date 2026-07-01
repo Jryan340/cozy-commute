@@ -34,24 +34,17 @@
     -webkit-tap-highlight-color: transparent;
   }
   #act:active { transform: translateY(1px); border-bottom-width: 2px; }
-  #snd {
-    position: fixed; left: 18px; bottom: 64px; width: 46px; height: 46px; border-radius: 50%;
+  #snd, #wide, #fp {
+    position: fixed; width: 46px; height: 46px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(20,18,26,.8); border: 1px solid rgba(255,255,255,.12);
-    color: #efe8da; font-size: 20px; cursor: pointer; z-index: 6;
-    -webkit-tap-highlight-color: transparent;
+    background: linear-gradient(180deg, #e6d6b2, #d2ba88); border: 2px solid #8a6a42; border-bottom-width: 4px;
+    color: #4a3826; font-size: 20px; cursor: pointer; z-index: 6;
+    box-shadow: 0 3px 8px rgba(0,0,0,.3); -webkit-tap-highlight-color: transparent;
   }
-  #snd:active { transform: translateY(1px); }
-  #wide, #fp {
-    position: fixed; width: 46px; height: 46px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(20,18,26,.8); border: 1px solid rgba(255,255,255,.12);
-    color: #efe8da; font-size: 20px; cursor: pointer; z-index: 6;
-    -webkit-tap-highlight-color: transparent;
-  }
+  #snd { left: 18px; bottom: 64px; }
   #wide { right: 18px; top: 64px; }
   #fp   { left: 18px; top: 64px; display: none; }
-  #wide:active, #fp:active { transform: translateY(1px); }
+  #snd:active, #wide:active, #fp:active { transform: translateY(1px); border-bottom-width: 3px; }
   /* first-person mode hides the rest of the chrome for a clean look */
   body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp { display: none !important; }
   /* at the station you're on the platform, not in the car — hide the in-car chrome */
@@ -62,9 +55,9 @@
   #tripTab {
     position: fixed; left: 50%; bottom: env(safe-area-inset-bottom); transform: translateX(-50%);
     display: flex; align-items: center; gap: 7px;
-    background: rgba(34,31,42,.92); color: #cfc8ba; border: 1px solid rgba(255,255,255,.1); border-bottom: none;
+    background: linear-gradient(180deg, #e6d6b2, #d2ba88); color: #4a3826; border: 2px solid #8a6a42; border-bottom: none;
     border-radius: 14px 14px 0 0; padding: 7px 22px 9px; cursor: pointer; z-index: 6;
-    font: 600 11px ui-monospace, monospace; letter-spacing: 1.5px; -webkit-tap-highlight-color: transparent;
+    font: 700 11px ui-monospace, monospace; letter-spacing: 1.5px; -webkit-tap-highlight-color: transparent;
   }
   #tripTab::before { content: '▴'; font-size: 12px; opacity: .8; }
   #tripTab:active { color: #fff; }
@@ -367,13 +360,13 @@
   #wclock {
     position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     display: flex; gap: 7px; align-items: baseline; z-index: 7;
-    background: rgba(20,18,26,.82); padding: 5px 12px; border-radius: 13px;
-    font: 700 13px ui-monospace, monospace; letter-spacing: .4px; color: #f2ecdd;
-    backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.08);
+    background: linear-gradient(180deg, #f0e4c8, #e0cea4); padding: 6px 13px; border-radius: 12px;
+    font: 700 13px ui-monospace, monospace; letter-spacing: .4px; color: #4a3826;
+    border: 2px solid #8a6a42; box-shadow: 0 3px 0 #6f5334, 0 5px 12px rgba(0,0,0,.35);
     pointer-events: none; white-space: nowrap;
   }
-  #wclock .z { font-size: 8.5px; font-weight: 600; color: #8f88a0; letter-spacing: 1px; }
-  #wclock .dep { color: #ffd9a0; font-size: 10.5px; font-weight: 600; }
+  #wclock .z { font-size: 8.5px; font-weight: 700; color: #8a6a42; letter-spacing: 1px; }
+  #wclock .dep { color: #a65c26; font-size: 10.5px; font-weight: 700; }
   #hud {
     position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 8px; align-items: center;
@@ -385,12 +378,13 @@
   #hud .sep { opacity: .3; }
   #hint {
     position: fixed; bottom: 46px; left: 50%; transform: translateX(-50%);
-    font-size: 12px; opacity: .65; text-align: center; line-height: 1.5;
-    background: rgba(20,18,26,.6); padding: 6px 14px; border-radius: 10px;
+    font-size: 12px; text-align: center; line-height: 1.6; color: #4a3826;
+    background: linear-gradient(180deg, #f0e4c8, #e0cea4); padding: 7px 15px; border-radius: 11px;
+    border: 2px solid #8a6a42; box-shadow: 0 3px 0 #6f5334; max-width: calc(100vw - 24px);
   }
   #hint kbd {
-    background: #3a3542; border: 1px solid #534c5e; border-bottom-width: 2px;
-    border-radius: 4px; padding: 1px 6px; margin: 0 1px; font-size: 11px; color: #f0e9da;
+    background: #d2ba88; border: 1.5px solid #8a6a42; border-bottom-width: 3px;
+    border-radius: 4px; padding: 1px 6px; margin: 0 1px; font-size: 11px; color: #3a2c1c; font-weight: 700;
   }
   .toast {
     position: fixed; top: 56px; left: 50%; transform: translateX(-50%) translateY(-8px);
@@ -416,6 +410,7 @@
   #bag.show { transform: translateX(-50%) translateY(0); }
   .bag-head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 12px; }
   .bag-head b { font-size: 15px; letter-spacing: .3px; }
+  #bagIcon { image-rendering: pixelated; vertical-align: -5px; margin-right: 6px; }
   .bag-head span { font-size: 12px; opacity: .6; }
   #bagGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .chip {
@@ -465,7 +460,7 @@
 
   <div id="scrim"></div>
   <div id="bag">
-    <div class="bag-head"><b>Your bag</b><span id="bagCount">0/3 out</span></div>
+    <div class="bag-head"><b><img id="bagIcon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAANCAYAAACdKY9CAAACIElEQVR4nE2NPUwTYRyHf//37lr63doGpEIRiEhMVNAYYmQAwchgjFFWF1fddNXBjRhDjAmbq5OExMVFiCbq4MekCSHRAaR8lFZ717vrvW/fDyeNz/w8eQj/cWtufLV5UJ8eGBldmb04UV1cen6nUkp4hcrotcfPlt8AAP2VL01NXsgG2+8y3WXdOzjMbAZU601ltr9anlNaWV79fB0A2N9gIC0WTvSldF9Ggn5917q2ofrpgOWStlZ+/dyVudmZf4cbk6fWJo7a0/l0XP3cdS0hJYgYCAaZZMxYMPRxSwhTGpm3ASBseVNNN6m9QLJQKDgWAxEgFNDwO2QTk9zzYxt764ftk2fH5ju8YYwGIiGJiGBbFoTS0AZoBRxGG0YWmVw+VWFnyvmbqiNZPeDIJh0IpdGKOPwwAkGjOxtDWyiqeSElhHuXWZpfHc472Nz3mdQENxRI9ZQxOD4G1+dQivBty6X+QhJZFiVYyw9bBEKlkDAm8tEO2thpBCDNsXkQofE7QN+hJNpCo+ZGhtX3d9eZ40ApbcZHe3B6qIhobxcf1r7geG8G5WIKccdCV9wGA4zdUz5yzKvtIJZO0F49RLMlUcqmoA0QcAmbERzHhuYcxUKO2ZOzlx+8fvnqabX6A1py09FEbaHghR1oQ0jHGYKQ6658kZ2fmX5BALC48PDRp/dv78moreIxxyIiSKUgpQYAlctlrcrQyNL9hSe3/wAjcgNit8kJPwAAAABJRU5ErkJggg==" alt="" width="20" height="22">Your bag</b><span id="bagCount">0/3 out</span></div>
     <div id="bagGrid"></div>
     <button id="bagDone">Done</button>
   </div>
@@ -583,13 +578,13 @@ window.addEventListener('resize', fit); fit();
 
 // --- palette ---------------------------------------------------------------
 const C = {
-  floor:  '#b98a5e', plank: '#a9774d', plankHi: '#c79a6c',
-  wall:   '#5d4438', wallHi: '#6f5343', trim: '#8a6650',
-  glass1: '#bfe3ef', glass2: '#a9d4e4',
-  seat:   '#3f7d6e', seatDk:'#2c5a4f', seatHi:'#54998a', head:'#274c43',
-  rail:   '#caa46f', shadow: 'rgba(0,0,0,.18)',
-  fieldA: '#86c267', fieldB: '#74b257', dirt:'#c7a878', tree:'#2f7a3e', treeDk:'#236030',
-  pole:'#7a6a55', water:'#6fb3c4',
+  floor:  '#9c6b41', plank: '#875a34', plankHi: '#b0824f',
+  wall:   '#5a3d2a', wallHi: '#6e4c34', trim: '#7a5334', panel: '#4a3120',
+  glass1: '#bfe3ef', glass2: '#9fd0e2',
+  seat:   '#5b8a52', seatDk:'#3f6b41', seatHi:'#7aa863', head:'#355f39',
+  rail:   '#caa46f', shadow: 'rgba(30,18,10,.22)', outline: '#2b1d14',
+  fieldA: '#6fae54', fieldB: '#5f9c48', dirt:'#b79866', tree:'#3c7a3e', treeDk:'#2b5c30',
+  pole:'#7a6a55', water:'#5fa2bf',
 };
 
 // --- car layout ------------------------------------------------------------
@@ -636,6 +631,7 @@ npcSeats.forEach((i, k) => {
     hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][k % 4],
     bob: Math.random() * 6.28,
     item: NPC_ITEMS[k % NPC_ITEMS.length],
+    sprite: k === 1,                    // this passenger uses the hand-drawn sprite
   };
 });
 
@@ -646,6 +642,54 @@ const player = {
   speed: 64, facing: 1, walkT: 0, seat: null,
   items: ['coffee', 'book'],   // what's out on your table (max 3); chosen from your bag
 };
+// your character — a hand-drawn sprite (background keyed out + resized to 17×30)
+const playerImg = new Image(); let playerImgOK = false;
+playerImg.onload = () => { playerImgOK = true; };
+playerImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAAeCAYAAADKO/UvAAAGnUlEQVR4nF2VWWyU1x3Fz//e+83msY3t8QzGC/YYTLzEQIoXbBCBJKxqloJD0rTq8tBKTRSpTVLSpGjk0LR9SS01D22RmkpAlYpKKE1R2ghFCW2IKcEQQwGbJmBsAzZ4PDPfLN92v3v7kKaV+ns/L+fop0MAGDGmuhsS74TDgdiTz738ld+//joqykPb56Zv7JdSSg0oRuDVsfi79z/+1E9f3b9/Fv9DEwA2dPQoTb7w7DuJEG3NOHohb7tGWUCUcWihtIZgDEFOcHzl2oqsqkTi0IfjE88Oep44CfgEgAFQgz09jxfnpo4sMcjwQVAacJTWWmsEGCFscDACQSnYJCAjlT84PX55BABRKpUS0/+a2H725InfxiOBWG1ZEOmSSyWpiAAoDWitERQMQcGhtFZaKWUpomCs7rkSBQ7Srl0PJOevfjpZJzxREw3qsMHpVs5GzpGQSoMAGJwhwBkAgKBRETIAaFxasOCVVbeIuanZb5JdECgPaUcqkgqoKgtAAzAdHwEOCEYQjOArhSXhAEqeD9OWOsS0igj2VVpRF5P1Ec4qQgagNTm+Ql15CFnbg1QaNWEDGctDUDAEOMHyFIquD0sq7StFNwuuxTzpZ3xfUcGRKHoKYcGRsTxMZ21IpcCIoDWQsSRsqWA6EkoDjAhSaTiezArGCJ4GLNfHkpCAVBp3iw6Krgvb45gv2Ch5CmnLA6MgPAVoraCBLzrTTClVWXQlAICBcC1rwfMlvttTj/mCg4KrYEsF5bmYzVkgACXPh+crWFIBjKpYdSz25p2Sq13pI217CJOPPV9qwvaeNmztqMMt08ZMpoj9OzqwMhHFVKYERgTTkcjangoGQ29Qa3tP53I1fVGAaGrRwkuDdbhqEWqryrF7bSOOjU3Dlj5u5h1UksSVuTz+MVtAc7mBvOP51434Knbj+kTF+tWrqC1Zrzc3RfTKtffhl6dmMTZnoaq1A1977AE8vXcb3hqbwulFgRd3b0BbBdNdq5bjwYFu7hbMOHtiz3culHhFyjYLtHZ5FbVt3olVjXWfT7qkBjYPo2BEEWUKze2r0dk3oDcmq6hM2qiINby67+cHxsWRI68VA4HgK/2ru6raXevbVdyJ7ujvoHhYkVUqgZQEKcLW/i50tyW0YFqXhYKZEzP6N6PvH/2xPvgH/FfATZtSwpv59eyuzkTiyW29KtHUxHJFG0QExgUqQgL529Pq2Imz7NDY3FzfI08kR0ZGrBTAKJUCO344Wd7R3nJ4z56Hv1zIF9RHf3mbGaUs9qytR6K2EjduZTE6cRNZI4otQ08pHoqwo2/+8fhnM+mv3//ooyZpral3RfP3973wvdcGNgzIO3PzwghHMH7uE3x89HfY3hHHX6+k0b5jN/oH1wO+h0Si1jv1t1PGT3428vTY1O1fCSLSz3xjbyzZmtSXLl4hBYWO9lXo7e9Bc7IFo28fw9C+Z9DY1Ajl2jhz5jLS6UWWXNGqt+3a2UBEmm3svudHra3JF5fE4jhzdowXCiVIKeG5DhLxGvTtfBjx2hiKZg6elFjI5HD+/AVeWbsU1bWxH26+r/N5URnES1uW+jT27p/0389dgmEYaFvRglA4DM9xwRngujYYMZg5E7ZVwuiFSTSUv4VNMY+/z9Uwgy+LcV5U5dc+gli4AakZctkcspkMTNPE5NVrmJ6+CTNnolgogokAcp9dROX1U1gWcJTvOiYTnJfuZgtssKNZdtYYOH95Eo5jg6AhPQnOOSqjEXAGpNNpnLs0iXsTEWzsbpHzaZOFQxFX5KLLHjv03j+P99UFG/58dREOG8dB38Vg3zr4vo87C4t+Nm9y5fv44MPT+GTiU1TAxfqx68bHd9VNo6n7EQKAhzY91OVk53ZOL8w/v7S6stbxpHYch3xfQ/oSjDEYQiAYDGhDMLqdzt9OJpb+ovXe1e+9cfjweUoBbBhQxDkaaqsuJqoru6KRkPKkYrfuLHi+xignbKirrWaCc99yHD6Xzp2ZmV/sg1ZIpcDYMKBTAFNSBgVjZJk5fTdjYjGbQ7FkFYPR2IGSZTuLWRMLuTxymQy08oVWvhgaGuLDw1ACgB4G8ArjTn2sgseiggiOlFCwBZVb0kuUCQo3BrQqebbyBbjl6TAxLqEV4T/yAQCU8ikar385r0UhajAD0EyEwidb71k5GQxHRjU0ixjMyCsha5YuOwDoz2/o/2AgwkDfur1r2ldMrmxuOLduzZoHAaC3t3dLy7L4Bx3JxrG+dWu/RcQAgH8R/DfwYEutK+5txAAAAABJRU5ErkJggg==';
+function drawPlayerSprite(cx, cy, facing, bob) {
+  if (!playerImgOK) return false;
+  const w = playerImg.width, h = playerImg.height;       // drawn 1:1 for crisp pixels
+  const dx = Math.round(cx - w / 2), dy = Math.round(cy + 8 - h + (bob || 0));
+  px(cx - 6, cy + 7, 12, 2, C.shadow); px(cx - 5, cy + 9, 10, 1, C.shadow);   // soft shadow
+  if (facing < 0) { ctx.save(); ctx.translate(dx + w, dy); ctx.scale(-1, 1); ctx.drawImage(playerImg, 0, 0, w, h); ctx.restore(); }
+  else ctx.drawImage(playerImg, dx, dy, w, h);
+  return true;
+}
+// the green high-back sofa (a hand-drawn asset) used for the booth seats
+const sofaImg = new Image(); let sofaImgOK = false;
+sofaImg.onload = () => { sofaImgOK = true; };
+sofaImg.src = 'data:image/png;base64,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';
+function drawSeatSprite(st) {
+  if (!sofaImgOK) return false;
+  const w = sofaImg.width, h = sofaImg.height, cx = st.x + st.w / 2, cy = st.y + st.h / 2;
+  const dx = Math.round(cx - w / 2), dy = Math.round(cy + 17 - h);   // legs rest ~cy+17
+  px(cx - w / 2 + 2, cy + 16, w - 4, 2, C.shadow);
+  ctx.drawImage(sofaImg, dx, dy, w, h);
+  return true;
+}
+// the ¾-view wooden table (hand-drawn asset) that sits in front of each seat
+const tableImg = new Image(); let tableImgOK = false;
+tableImg.onload = () => { tableImgOK = true; };
+tableImg.src = 'data:image/png;base64,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';
+// small table-top things: a coffee mug and a book (hand-drawn assets)
+const mugImg = new Image(); let mugImgOK = false;
+mugImg.onload = () => { mugImgOK = true; };
+mugImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAMCAYAAAC5tzfZAAACIElEQVR4nE3Sy0uUURjH8d/znPO+zrziTGLjjN0MbCyywBShkkJJykokEinbFFgtAqNV1MJ9f0DQonUYbRKMUKELUuRCK3KhjUZQDEnm3HDmvZ05p63f/Wf3JQC4c324feeOyLTnbSWUCglGg6U0UcvZzG/6Vx8/f/kW2+Khc909LXvjMz3HUsl0XNF+J6B0XFNLraK+jqZE25Hk1I2RgZvbkWw71PJqX4NdOz7+xAi2icEgIvjaUGx60Yzdvezkd8eedh/vLX2cf/cCAOTGn9+1u7o6TevhA7TyPYuyXwUx4GkNIeP0d6NsuPJP959ofNZ/evShHUuOymK+YIJSjh6MXcD6ZgEqDMHEKAcKQttYy/yixS+rIpFKYvBsV/vc0tp7CV2lfK4IUw1hWQzjK4AlwpKLTLaIwHdRFVGIpk5MTr3R0fpUHRttQARIS6DiKXi+ghsEKLs+hBQAMYgYdQ31KFVCwAAsCZqlhCEBIoK0GK4XgABEbIZtSUB5WJ57jY7WJi65QYWdqM1MbKoaUEqhWHKhFMELDSKSEbEEHFa6QW7pDVeuOLHmM1IJZ/LrcvbS0YOpKjELkIWKpxGGgJDAj59Z7UcauW9oCJZV8+jarXvzcnD4ysTCwueLs5++WfU12ghpk9YEA6BYKGCLYtw/cH493bwnl8/nQgAgAFj6MN07OzszsZrJJKRlkdaatDHGEoyTp7qXR27fb9t+xH9+POlhqlbJcAAAAABJRU5ErkJggg==';
+const bookImg = new Image(); let bookImgOK = false;
+bookImg.onload = () => { bookImgOK = true; };
+bookImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAALCAYAAACprHcmAAABq0lEQVR4nE3RvWtTURjH8d9zzrkvuUmMLRLSxSFKIKIgWmh1EVykuNYOYocKioturv4dgtj+Ba6WDk6OBUFEwZRg0mKS26RNmpf7knvOeZwCfufP9iX81/PH9z7Li9mG0dp4DknLxJmxEI7TLdXq27SAb3Y2dwqt5i7NEiM8JRUYOtaYG8t+TtGJV0zVAttu720xZRRry7RU8TG6yOBKi3GY0t8/I/7V6XgCAF68errhx1E9Npn1AyOEYkBaZFYjnSYsci7dXL1+qgBg+vvodSmdI1GGW80hcoMY2jD63Rg60sitlFAuL52JrZdbd/JZ8sBqy5Fm6flAMtGIRxlcElCutDZw+fvPk5a63Ou9qwYqGM9hjRZ0NmD4UqLgOgClCANJmV+gh+v1j7S9fpv9yZDZdUhnFnPLEIJwyXcQTqamdqsqeuwe7n36sqba4TmuVEpYu38DDhEsgCiKMcwI+eMOjppdmpVX9gBAlKtXx74CTcI+k9Xw2CCQjErR49pyXmrL/f2Dr+8BQGw+e/KISuXW8Qj41jjnw8YAP9pTNJqntp1IvrZ698PixT9X/c3EagJd8gAAAABJRU5ErkJggg==';
+// a hand-drawn passenger (front view) seated as one of the NPCs
+const npcCharImg = new Image(); let npcCharImgOK = false;
+npcCharImg.onload = () => { npcCharImgOK = true; };
+npcCharImg.src = 'data:image/png;base64,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';
+function drawNpcSprite(cx, cy, bob) {
+  if (!npcCharImgOK) return false;
+  const w = npcCharImg.width, h = npcCharImg.height;      // drawn 1:1 for crisp pixels
+  const dx = Math.round(cx - w / 2), dy = Math.round(cy + 8 - h + (bob || 0));
+  px(cx - 6, cy + 7, 12, 2, C.shadow); px(cx - 5, cy + 9, 10, 1, C.shadow);   // soft shadow
+  ctx.drawImage(npcCharImg, dx, dy, w, h);
+  return true;
+}
 
 // everything you can take out of your bag
 const BAG = [
@@ -1595,9 +1639,9 @@ const ROUTES = buildRoutes();
 
 // --- classes + saved progress (miles economy) ------------------------------
 const CLASSES = [
-  { name:'3rd Class', short:'3rd', at:0,    seat:'#3f7d6e', seatDk:'#2c5a4f', seatHi:'#54998a', head:'#274c43' },
-  { name:'2nd Class', short:'2nd', at:500,  seat:'#3f6d9c', seatDk:'#2c4f74', seatHi:'#5a86b8', head:'#26405e' },
-  { name:'1st Class', short:'1st', at:2500, seat:'#8a4c6a', seatDk:'#5f3049', seatHi:'#b0688a', head:'#4a2438' },
+  { name:'3rd Class', short:'3rd', at:0,    seat:'#5b8a52', seatDk:'#3f6b41', seatHi:'#7aa863', head:'#355f39' },
+  { name:'2nd Class', short:'2nd', at:500,  seat:'#4a75a0', seatDk:'#345676', seatHi:'#6e9cc0', head:'#2b4a66' },
+  { name:'1st Class', short:'1st', at:2500, seat:'#9c5a72', seatDk:'#6f3c4f', seatHi:'#c07f96', head:'#4f2a38' },
 ];
 const SAVE_KEY = 'cozycommute.v1';
 let save = { lifetimeMiles:0, trips:0, classCurrent:0, stations:{}, lastStation:'Boston South Station', lastCity:'Boston' };
@@ -1753,9 +1797,11 @@ function update(dt) {
 // --- draw helpers ----------------------------------------------------------
 function px(x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(x|0,y|0,w|0,h|0); }
 
+// the table sits in front of the seated passenger; its top surface is ~this band
+const TABLE_TOP = 11;  // px below st.y where the wooden table's top edge lands
 // three slots on the table; players fill them left→right with chosen items
 function itemSlots(st) {
-  const ty = st.y - 15;
+  const ty = st.y + TABLE_TOP + 2;
   return [
     { x: st.x + 2,  y: ty + 1, w: 9,  h: 10 },
     { x: st.x + 12, y: ty + 1, w: 9,  h: 10 },
@@ -1763,13 +1809,30 @@ function itemSlots(st) {
   ];
 }
 function drawTable(st) {
-  const tw = st.w, th = 13, tx = st.x, ty = st.y - 16;
+  if (tableImgOK) {                                 // hand-drawn wooden table sprite
+    const w = tableImg.width, h = tableImg.height;
+    const dx = Math.round(st.x + st.w / 2 - w / 2), dy = st.y + TABLE_TOP;   // in front of the passenger
+    px(st.x + 1, dy + h - 3, st.w - 2, 2, C.shadow);  // soft shadow under the legs
+    ctx.drawImage(tableImg, dx, dy, w, h);
+    return;
+  }
+  const tw = st.w, th = 13, tx = st.x, ty = st.y + TABLE_TOP, O = C.outline;
   px(tx, ty + 3, tw, th, C.shadow);
-  px(tx, ty, tw, th, '#7c5236');           // table top
-  px(tx, ty, tw, 2, '#9a6a44');            // highlight edge
-  px(tx, ty + th - 1, tw, 1, '#5e3d28');
+  px(tx - 1, ty - 1, tw + 2, th + 2, O);          // outline
+  px(tx, ty, tw, th, '#8a5a34');                  // table top
+  px(tx, ty, tw, 2, '#a9744a');                   // highlight edge
+  for (let gx = tx + 2; gx < tx + tw - 1; gx += 4) px(gx, ty + 3, 1, th - 5, '#7a4a2a'); // wood grain
+  px(tx, ty + th - 1, tw, 1, '#5e3a22');
 }
 function drawCoffee(r, t) {
+  if (mugImgOK) {                                              // hand-drawn mug sprite
+    const w = mugImg.width, h = mugImg.height;
+    const dx = Math.round(r.x + r.w / 2 - w / 2), dy = Math.round(r.y + r.h - h);
+    ctx.drawImage(mugImg, dx, dy, w, h);
+    px(dx + 3, dy - 1 - ((t * 9) % 4), 1, 2, 'rgba(255,255,255,.55)'); // steam
+    px(dx + 6, dy - 2 - ((t * 9 + 2) % 4), 1, 2, 'rgba(255,255,255,.4)');
+    return;
+  }
   px(r.x + 1, r.y + 3, r.w - 2, r.h - 3, '#efe6d6');           // mug
   px(r.x + 1, r.y + 3, r.w - 2, 2, '#5a3a22');                 // coffee surface
   px(r.x + r.w - 1, r.y + 5, 1, 3, '#cfc6b6');                 // handle
@@ -1789,6 +1852,12 @@ function drawWater(r) {
   px(r.x + 3, r.y + 3, 1, r.h - 4, 'rgba(255,255,255,.5)');        // shine
 }
 function drawBook(r) {
+  if (bookImgOK) {                                             // hand-drawn book sprite
+    const w = bookImg.width, h = bookImg.height;
+    const dx = Math.round(r.x + r.w / 2 - w / 2), dy = Math.round(r.y + r.h - h);
+    ctx.drawImage(bookImg, dx, dy, w, h);
+    return;
+  }
   px(r.x, r.y + 2, r.w, r.h - 3, '#9c5a4a');                   // covers
   px(r.x + 1, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');         // left page
   px(r.x + r.w/2, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');     // right page
@@ -1863,15 +1932,49 @@ function drawBuilding(bx, yy, urban, r) {
   for (let wy = top + 3; wy < yy + 8; wy += 4) px(bx+2, wy, w-4, 1, 'rgba(255,228,168,.4)'); // lit windows
 }
 function drawHouse(bx, yy, r) {
-  const w = 10 + Math.round(r*3), h = 7 + Math.round(r*2), y = yy + 12 - h;
-  px(bx, y, w, h, '#b98a63');                     // wall
-  px(bx-1, y-3, w+2, 4, '#7a4a37');               // roof
-  px(bx+2, y+2, 2, 2, '#ffe6a8');                 // window
+  const w = 12 + Math.round(r*3), h = 8, y = yy + 12 - h;
+  px(bx-1, y+h, w+2, 2, 'rgba(20,30,15,.18)');    // ground shadow
+  px(bx-1, y-1, w+2, h+1, C.outline);             // outline
+  px(bx, y, w, h, '#cba379'); px(bx, y, w, 1, '#ddb78c');   // cream cabin wall
+  for (let k = 0; k < 6; k++) px(bx-2+k, y-1-k, w+4-2*k, 1, k < 2 ? '#8a4636' : '#a85c44'); // pitched shingle roof
+  px(bx-2, y-1, w+4, 1, C.outline);
+  px(bx+2, y+3, 3, 3, '#5a3f28');                 // door
+  px(bx+w-4, y+2, 2, 2, '#ffe6a8');               // lit window
+}
+function triFill(cxp, top, half, height, color) {   // a filled pixel triangle (point up)
+  for (let y = 0; y < height; y++) { const hw = Math.max(0, Math.round(half * (y / height))); px(cxp - hw, top + y, hw * 2 + 1, 1, color); }
+}
+function drawPine(bx, top, s) {                       // a layered, shaded conifer
+  s = s || 1;
+  const tw = Math.max(10, Math.round(12 * s)), th = Math.max(13, Math.round(17 * s)), cxp = bx + Math.floor(tw / 2), half = Math.floor(tw / 2);
+  px(bx + 2, top + th, tw - 2, 2, 'rgba(18,26,12,.22)');           // ground shadow
+  px(cxp - 1, top + th - 4, 3, 5, '#553622'); px(cxp - 1, top + th - 4, 1, 5, '#3f281a'); // trunk
+  triFill(cxp, top, half, th - 2, '#2b5c30');                       // dark body
+  triFill(cxp, top + 2, half - 1, th - 5, '#3c7a3e');               // mid
+  triFill(cxp - 1, top + 3, Math.max(1, half - 3), th - 8, '#5aa457'); // sunlit left
+  for (let k = 1; k <= 2; k++) { const yy = top + Math.round(th * k * 0.3), hw = Math.round(half * (k * 0.3) + 1); px(cxp - hw, yy, hw * 2, 1, '#234c28'); } // tier notches
+}
+function drawRock(bx, by, s) {
+  s = s || 1; const w = Math.max(5, Math.round(7 * s)), h = Math.max(3, Math.round(4 * s));
+  px(bx - 1, by + 1, w + 2, h, 'rgba(20,30,15,.18)');
+  px(bx, by, w, h, '#7f7c76'); px(bx, by, w, 1, '#9d9a92'); px(bx, by + h - 1, w, 1, '#5c5952'); px(bx + 1, by + 1, 1, 1, '#b2afa6');
 }
 function drawTreeish(f, bx, yy) {
-  if (f.kind === 'bush') { px(bx+1, yy+4, 9, 6, C.treeDk); px(bx+2, yy+3, 7, 5, C.tree); }
-  else if (f.kind === 'pole') { px(bx+4, yy, 2, 16, C.pole); px(bx+1, yy+2, 8, 2, C.pole); }
-  else { px(bx+4, yy+9, 3, 6, '#6b4a2e'); px(bx, yy, 11, 11, C.treeDk); px(bx+1, yy+1, 9, 8, C.tree); px(bx+3, yy+2, 4, 3, '#3f9450'); }
+  if (f.kind === 'bush') {                            // a leafy round shrub
+    px(bx, yy + 3, 11, 8, C.treeDk); px(bx + 1, yy + 2, 9, 7, C.tree); px(bx + 2, yy + 2, 5, 2, '#5aa457'); px(bx + 4, yy + 11, 3, 2, '#4a3a24');
+  } else if (f.kind === 'pole') {
+    drawPine(bx, yy - 2, 0.82);                       // a smaller pine (more forest)
+  } else {
+    drawPine(bx - 1, yy - 4, 1 + (f.off % 6) / 12);   // full pine, size varies
+  }
+}
+// scattered grass tufts + wildflowers along the line
+const groundBits = [];
+(function () { for (let i = 0; i < 80; i++) groundBits.push({ y: i * 19 + (i * 7 % 14), fx: (i * 37 % 1000) / 1000, kind: i % 5 }); })();
+function drawGrassBit(bx, yy, kind) {
+  if (kind < 2) { px(bx, yy, 1, 2, '#4c8a3c'); px(bx - 1, yy + 1, 3, 1, '#4c8a3c'); }        // grass tuft
+  else if (kind === 2) { px(bx, yy, 2, 2, '#e6cf4a'); px(bx, yy - 1, 1, 1, '#fff0a0'); }     // buttercup
+  else if (kind === 3) { px(bx, yy, 2, 2, '#d8708c'); px(bx, yy - 1, 1, 1, '#f2aec2'); }     // pink flower
 }
 
 // --- corridor character (the real ride's geography) ------------------------
@@ -1893,10 +1996,15 @@ function drawSea(a) {                       // the Sound on the left window
   ctx.globalAlpha = a;
   for (let y=-8; y<H+8; y+=8) {
     const yy = ((y + scroll*0.5) % (H+16)) - 8;
-    px(0, yy, WALL_L, 8, (Math.floor((yy+scroll)/8)%2) ? '#5b9fb8' : '#4e93ac');
+    px(0, yy, WALL_L, 8, (Math.floor((yy+scroll)/8)%2) ? '#4f97b4' : '#448aa6');
   }
-  px(WALL_L-5, 0, 5, H, '#79bdd1');         // bright band nearest the track (shore/shimmer)
-  for (let y=0; y<H; y+=12) px(WALL_L-5, ((y + scroll*0.5) % H), 5, 2, 'rgba(255,255,255,.22)');
+  for (const b of groundBits) {             // ripple flecks + the odd rock in the shallows
+    const yy = ((b.y*1.3 + scroll*0.5) % (H+40)) - 20, bx = 2 + b.fx * (WALL_L - 8);
+    if (b.kind === 4) drawRock(bx, yy, 0.8);
+    else px(bx, yy, 2, 1, 'rgba(230,246,252,.4)');
+  }
+  px(WALL_L-5, 0, 5, H, '#7fc0d3');         // bright shore band nearest the track
+  for (let y=0; y<H; y+=12) px(WALL_L-5, ((y + scroll*0.5) % H), 5, 2, 'rgba(255,255,255,.28)');
   for (const f of feats) {                  // sailboats + buoys drifting on the water
     if (f.side !== 'L') continue;
     const yy = ((f.y*1.1 + scroll*0.5) % (H+60)) - 30, k = f.off % 3;
@@ -1926,12 +2034,16 @@ function drawScenery() {
   const uc = Math.min(1, urban);
   const coast = coastAmount();
   const gA = hexMix(C.fieldA, '#9a958c', uc*0.85), gB = hexMix(C.fieldB, '#8b867d', uc*0.85);
-  for (const band of [{x:0,w:WALL_L},{x:WALL_R,w:W-WALL_R}]) {
+  for (const band of [{x:0,w:WALL_L,left:true},{x:WALL_R,w:W-WALL_R,left:false}]) {
     for (let y=-40; y<H+40; y+=8) {
       const yy = ((y + scroll*0.9) % (H+80)) - 40;
       px(band.x, yy, band.w, 8, (Math.floor((yy+scroll)/8)%2) ? gA : gB);
     }
-    px(band.x===0 ? WALL_L-4 : WALL_R, 0, 4, H, hexMix(C.dirt, '#7c7a78', uc*0.7));
+    px(band.x===0 ? WALL_L-4 : WALL_R, 0, 4, H, hexMix(C.dirt, '#7c7a78', uc*0.7));  // ballast edge
+    if (uc < 0.5 && !(band.left && coast > 0.5)) for (const b of groundBits) {       // countryside wildflowers
+      const yy = ((b.y + scroll*0.9) % (H+40)) - 20;
+      drawGrassBit(band.x + 3 + b.fx * (band.w - 8), yy, b.kind);
+    }
   }
   // lineside features morph with the region: skyline ↔ houses ↔ trees (left side gives way to the sea)
   for (const f of feats) {
@@ -1941,7 +2053,7 @@ function drawScenery() {
     const r = (f.off % 18) / 18;                  // stable per-feature 0..1
     const u = urban + (r - 0.5) * 0.4;            // soft blending at region edges
     if (u > 0.62) drawBuilding(bx, yy, urban, r);
-    else if (u > 0.30) drawHouse(bx, yy, r);
+    else if (u > 0.46) drawHouse(bx, yy, r);
     else drawTreeish(f, bx, yy);
   }
   if (coast > 0.01) drawSea(coast);               // Long Island Sound out the left window
@@ -1969,98 +2081,132 @@ function drawStation(s, yy) {
 }
 
 function drawCar() {
-  // floor planks
+  // floor planks with grain + seams
   px(WALL_L, 0, WALL_R-WALL_L, H, C.floor);
-  for (let y=0; y<H; y+=14) px(WALL_L, y, WALL_R-WALL_L, 1, C.plank);
-  // centre aisle runner (slightly lighter)
-  px(AISLE_L, CAR_TOP, AISLE_R-AISLE_L, CAR_BOT-CAR_TOP, '#c2925f');
-  for (let y=CAR_TOP; y<CAR_BOT; y+=14) px(AISLE_L, y, AISLE_R-AISLE_L, 1, '#b07f4d');
+  for (let y=0; y<H; y+=12) { px(WALL_L, y, WALL_R-WALL_L, 1, C.plank); px(WALL_L, y+6, WALL_R-WALL_L, 1, shade(C.floor, 10)); }
+  for (let x=WALL_L+18; x<WALL_R; x+=42) px(x, 0, 1, H, 'rgba(40,24,12,.14)');
 
-  // side walls (inner trim) with window openings between rows
+  // centre aisle: a patterned red runner (like the reference)
+  const AW = AISLE_R-AISLE_L, AY = CAR_TOP, AH = CAR_BOT-CAR_TOP;
+  px(AISLE_L, AY, AW, AH, '#7d3a33');
+  px(AISLE_L+2, AY+2, AW-4, AH-4, '#8c463c');
+  px(AISLE_L, AY, AW, 2, '#b5854a'); px(AISLE_L, AY+AH-2, AW, 2, '#b5854a');   // gold border
+  px(AISLE_L, AY, 2, AH, '#9a6a3e'); px(AISLE_R-2, AY, 2, AH, '#9a6a3e');
+  for (let y=AY+8; y<CAR_BOT-4; y+=16) { px(AISLE_L+AW/2-2, y, 4, 4, '#6e2f2a'); px(AISLE_L+AW/2-1, y+1, 2, 2, '#a85a4e'); }
+
+  // side walls: warm wood panelling
   for (const [wx, dir] of [[WALL_L-6, 1],[WALL_R, -1]]) {
     px(wx, 0, 6, H, C.wall);
     px(wx + (dir>0?5:0), 0, 1, H, C.wallHi);
+    for (let y=8; y<H; y+=26) px(wx, y, 6, 1, C.panel);        // panel seams
   }
   // window panels aligned to each seat row — the cosy bit
   for (const st of seats) {
-    const wy = st.row - 14, wh = 28;
-    if (st.side==='L') {
-      px(WALL_L-6, wy, 6, wh, C.trim);
-      px(WALL_L-5, wy+2, 4, wh-4, C.glass1);
-      px(WALL_L-5, wy+2, 4, 3, C.glass2);
-    } else {
-      px(WALL_R, wy, 6, wh, C.trim);
-      px(WALL_R+1, wy+2, 4, wh-4, C.glass1);
-      px(WALL_R+1, wy+2, 4, 3, C.glass2);
-    }
+    const wy = st.row - 14, wh = 28, wx = st.side==='L' ? WALL_L-6 : WALL_R;
+    px(wx, wy, 6, wh, C.trim); px(wx, wy, 6, 1, shade(C.trim, 18)); px(wx, wy+wh-1, 6, 1, C.panel);
+    const gx = st.side==='L' ? WALL_L-5 : WALL_R+1;
+    px(gx, wy+2, 4, wh-4, C.glass1); px(gx, wy+2, 4, 3, C.glass2);
+    px(gx, wy+2, 1, wh-4, 'rgba(255,255,255,.35)');            // glass sheen
   }
 
   // end caps: doors
   px(WALL_L, 0, WALL_R-WALL_L, CAR_TOP, C.wall);
   px(AISLE_L-6, CAR_TOP-9, (AISLE_R-AISLE_L)+12, 9, C.trim);   // top door frame
-  px(AISLE_L-2, CAR_TOP-7, (AISLE_R-AISLE_L)+4, 6, '#3a2c24');
+  px(AISLE_L-2, CAR_TOP-7, (AISLE_R-AISLE_L)+4, 6, C.panel);
   px(WALL_L, CAR_BOT, WALL_R-WALL_L, H-CAR_BOT, C.wall);
   px(AISLE_L-6, CAR_BOT, (AISLE_R-AISLE_L)+12, 9, C.trim);     // bottom door frame
-  px(AISLE_L-2, CAR_BOT+1, (AISLE_R-AISLE_L)+4, 6, '#3a2c24');
+  px(AISLE_L-2, CAR_BOT+1, (AISLE_R-AISLE_L)+4, 6, C.panel);
 
   // overhead luggage rail hint along both sides
-  px(WALL_L, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.06)');
-  px(WALL_R-4, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.06)');
+  px(WALL_L, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.07)');
+  px(WALL_R-4, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.07)');
 }
 
 function drawSeat(st) {
-  const c = currentClass();                    // seats take on your class's upholstery
-  const {x,y,w,h} = st;
-  px(x, y+3, w, h, C.shadow);                  // soft shadow
-  px(x, y, w, h, c.seatDk);                     // base/frame
-  px(x+2, y+2, w-4, h-4, c.seat);               // cushion
-  px(x+2, y+2, w-4, 3, c.seatHi);               // cushion highlight
-  px(x+5, y-4, w-10, 6, c.head);                // headrest
-  px(x-2, y+4, 3, h-8, c.seatDk);               // armrests
-  px(x+w-1, y+4, 3, h-8, c.seatDk);
+  if (drawSeatSprite(st)) return;              // the hand-drawn green sofa
+  const c = currentClass();                    // (fallback) seats take on your class's upholstery
+  const { x, y, w, h } = st, O = C.outline;
+  const dk = c.seatDk, mid = c.seat, hi = c.seatHi, deep = shade(dk, -12);
+  px(x - 1, y + 6, w + 2, h - 2, C.shadow);    // ground shadow
+
+  // wooden frame around the bench
+  px(x - 3, y - 2, w + 6, h + 5, O);           // outline
+  px(x - 2, y - 1, w + 4, h + 3, '#6b4a30');   // frame
+  px(x - 2, y - 1, w + 4, 1, '#8a6340');       // frame top light
+  px(x - 2, y + h + 1, w + 4, 1, '#4d341f');   // frame bottom shade
+  px(x - 2, y - 1, 2, h + 3, '#5a3d26'); px(x + w, y - 1, 2, h + 3, '#5a3d26'); // armrests
+
+  // upholstery
+  const cx0 = x, cy0 = y, cw = w, ch = h;
+  px(cx0, cy0, cw, ch, dk);                     // piping / seam base
+  px(cx0 + 1, cy0 + 3, cw - 2, ch - 6, mid);    // cushion face
+  px(cx0 + 1, cy0 + 1, cw - 2, 2, hi);          // rounded front lip (bright)
+  px(cx0 + 1, cy0 + 3, cw - 2, 1, shade(hi, -20));
+  px(cx0 + 1, cy0 + ch - 3, cw - 2, 2, deep);   // back shade
+  px(cx0 + 1, cy0 + 3, 1, ch - 6, shade(mid, 12));   // left sheen
+  px(cx0 + cw - 2, cy0 + 3, 1, ch - 6, shade(mid, -16)); // right shade
+
+  // diamond button tufting — puckered buttons in an offset (diamond) grid
+  for (let r = 0, by = cy0 + 8; by < cy0 + ch - 4; by += 7, r++) {
+    for (let bx = cx0 + 7 + (r % 2 ? 6 : 0); bx < cx0 + cw - 4; bx += 12) {
+      px(bx - 2, by - 2, 2, 1, shade(mid, 14));  // pucker highlight (up-left)
+      px(bx + 1, by + 1, 2, 1, dk);              // pucker shadow (down-right)
+      px(bx, by, 1, 1, deep);                    // the button
+    }
+  }
+  // rounded corners
+  px(cx0, cy0, 1, 1, '#6b4a30'); px(cx0 + cw - 1, cy0, 1, 1, '#6b4a30');
+  px(cx0, cy0 + ch - 1, 1, 1, '#6b4a30'); px(cx0 + cw - 1, cy0 + ch - 1, 1, 1, '#6b4a30');
 }
 
+// shared cozy character: chunky, outlined, softly shaded (top-down)
+function drawChar(cx, cy, p, o) {
+  o = o || {};
+  const O = C.outline, y = cy + (o.bob || 0);
+  px(cx - 6, y + 8, 12, 2, C.shadow); px(cx - 5, y + 7, 10, 2, C.shadow);   // soft shadow
+  if (o.walk) {                                                            // stepping legs
+    const s = Math.sin(o.walkT || 0) * 1.4;
+    px(cx - 4, y + 5 + Math.max(0, s), 3, 4, '#3a2c24'); px(cx + 1, y + 5 + Math.max(0, -s), 3, 4, '#3a2c24');
+  }
+  // body
+  px(cx - 6, y - 2, 12, 9, O);                                             // outline
+  px(cx - 5, y - 1, 10, 7, p.shirt);
+  px(cx - 5, y - 1, 10, 2, shade(p.shirt, 24));                            // shoulder highlight
+  px(cx - 5, y + 4, 10, 2, shade(p.shirt, -22));                           // lower shade
+  px(cx - 5, y, 2, 4, shade(p.shirt, -14)); px(cx + 3, y, 2, 4, shade(p.shirt, -14)); // arms
+  // head
+  px(cx - 5, y - 12, 10, 11, O);                                           // outline
+  px(cx - 4, y - 11, 8, 9, p.skin);
+  px(cx - 4, y - 4, 8, 2, shade(p.skin, -18));                             // jaw shade
+  px(cx - 4, y - 11, 8, 6, p.hair);                                        // hair
+  px(cx - 4, y - 11, 8, 2, shade(p.hair, 20));
+  px(cx - 4, y - 6, 8, 1, shade(p.hair, -22));
+  if (p.hat === 'cap')    { px(cx - 5, y - 13, 10, 5, p.hatc); px(cx - 6, y - 9, 13, 2, shade(p.hatc, -12)); px(cx - 2, y - 12, 4, 2, shade(p.hatc, 26)); }
+  if (p.hat === 'ranger') { px(cx - 6, y - 8, 12, 2, '#6b5236'); px(cx - 4, y - 13, 8, 6, '#7d6140'); px(cx - 4, y - 13, 8, 2, '#93744e'); }
+  if (p.hat === 'chef')   { px(cx - 4, y - 14, 8, 7, '#f3efe6'); px(cx - 5, y - 8, 10, 2, '#f3efe6'); px(cx - 4, y - 14, 8, 2, '#fff'); }
+  if (o.hp) { px(cx - 7, y - 9, 2, 6, '#33383f'); px(cx + 5, y - 9, 2, 6, '#33383f'); px(cx - 7, y - 11, 14, 2, '#4a5058'); }
+  if (o.faceUp) px(cx - 1, y - 3, 2, 1, 'rgba(0,0,0,.3)');
+  else if (o.facing) px(cx + (o.facing > 0 ? 3 : -4), y - 4, 1, 1, 'rgba(0,0,0,.35)');
+}
 function drawPerson(cx, cy, p, t, hp) {
   const bob = Math.sin(t) * 0.6;
-  // shadow
-  px(cx-5, cy+6+bob, 10, 3, C.shadow);
-  // body / shoulders
-  px(cx-5, cy-2+bob, 10, 8, p.shirt);
-  px(cx-5, cy-2+bob, 10, 2, 'rgba(255,255,255,.12)');
-  // head
-  px(cx-4, cy-9+bob, 8, 8, p.skin);
-  // hair (top-down: covers crown)
-  px(cx-4, cy-9+bob, 8, 4, p.hair);
-  px(cx-4, cy-9+bob, 8, 1, 'rgba(0,0,0,.15)');
-  if (hp) {                                  // headphones over the head (top-down)
-    px(cx-6, cy-8+bob, 2, 6, '#2b2f36'); px(cx+4, cy-8+bob, 2, 6, '#2b2f36');  // ear cups
-    px(cx-6, cy-10+bob, 12, 2, '#474d56');                                     // band over the crown
-  }
+  if (p.sprite && drawNpcSprite(cx, cy, bob)) return;      // hand-drawn passenger
+  drawChar(cx, cy - 10, p, { bob, hp });                   // lifted so head + shoulders clear the table
 }
 
+// the seated player, drawn inside the seat loop so the table sits in front of them
+function drawSeatedPlayer(st) {
+  const cx = st.sitX, cy = st.sitY, hp = player.items.includes('headphones');
+  if (!drawPlayerSprite(cx, cy, player.facing, 0)) drawChar(cx, cy - 10, player, { hp });
+}
 function drawPlayer() {
-  if (player.seat) {
-    drawPerson(player.x+player.w/2, player.y+player.h/2, player, 0, player.items.includes('headphones'));
-    return;
-  }
+  if (player.seat) return;   // the seated player is drawn in the seat loop (behind its table)
   const cx = player.x + player.w/2, cy = player.y + player.h/2;
-  const step = Math.sin(player.walkT) * 1.2;
-  px(cx-5, cy+6, 10, 3, C.shadow);
-  // legs/step
-  px(cx-4, cy+3+Math.max(0,step), 3, 4, '#3a2c24');
-  px(cx+1, cy+3+Math.max(0,-step), 3, 4, '#3a2c24');
-  // body
-  px(cx-5, cy-2, 10, 8, player.shirt);
-  px(cx-5, cy-2, 10, 2, 'rgba(255,255,255,.15)');
-  // head + hair, facing
-  px(cx-4, cy-10, 8, 8, player.skin);
-  px(cx-4, cy-10, 8, 4, player.hair);
-  // a tiny nose-dot to show facing
-  px(cx + (player.facing>0?2:-3), cy-4, 1, 1, 'rgba(0,0,0,.3)');
-  if (player.items.includes('headphones')) {  // wearing headphones
-    px(cx-6, cy-9, 2, 6, '#2b2f36'); px(cx+4, cy-9, 2, 6, '#2b2f36');
-    px(cx-6, cy-11, 12, 2, '#474d56');
-  }
+  const hp = player.items.includes('headphones');
+  const moving = player.walkT !== 0;
+  const bob = moving ? -Math.abs(Math.sin(player.walkT)) * 1.5 : 0;   // a little hop while walking
+  if (!drawPlayerSprite(cx, cy, player.facing, bob))                  // the hand-drawn sprite
+    drawChar(cx, cy, player, { hp, facing: player.facing, walk: moving, walkT: player.walkT });
 
   // "sit here" prompt if near a free seat (keyboard hint only)
   const st = isTouch ? null : nearestFreeSeat();
@@ -2079,9 +2225,12 @@ function drawPlayer() {
 // a train waiting at the edge with its doors open, the station name overhead.
 let stationT = 0;
 function drawStationBench(bx, by) {
-  px(bx, by, 22, 7, '#6a5947'); px(bx, by, 22, 2, '#7d6b56');   // seat
-  px(bx, by - 5, 22, 3, '#5a4a3a');                             // backrest
-  px(bx + 1, by + 7, 3, 4, '#3f342a'); px(bx + 18, by + 7, 3, 4, '#3f342a'); // legs
+  const O = C.outline;
+  px(bx - 1, by - 6, 24, 15, O);                               // outline
+  px(bx, by - 5, 22, 3, '#6b5236');                            // backrest
+  px(bx, by, 22, 7, '#7a5f3f'); px(bx, by, 22, 2, '#8f6f49');  // seat
+  for (let gx = bx + 2; gx < bx + 20; gx += 4) px(gx, by + 2, 1, 4, '#5f4429'); // slats
+  px(bx + 1, by + 7, 3, 4, '#3f342a'); px(bx + 18, by + 7, 3, 4, '#3f342a');    // legs
 }
 // walkable platform helpers (state is declared up near `atStation`)
 function clampPlatform(x, y) {
@@ -2116,21 +2265,10 @@ function updateStation(dt) {
   } else if (stnY > PLAT_MINY + 10) stnBoardLock = false;
 }
 function drawStationPerson(cx, cy, p, t, facing, walking, faceUp) {
-  const bob = Math.sin(t * 2) * 0.5;
-  px(cx - 5, cy + 6 + bob, 10, 3, C.shadow);                    // shadow
-  const step = walking ? Math.sin(t) * 1.2 : Math.sin(t * 3) * 0.5;
-  px(cx - 4, cy + 3 + bob + Math.max(0, step),  3, 4, '#3a2c24');   // legs
-  px(cx + 1, cy + 3 + bob + Math.max(0, -step), 3, 4, '#3a2c24');
-  px(cx - 5, cy - 2 + bob, 10, 8, p.shirt);                    // body
-  px(cx - 5, cy - 2 + bob, 10, 2, 'rgba(255,255,255,.14)');
-  px(cx - 4, cy - 10 + bob, 8, 8, p.skin);                     // head
-  px(cx - 4, cy - 10 + bob, 8, 4, p.hair);                     // hair
-  if (faceUp) px(cx - 1, cy - 6 + bob, 2, 1, 'rgba(0,0,0,.25)');           // facing the train
-  else px(cx + (facing > 0 ? 2 : -3), cy - 5 + bob, 1, 1, 'rgba(0,0,0,.3)'); // facing L/R
-  if (p.items && p.items.includes('headphones')) {
-    px(cx - 6, cy - 9 + bob, 2, 6, '#2b2f36'); px(cx + 4, cy - 9 + bob, 2, 6, '#2b2f36');
-    px(cx - 6, cy - 11 + bob, 12, 2, '#474d56');
-  }
+  drawChar(cx, cy, p, {
+    bob: Math.sin(t * 2) * 0.5, walk: walking, walkT: t, facing, faceUp,
+    hp: p.items && p.items.includes('headphones'),
+  });
 }
 // each city gets its own skyline + palette so they feel a little different
 const CITY_THEME = {
@@ -2218,8 +2356,8 @@ function drawStationScene() {
   drawStationBench(16, 128); drawStationBench(W - 38, 128);
   px(20, 96, 3, 34, '#5a5048'); px(17, 92, 9, 7, '#ffd98f'); px(17, 92, 9, 2, '#fff2c8');
   px(W - 23, 96, 3, 34, '#5a5048'); px(W - 26, 92, 9, 7, '#ffd98f'); px(W - 26, 92, 9, 2, '#fff2c8');
-  drawStationPerson(44, 176, { shirt:'#6f7f8a', skin:'#caa07b', hair:'#2c2118' }, stationT + 1.7, 1, false, true);
-  drawStationPerson(W - 50, 186, { shirt:'#8a6f9a', skin:'#e2b58c', hair:'#3a2a1d' }, stationT + 3.1, -1, false, false);
+  drawStationPerson(44, 176, { shirt:'#3f5170', skin:'#caa07b', hair:'#2c2118', hat:'cap', hatc:'#2c3f66' }, stationT + 1.7, 1, false, true);
+  drawStationPerson(W - 50, 186, { shirt:'#6f6a4a', skin:'#e2b58c', hair:'#3a2a1d', hat:'ranger' }, stationT + 3.1, -1, false, false);
   // --- "walk aboard" prompt below the open doors (hidden once you're close) -
   if (pr && stnY > 118) {
     ctx.globalAlpha = 0.5 + 0.5 * Math.sin(stationT * 4);
@@ -2228,7 +2366,9 @@ function drawStationScene() {
     ctx.globalAlpha = 1;
   }
   // --- you ------------------------------------------------------------------
-  drawStationPerson(stnX, stnY, player, stnMoving ? stnWalkT : stationT, stnFacing, stnMoving, !stnMoving && stnY > 90);
+  const pbob = stnMoving ? -Math.abs(Math.sin(stnWalkT)) * 1.5 : 0;
+  if (!drawPlayerSprite(stnX, stnY, stnFacing, pbob))
+    drawStationPerson(stnX, stnY, player, stnMoving ? stnWalkT : stationT, stnFacing, stnMoving, !stnMoving && stnY > 90);
 }
 
 // --- main loop -------------------------------------------------------------
@@ -2257,16 +2397,15 @@ function frame(now) {
 
     drawScenery();
     drawCar();
-    // seat, then its passenger, then the table + things in front of them
+    // seat, then its passenger, then the table in front of them (covering the lap)
     for (const st of seats) {
       drawSeat(st);
-      if (st.occupant && st.occupant.npc) {
-        st.occupant.bob += dt;
-        drawPerson(st.sitX, st.sitY, st.occupant, st.occupant.bob, st.occupant.item === 'headphones');
-      }
-      drawSeatItems(st, dt);
+      const occ = st.occupant;
+      if (occ && occ.npc) { occ.bob += dt; drawPerson(st.sitX, st.sitY, occ, occ.bob, occ.item === 'headphones'); }
+      else if (occ && occ.player) drawSeatedPlayer(st);
+      drawSeatItems(st, dt);        // table sits in front of whoever's seated here
     }
-    drawPlayer();
+    drawPlayer();                   // only the walking (un-seated) player
 
     ctx.restore();
   }
@@ -2314,13 +2453,19 @@ function drawWideView() {
     const yy = ((y + scroll*0.8) % (H+32)) - 16;
     px(0, yy, W, 16, (Math.floor((yy+scroll)/16) % 2) ? gA : gB);
   }
-  // the sea takes over the left of the line along the shoreline
+  if (uc < 0.5) for (const b of groundBits) {          // wildflowers across the meadow (not on the track)
+    const yy = ((b.y + scroll*0.8) % (H+40)) - 20, bx = b.fx * W;
+    if (Math.abs(bx - cx) > 22 && !(coast > 0.5 && bx < cx)) drawGrassBit(bx, yy, b.kind);
+  }
+  // the sea takes over the left of the line along the shoreline, with rocks at the water's edge
   if (coast > 0.01) {
     ctx.globalAlpha = coast;
     for (let y = -8; y < H+8; y += 8) {
       const yy = ((y + scroll*0.5) % (H+16)) - 8;
-      px(0, yy, cx-17, 8, (Math.floor((yy+scroll)/8)%2) ? '#5b9fb8' : '#4e93ac');
+      px(0, yy, cx-19, 8, (Math.floor((yy+scroll)/8)%2) ? '#4f97b4' : '#448aa6');
     }
+    px(cx-22, 0, 3, H, '#7fc0d3');
+    for (const b of groundBits) { const yy = ((b.y*1.3 + scroll*0.5) % (H+40)) - 20; if (b.kind === 4) drawRock(cx - 30 + b.fx * 10, yy, 0.9); }
     ctx.globalAlpha = 1;
   }
   // 2) lineside on both sides of the track: skyline ↔ houses ↔ trees, matching the region
@@ -2330,17 +2475,18 @@ function drawWideView() {
     const sides = coast > 0.5 ? [W - 22 - f.off*1.3] : [10 + f.off*1.3, W - 22 - f.off*1.3];  // left is sea
     for (const bx of sides) {
       if (u > 0.62) drawBuilding(bx, yy, urban, r);
-      else if (u > 0.30) drawHouse(bx, yy, r);
+      else if (u > 0.46) drawHouse(bx, yy, r);
       else drawTreeish(f, bx, yy);
     }
   }
-  // 2) the track: ballast, scrolling sleepers, two rails
-  px(cx-17, 0, 34, H, '#9b8c74'); px(cx-17, 0, 2, H, '#857862'); px(cx+15, 0, 2, H, '#857862');
-  for (let y = -12; y < H+12; y += 12) {
-    const yy = ((y + scroll) % (H+24)) - 12;
-    px(cx-15, yy, 30, 4, '#7a5a3a');
+  // 2) the track: gravel ballast, wooden sleepers, two steel rails
+  px(cx-19, 0, 38, H, '#8a8278'); px(cx-19, 0, 2, H, '#736c62'); px(cx+17, 0, 2, H, '#736c62');
+  for (const b of groundBits) { const yy = ((b.y + scroll) % (H+18)) - 9; px(cx-16 + b.fx*30, yy, 1, 1, (b.kind%2) ? '#6f685f' : '#a49b8c'); } // gravel
+  for (let y = -14; y < H+14; y += 10) {
+    const yy = ((y + scroll) % (H+28)) - 14;
+    px(cx-16, yy, 32, 5, '#6b4a2c'); px(cx-16, yy, 32, 1, '#7d5836');   // sleepers
   }
-  px(cx-10, 0, 2, H, '#5c6066'); px(cx+8, 0, 2, H, '#5c6066');
+  for (const rx of [cx-12, cx+9]) { px(rx, 0, 3, H, '#4c5157'); px(rx, 0, 1, H, '#90969d'); } // rails + shine
   // 3) the train: locomotive + carriages, your car marked
   for (let i = 0; i < TRAIN.length; i++) {
     const s = TRAIN[i];
