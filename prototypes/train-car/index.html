@@ -631,6 +631,7 @@ npcSeats.forEach((i, k) => {
     hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][k % 4],
     bob: Math.random() * 6.28,
     item: NPC_ITEMS[k % NPC_ITEMS.length],
+    sprite: k === 1,                    // this passenger uses the hand-drawn sprite
   };
 });
 
@@ -677,6 +678,18 @@ mugImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAMCAYAAAC5tzfZ
 const bookImg = new Image(); let bookImgOK = false;
 bookImg.onload = () => { bookImgOK = true; };
 bookImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAALCAYAAACprHcmAAABq0lEQVR4nE3RvWtTURjH8d9zzrkvuUmMLRLSxSFKIKIgWmh1EVykuNYOYocKioturv4dgtj+Ba6WDk6OBUFEwZRg0mKS26RNmpf7knvOeZwCfufP9iX81/PH9z7Li9mG0dp4DknLxJmxEI7TLdXq27SAb3Y2dwqt5i7NEiM8JRUYOtaYG8t+TtGJV0zVAttu720xZRRry7RU8TG6yOBKi3GY0t8/I/7V6XgCAF68errhx1E9Npn1AyOEYkBaZFYjnSYsci7dXL1+qgBg+vvodSmdI1GGW80hcoMY2jD63Rg60sitlFAuL52JrZdbd/JZ8sBqy5Fm6flAMtGIRxlcElCutDZw+fvPk5a63Ou9qwYqGM9hjRZ0NmD4UqLgOgClCANJmV+gh+v1j7S9fpv9yZDZdUhnFnPLEIJwyXcQTqamdqsqeuwe7n36sqba4TmuVEpYu38DDhEsgCiKMcwI+eMOjppdmpVX9gBAlKtXx74CTcI+k9Xw2CCQjErR49pyXmrL/f2Dr+8BQGw+e/KISuXW8Qj41jjnw8YAP9pTNJqntp1IvrZ698PixT9X/c3EagJd8gAAAABJRU5ErkJggg==';
+// a hand-drawn passenger (front view) seated as one of the NPCs
+const npcCharImg = new Image(); let npcCharImgOK = false;
+npcCharImg.onload = () => { npcCharImgOK = true; };
+npcCharImg.src = 'data:image/png;base64,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';
+function drawNpcSprite(cx, cy, bob) {
+  if (!npcCharImgOK) return false;
+  const w = npcCharImg.width, h = npcCharImg.height;      // drawn 1:1 for crisp pixels
+  const dx = Math.round(cx - w / 2), dy = Math.round(cy + 8 - h + (bob || 0));
+  px(cx - 6, cy + 7, 12, 2, C.shadow); px(cx - 5, cy + 9, 10, 1, C.shadow);   // soft shadow
+  ctx.drawImage(npcCharImg, dx, dy, w, h);
+  return true;
+}
 
 // everything you can take out of your bag
 const BAG = [
@@ -2174,7 +2187,9 @@ function drawChar(cx, cy, p, o) {
   else if (o.facing) px(cx + (o.facing > 0 ? 3 : -4), y - 4, 1, 1, 'rgba(0,0,0,.35)');
 }
 function drawPerson(cx, cy, p, t, hp) {
-  drawChar(cx, cy, p, { bob: Math.sin(t) * 0.6, hp });
+  const bob = Math.sin(t) * 0.6;
+  if (p.sprite && drawNpcSprite(cx, cy, bob)) return;      // hand-drawn passenger
+  drawChar(cx, cy, p, { bob, hp });
 }
 
 function drawPlayer() {
@@ -2382,11 +2397,11 @@ function frame(now) {
     // seat, then its passenger, then the table + things in front of them
     for (const st of seats) {
       drawSeat(st);
-      if (st.occupant && st.occupant.npc) {
-        st.occupant.bob += dt;
-        drawPerson(st.sitX, st.sitY, st.occupant, st.occupant.bob, st.occupant.item === 'headphones');
-      }
+      const occ = st.occupant && st.occupant.npc ? st.occupant : null;
+      // procedural passengers sit behind the table; the hand-drawn sprite sits on top (like you)
+      if (occ && !occ.sprite) { occ.bob += dt; drawPerson(st.sitX, st.sitY, occ, occ.bob, occ.item === 'headphones'); }
       drawSeatItems(st, dt);
+      if (occ && occ.sprite) { occ.bob += dt; drawPerson(st.sitX, st.sitY, occ, occ.bob, occ.item === 'headphones'); }
     }
     drawPlayer();
 
