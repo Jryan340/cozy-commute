@@ -317,6 +317,16 @@
     transition: transform .5s cubic-bezier(.2,.85,.25,1), opacity .5s;
   }
   #station:not(.show) .stn-card { transform: translateY(24px); opacity: 0; }
+  .stn-collapse {
+    display: block; width: 100%; background: none; border: none; cursor: pointer;
+    color: #8f88a0; font: 700 11px ui-monospace, monospace; letter-spacing: .5px; padding: 2px 0 4px; text-align: center;
+  }
+  .stn-collapse:active { color: #cfc8ba; }
+  #stnBody { display: flex; flex-direction: column; gap: 14px; }
+  .stn-card.min { gap: 0; background: rgba(16,14,22,.6); backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 2px 8px; }
+  .stn-card.min .stn-collapse { padding: 9px 0; color: #cfc8ba; }
+  .stn-card.min #stnBody { display: none; }
   .stn-top { text-align: center; }
   .stn-eyebrow { font: 700 10px ui-monospace, monospace; letter-spacing: 2.5px; color: #7fd3bd; margin-bottom: 8px; }
   .stn-eyebrow::before { content: '● '; }
@@ -432,16 +442,19 @@
 
   <div id="station">
     <div class="stn-card">
-      <div class="stn-top">
-        <div class="stn-eyebrow">YOU ARE AT</div>
-        <div class="stn-name" id="stnName">Boston South Station</div>
-        <div class="stn-city" id="stnCity">Boston · <b id="stnClock">3:15 PM</b></div>
+      <button class="stn-collapse" id="stnToggle" aria-label="show or hide departures">▾</button>
+      <div id="stnBody">
+        <div class="stn-top">
+          <div class="stn-eyebrow">YOU ARE AT</div>
+          <div class="stn-name" id="stnName">Boston South Station</div>
+          <div class="stn-city" id="stnCity">Boston · <b id="stnClock">3:15 PM</b></div>
+        </div>
+        <div class="stn-board">
+          <div class="stn-board-head"><span>Departures · tap for a ticket</span><span>Plat</span></div>
+          <div id="stnDeps"></div>
+        </div>
+        <button class="stn-plan2" id="stnPlan">Search departures →</button>
       </div>
-      <div class="stn-board">
-        <div class="stn-board-head"><span>Departures · tap for a ticket</span><span>Plat</span></div>
-        <div id="stnDeps"></div>
-      </div>
-      <button class="stn-plan2" id="stnPlan">Search departures →</button>
     </div>
   </div>
 
@@ -1254,7 +1267,8 @@ document.getElementById('bdGo').addEventListener('click', () => { purchased ? bo
 const stationEl = document.getElementById('station');
 let atStation = false;
 // walkable platform state (declared here so showStation() can use it at init)
-const PLAT_MINX = 14, PLAT_MAXX = W - 14, PLAT_MINY = 74, PLAT_MAXY = 196;
+const PLAT_MINX = 14, PLAT_MAXX = W - 14, PLAT_MINY = 74;
+let PLAT_MAXY = 196;   // how far down you can roam — grows when the departures card is collapsed
 const DOOR_CX = W / 2;
 let stnX = DOOR_CX, stnY = 150, stnFacing = -1, stnWalkT = 0, stnMoving = false, stnTarget = null, stnBoardLock = false;
 // which routes leave from a given city (their origin), for the departures board
@@ -1294,9 +1308,18 @@ function renderStation() {
     board.appendChild(row);
   });
 }
+let stnCollapsed = false;
+function setStationCollapsed(c) {
+  stnCollapsed = c;
+  document.querySelector('#station .stn-card').classList.toggle('min', c);
+  document.getElementById('stnToggle').textContent = c ? '▴  ' + save.lastCity + ' · departures' : '▾';
+  PLAT_MAXY = c ? 306 : 196;                 // roam the whole platform when the board is tucked away
+}
+document.getElementById('stnToggle').addEventListener('click', () => setStationCollapsed(!stnCollapsed));
 function showStation() {
   atStation = true; document.body.classList.add('at-station');
   stnX = DOOR_CX; stnY = 150; stnTarget = null; stnBoardLock = true;   // arrive mid-platform; must step to the doors
+  setStationCollapsed(false);                // arrive with the departures board open
   renderStation(); stationEl.classList.add('show');
 }
 function hideStation() { atStation = false; document.body.classList.remove('at-station'); stationEl.classList.remove('show'); }
@@ -2109,35 +2132,81 @@ function drawStationPerson(cx, cy, p, t, facing, walking, faceUp) {
     px(cx - 6, cy - 11 + bob, 12, 2, '#474d56');
   }
 }
+// each city gets its own skyline + palette so they feel a little different
+const CITY_THEME = {
+  'Boston':     { sky:'#2a3040', build:'#4a3a3f', accent:'#e0a24e', plat:'#8f867d', kind:'brick'   },
+  'Providence': { sky:'#2b2c3e', build:'#3f3a4c', accent:'#d8c06a', plat:'#918a7e', kind:'dome'    },
+  'New York':   { sky:'#1c2030', build:'#2b3040', accent:'#9fd6e8', plat:'#86858c', kind:'towers'  },
+  'Washington': { sky:'#333a4e', build:'#5a6072', accent:'#ece6d6', plat:'#9c958c', kind:'capitol' },
+};
+function cityTheme() { return CITY_THEME[save.lastCity] || CITY_THEME['Boston']; }
+function shade(hex, d) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, Math.min(255, (n >> 16) + d)), g = Math.max(0, Math.min(255, ((n >> 8) & 255) + d)), b = Math.max(0, Math.min(255, (n & 255) + d));
+  return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+function pxDome(cx, baseY, r, color) {   // a pixel semicircle, drawn upward from baseY
+  for (let k = 0; k < r; k++) { const half = Math.round(Math.sqrt(r * r - k * k)); px(Math.round(cx - half), baseY - k, half * 2, 1, color); }
+}
+function drawSkyline(th) {
+  px(0, 0, W, 26, th.sky);                                    // dusk sky
+  px(0, 0, W, 12, shade(th.sky, 8));
+  const base = 26, hs = [12, 18, 9, 15, 20, 10, 16, 13, 19, 8, 17, 11, 14];
+  let x = -3, i = 0;
+  while (x < W) {                                             // a deterministic building row
+    const w = 13 + (i * 5 % 9), h = hs[i % hs.length];
+    px(x, base - h, w - 1, h, th.build);
+    px(x, base - h, w - 1, 1, shade(th.build, 14));
+    for (let wy = base - h + 2; wy < base - 2; wy += 4)
+      for (let wx = x + 2; wx < x + w - 3; wx += 4)
+        if (((wx * 3 + wy + i) & 3) === 0) px(wx, wy, 1, 1, th.accent);
+    x += w; i++;
+  }
+  if (th.kind === 'towers') {                                 // New York: two extra-tall towers
+    for (const tx of [64, 88]) {
+      px(tx, 3, 13, 23, th.build); px(tx, 3, 13, 1, shade(th.build, 16)); px(tx + 6, 0, 1, 3, th.accent);
+      for (let wy = 7; wy < 24; wy += 4) for (let wx = tx + 3; wx < tx + 11; wx += 4) px(wx, wy, 1, 1, th.accent);
+    }
+  } else if (th.kind === 'dome') {                            // Providence: the State House dome
+    const cx = W / 2; px(cx - 12, 12, 24, 14, th.build); pxDome(cx, 12, 12, th.build);
+    px(cx - 1, 0, 2, 3, th.accent); pxDome(cx, 12, 4, shade(th.build, 24));
+  } else if (th.kind === 'capitol') {                         // Washington: monument + Capitol dome
+    px(72, 2, 4, 24, th.build); px(72, 2, 4, 2, th.accent);
+    const cx = 150; px(cx - 11, 14, 22, 12, th.build); pxDome(cx, 14, 10, th.build); px(cx - 1, 2, 2, 3, th.accent);
+  } else {                                                    // Boston: a lit harbour billboard
+    px(58, 6, 3, 14, '#4a4038'); px(46, 0, 22, 11, '#14140f'); px(47, 1, 20, 9, th.accent); px(49, 3, 16, 1, shade(th.accent, 30));
+  }
+}
 function drawStationScene() {
   const pr = platformRoute();                                  // the train at this platform (if any)
-  // --- track + waiting train across the top ---------------------------------
-  px(0, 0, W, 46, '#20242f');                                  // track hall shadow
-  px(0, 40, W, 18, '#39352f');                                 // ballast
-  for (let x = 4; x < W; x += 11) px(x, 41, 5, 16, '#2c2924'); // sleepers
-  px(0, 43, W, 2, '#6f6862'); px(0, 53, W, 2, '#6f6862');      // two rails
-  px(0, 0, W, 40, '#3f6d9c'); px(0, 0, W, 6, '#4f7cab'); px(0, 34, W, 6, '#33587f');   // car body
-  px(0, 6, W, 1, 'rgba(255,255,255,.18)');
-  for (let x = 6; x < W; x += 27) { px(x, 14, 18, 15, C.glass1); px(x, 14, 18, 4, C.glass2); px(x, 14, 18, 1, 'rgba(255,255,255,.4)'); }
+  const th = cityTheme();
+  drawSkyline(th);                                             // --- distant city skyline
+  // --- the waiting train across the top -------------------------------------
+  const TT = 24, TB = 52;                                      // train top / bottom
+  px(0, TB, W, 8, '#39352f');                                  // ballast under the train
+  for (let x = 4; x < W; x += 11) px(x, TB + 1, 5, 6, '#2c2924');
+  px(0, TB + 2, W, 2, '#6f6862');                              // rail
+  px(0, TT, W, TB - TT, '#3f6d9c'); px(0, TT, W, 4, '#4f7cab'); px(0, TB - 4, W, 4, '#33587f');   // car body
+  for (let x = 6; x < W; x += 27) { px(x, TT + 7, 18, 12, C.glass1); px(x, TT + 7, 18, 3, C.glass2); }
   const doorX = Math.round(W / 2 - 12);
   if (pr) {                                                    // open, lit doors + destination roll-sign
-    px(doorX, 6, 24, 32, '#243b52'); px(doorX + 2, 9, 20, 27, '#16222f');
-    px(doorX + 3, 30, 18, 3, '#c9a44e');                       // warm light on the platform
+    px(doorX, TT + 2, 24, TB - TT - 2, '#243b52'); px(doorX + 2, TT + 4, 20, TB - TT - 6, '#16222f');
+    px(doorX + 3, TB - 4, 18, 3, '#c9a44e');
     const dst = ('▸ ' + pr.to).toUpperCase();
     ctx.font = 'bold 6px ui-monospace, monospace'; ctx.textAlign = 'center';
     const rw = ctx.measureText(dst).width + 8;
-    px(Math.round(W/2 - rw/2), 1, rw, 9, '#0d0d0d');
-    ctx.fillStyle = '#ffcf6b'; ctx.fillText(dst, W / 2, 8);
+    px(Math.round(W / 2 - rw / 2), TT - 9, rw, 9, '#0d0d0d');
+    ctx.fillStyle = '#ffcf6b'; ctx.fillText(dst, W / 2, TT - 2);
   } else {                                                     // no onward service: doors shut
-    px(doorX, 6, 24, 32, '#345a82'); px(doorX + 11, 6, 2, 32, '#243b52');
+    px(doorX, TT + 2, 24, TB - TT - 2, '#345a82'); px(doorX + 11, TT + 2, 2, TB - TT - 2, '#243b52');
   }
-  px(doorX - 2, 6, 2, 32, '#2a2f36'); px(doorX + 22, 6, 2, 32, '#2a2f36');
-  // --- platform -------------------------------------------------------------
+  px(doorX - 2, TT + 2, 2, TB - TT - 2, '#2a2f36'); px(doorX + 22, TT + 2, 2, TB - TT - 2, '#2a2f36');
+  // --- platform (tinted for the city) ---------------------------------------
   px(0, 58, W, 6, '#c9a44e');                                  // tactile safety strip
   for (let x = 0; x < W; x += 8) px(x, 59, 4, 4, '#a8863b');
-  px(0, 64, W, H - 64, '#8f867d');                             // concrete
-  for (let y = 78; y < H; y += 22) px(0, y, W, 1, '#7d756c');
-  px(0, 64, W, 2, '#9d948a');
+  px(0, 64, W, H - 64, th.plat);                               // concrete
+  for (let y = 78; y < H; y += 22) px(0, y, W, 1, shade(th.plat, -14));
+  px(0, 64, W, 2, shade(th.plat, 12));
   // --- hanging station name sign --------------------------------------------
   const name = (save.lastCity || 'Station').toUpperCase();
   ctx.font = 'bold 9px ui-monospace, monospace'; ctx.textAlign = 'center';
