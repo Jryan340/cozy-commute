@@ -42,14 +42,18 @@
     -webkit-tap-highlight-color: transparent;
   }
   #snd:active { transform: translateY(1px); }
-  #wide {
-    position: fixed; right: 18px; top: 64px; width: 46px; height: 46px; border-radius: 50%;
+  #wide, #fp {
+    position: fixed; width: 46px; height: 46px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     background: rgba(20,18,26,.8); border: 1px solid rgba(255,255,255,.12);
     color: #efe8da; font-size: 20px; cursor: pointer; z-index: 6;
     -webkit-tap-highlight-color: transparent;
   }
-  #wide:active { transform: translateY(1px); }
+  #wide { right: 18px; top: 64px; }
+  #fp   { left: 18px; top: 64px; display: none; }
+  #wide:active, #fp:active { transform: translateY(1px); }
+  /* first-person mode hides the rest of the chrome for a clean look */
+  body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp { display: none !important; }
 
   /* premium pull-up trip sheet (Flighty-style) */
   #tripTab {
@@ -268,6 +272,7 @@
   <button id="act">Sit</button>
   <button id="snd" aria-label="toggle train sounds">🔇</button>
   <button id="wide" aria-label="see the whole train">🗺️</button>
+  <button id="fp" aria-label="first-person view">🪟</button>
 
   <div id="scrim"></div>
   <div id="bag">
@@ -445,6 +450,7 @@ const USE_MSG = {
 // --- camera / zoom ----------------------------------------------------------
 let zoomed = false;                       // double-tap to zoom into your seat
 let wideView = false;                     // 🗺️ pull all the way out to see the whole train
+let fpView = false;                       // 🪟 first-person: your desk + the window
 const cam = { s: 1, fx: W/2, fy: H/2 };   // scale + focus point (world coords)
 
 // whole-train overview layout: a locomotive + carriages; the 3rd car is yours
@@ -497,6 +503,7 @@ function toLogical(clientX, clientY) {
 let tapTimer = null, pendingTap = null;
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
+  if (fpView) { setFP(false); return; }            // tap anywhere to come back to your seat
   if (wideView) { setWide(false); return; }        // tap anywhere to come back to your car
 
   const s = toLogical(e.clientX, e.clientY);       // screen-space logical
@@ -755,6 +762,16 @@ function setWide(on) {
   applyMaster();                               // sound ducks way low when pulled out
 }
 wideBtn.addEventListener('click', () => setWide(!wideView));
+
+// --- first-person view (your desk + the window) ----------------------------
+const fpBtn = document.getElementById('fp');
+function setFP(on) {
+  fpView = on;
+  if (on) { zoomed = false; closeBag(); }
+  document.body.classList.toggle('fp', on);
+  if (on) toast('Tap to return to your seat');
+}
+fpBtn.addEventListener('click', () => setFP(!fpView));
 
 // --- pull-up trip sheet + arrival (Flighty-style) --------------------------
 const tripEl = document.getElementById('trip');
@@ -1142,13 +1159,14 @@ function update(dt) {
   const k = 1 - Math.pow(0.0015, dt);
   cam.s += (ts - cam.s) * k; cam.fx += (tfx - cam.fx) * k; cam.fy += (tfy - cam.fy) * k;
 
+  fpBtn.style.display = (player.seat && !wideView && !fpView) ? 'flex' : 'none';   // 🪟 offered when seated
   if (isTouch) {
     actBtn.textContent = player.seat ? 'Stand up' : 'Sit';
     hintEl.innerHTML = wideView
       ? 'The whole train · tap anywhere to come back to your car 🚃'
       : player.seat
         ? (zoomed ? 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; tap a thing to use it &nbsp;·&nbsp; double-tap to zoom out'
-                  : 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; double-tap to zoom in')
+                  : '🪟 first-person &nbsp;·&nbsp; tap yourself 🎒 for your bag &nbsp;·&nbsp; double-tap to zoom')
         : 'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; 🗺️ see the whole train';
   }
 }
@@ -1483,7 +1501,9 @@ function frame(now) {
   update(dt);
 
   ctx.clearRect(0,0,W,H);
-  if (wideView) {
+  if (fpView) {
+    drawFirstPerson();
+  } else if (wideView) {
     drawWideView();
   } else {
     ctx.save();
@@ -1516,6 +1536,7 @@ function frame(now) {
 
 // time-of-day wash + tunnel darkness + cosy interior lamp glow
 function applyAmbient() {
+  if (fpView) return;   // first-person lights its own window
   const L = lightingFor(dayT);
   if (L.a > 0.001) { ctx.fillStyle = `rgba(${L.r},${L.g},${L.b},${L.a})`; ctx.fillRect(0,0,W,H); }
   if (tunnelAmount > 0.001) {
@@ -1599,6 +1620,73 @@ function drawWideView() {
       }
     }
   }
+}
+
+// --- first-person: seated at your desk, looking out the window --------------
+const FPW = { x: 16, y: 22, w: 208, h: 176 };   // the window rectangle
+function drawFirstPerson() {
+  px(0, 0, W, H, C.wall);                        // interior wall behind everything
+  drawFPScene(FPW.x, FPW.y, FPW.w, FPW.h);       // the moving view out the window
+  drawFPFrame();                                 // window frame + interior below
+  drawFPDesk();                                  // your tray table + things on it
+}
+
+function drawFPScene(x, y, w, h) {
+  ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  const urban = urbanAt(miles / ROUTE.totalMiles), uc = Math.min(1, urban), coast = coastAmount();
+  const hor = y + h * 0.46;
+  px(x, y, w, hor - y, '#bcd8ea');               // sky
+  px(x, y, w, (hor - y) * 0.45, '#a7cce4');
+  if (coast > 0.5) {                             // the Sound
+    px(x, hor, w, y + h - hor, '#5b9fb8');
+    for (let i = 1; i < 7; i++) px(x, hor + i * (y + h - hor) / 7, w, 1, 'rgba(255,255,255,.14)');
+  } else {                                       // ground
+    px(x, hor, w, y + h - hor, hexMix('#7fae5f', '#8b867d', uc * 0.7));
+  }
+  // far layer: hills or skyline, slow
+  let T = 54, off = ((scroll * 0.3) % T + T) % T;
+  for (let i = -1; i <= w / T + 1; i++) {
+    const bx = x + i * T - off, hh = 10 + ((i * 37) % 3 + 3) * 4;
+    if (urban > 0.6) { px(bx + 4, hor - hh, 20, hh, '#7b7b87'); px(bx + 28, hor - hh * .7, 16, hh * .7, '#6f6f7a'); }
+    else if (coast < 0.5) { px(bx, hor - 8, T, 8, hexMix('#6f9a54', '#8b867d', uc * .4)); px(bx + 12, hor - 12, 24, 5, hexMix('#6f9a54', '#8b867d', uc * .4)); }
+  }
+  // mid layer: trees / houses / buildings / boats, faster
+  T = 40; off = ((scroll * 0.8) % T + T) % T;
+  for (let i = -1; i <= w / T + 1; i++) {
+    const bx = x + i * T - off, r = ((i * 53) % 18) / 18, u = urban + (r - 0.5) * 0.4;
+    if (coast > 0.5) { if (i % 2 === 0) { px(bx + 8, hor + 10, 16, 4, '#efe8da'); px(bx + 15, hor - 1, 2, 11, '#cfc6b6'); px(bx + 16, hor - 1, 8, 8, '#e6eef4'); } }
+    else if (u > 0.62) { const bh = 22 + ((i * 31) % 26); px(bx + 8, hor - bh, 22, bh + 6, '#867c6f'); for (let wy = hor - bh + 4; wy < hor; wy += 6) px(bx + 11, wy, 16, 2, 'rgba(255,228,168,.45)'); }
+    else if (u > 0.3) { px(bx + 8, hor - 6, 18, 12, '#b98a63'); px(bx + 5, hor - 12, 24, 7, '#7a4a37'); }
+    else { px(bx + 13, hor - 16, 4, 16, '#6b4a2e'); px(bx + 8, hor - 26, 14, 14, '#2f7a3e'); px(bx + 10, hor - 24, 8, 6, '#3f9450'); }
+  }
+  ctx.restore();
+  // time-of-day wash + tunnel/underground darkness, over the window only
+  const L = lightingFor(dayT);
+  if (L.a > 0.001) { ctx.fillStyle = `rgba(${L.r},${L.g},${L.b},${L.a})`; ctx.fillRect(x, y, w, h); }
+  if (tunnelAmount > 0.001) { ctx.fillStyle = `rgba(6,6,14,${tunnelAmount * 0.92})`; ctx.fillRect(x, y, w, h); }
+}
+
+function drawFPFrame() {
+  const { x, y, w, h } = FPW;
+  for (const [rx, ry, rw, rh] of [[x-7, y-7, w+14, 7], [x-7, y+h, w+14, 7], [x-7, y-7, 7, h+14], [x+w, y-7, 7, h+14]])
+    px(rx, ry, rw, rh, C.trim);                  // window frame
+  px(x-7, y-7, w+14, 2, C.wallHi);
+  px(x-3, y+h+7, w+6, 10, '#5d4438');            // sill / interior wall below the window
+}
+
+function drawFPDesk() {
+  const ty = H - 132;                            // tray table starts here
+  px(0, FPW.y + FPW.h + 17, W, ty - (FPW.y + FPW.h + 17), C.wall);  // wall between window and desk
+  px(0, ty, W, H - ty, '#7c5236');               // wood tray table (foreground)
+  px(0, ty, W, 4, '#9a6a44');
+  for (let yy = ty + 10; yy < H; yy += 11) px(0, yy, W, 1, '#6e4a30');   // grain
+  px(0, ty - 3, W, 3, C.shadow);                 // lip shadow above the table
+  const items = tableItems(), n = items.length;
+  const gap = 60, startX = W/2 - (n - 1) * gap / 2;
+  items.forEach((k, i) => {
+    const cx = startX + i * gap;
+    drawItemKind(k, { x: cx - 15, y: ty + 34, w: 30, h: 30 }, elapsed);   // enlarged for the desk
+  });
 }
 requestAnimationFrame(frame);
 </script>
