@@ -248,6 +248,13 @@
   }
   #nowTicket { animation: ticketIn .34s cubic-bezier(.2,.85,.25,1); }
   @keyframes ticketIn { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+  #bdStamp {
+    position: absolute; top: 40px; right: 12px; transform: rotate(-13deg);
+    border: 2.5px solid #b0453f; color: #b0453f; border-radius: 7px; padding: 2px 8px;
+    font: 800 11px ui-monospace, monospace; letter-spacing: 1.5px; opacity: .9; pointer-events: none;
+    text-shadow: 0 0 1px rgba(245,240,229,.9); animation: stampIn .28s cubic-bezier(.3,1.4,.5,1);
+  }
+  @keyframes stampIn { from { transform: rotate(-13deg) scale(1.9); opacity: 0; } to { transform: rotate(-13deg) scale(1); opacity: .92; } }
   /* notches punched out of the pass — coloured to match the app background behind it */
   .bd-card::before, .bd-card::after {
     content: ''; position: absolute; top: 62%; width: 18px; height: 18px; border-radius: 50%;
@@ -468,9 +475,10 @@
       <!-- Current ride -->
       <div class="app-panel" data-panel="now" hidden>
         <div id="nowTicket" hidden>
-          <div class="ph-title">Your ticket<span>Boarding pass · Cozy Rail</span></div>
+          <div class="ph-title" id="bdTitle">Buy a ticket<span id="bdSub">Fare · Cozy Rail</span></div>
           <div class="bd-card">
-            <div class="bd-head"><span>NOW BOARDING</span><span class="bd-on" id="bdClass">3RD CLASS</span></div>
+            <div id="bdStamp" hidden>✓ PAID</div>
+            <div class="bd-head"><span id="bdHead">TICKET</span><span class="bd-on" id="bdClass">3RD CLASS</span></div>
             <div class="bd-route">
               <div class="bd-end"><b id="bdFrom">BOS</b><span id="bdFromName">Boston</span></div>
               <div class="bd-mid"><span>🚆</span><div class="bd-dash"></div></div>
@@ -481,7 +489,7 @@
               <div><b id="bdDist">229 mi</b><span>DISTANCE</span></div>
               <div><b id="bdEarn">+229</b><span>MILES</span></div>
             </div>
-            <button id="bdGo">Board this train →</button>
+            <button id="bdGo">Buy ticket →</button>
             <div class="bd-status" id="bdStatus">Boarding open · departs at the top of the hour</div>
           </div>
         </div>
@@ -985,11 +993,12 @@ function buildStopList() {
 }
 function fmtClock(s) { return Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0'); }
 function updateTripCard() {
-  const ticket   = boarding && !boarded && !arrived;   // holding a ticket, not yet aboard
+  const ticket   = boarding && !boarded && !arrived;   // choosing / buying a ticket, not yet aboard
   const liveRide = boarded || arrived;
   document.getElementById('nowTicket').hidden = !ticket;
   document.getElementById('nowLive').hidden   = !liveRide;
   document.getElementById('nowEmpty').hidden  = ticket || liveRide;
+  if (ticket) renderTicket();                 // keep Buy/Board + stamp in sync when reopened
   if (!liveRide) return;                      // ticket screen or empty state — nothing more to compute
 
   if (!stRows) buildStopList();
@@ -1134,8 +1143,8 @@ function effectiveDepartTs() {
 function bookRideAt(r, ts) {
   loadRoute(r);
   chosenDepartTs = ts;
-  resetJourney();               // reset + pull up your ticket inside the app
-  toast(`Ticket · ${r.from} → ${r.to} · ${fmtETClock(ts)}`);
+  resetJourney();               // reset + pull up the fare inside the app
+  toast(`Fare · ${r.from} → ${r.to} · departs ${fmtETClock(ts)}`);
 }
 function bookRoute(r) { bookRideAt(r, nextDepartTs()); }
 
@@ -1180,13 +1189,15 @@ function creditTrip() {
 }
 
 // --- boarding pass ---------------------------------------------------------
-let boarding = false;    // you hold a ticket (shown in the app) but haven't boarded yet
-let boarded  = false;    // aboard the scheduled train (schedule is now driving position)
-let departTs = 0;        // wall-clock (epoch ms) this train departs — clock-driven from here
-// Pull up your ticket *inside the app* (no standalone overlay). The departures
-// ticker / walking to the doors calls this; it opens the app on the Ride tab.
+let boarding  = false;   // the ticket screen is up for a chosen departure
+let purchased = false;   // you've bought that ticket (only then can you board)
+let boarded   = false;   // aboard the scheduled train (schedule is now driving position)
+let departTs  = 0;       // wall-clock (epoch ms) this train departs — clock-driven from here
+// Pull up the fare *inside the app* (no standalone overlay). The departures
+// ticker / walking to the doors calls this; it opens the app on the Ride tab
+// showing the trip to buy — you don't hold the ticket until you press Buy.
 function showBoarding() {
-  boarding = true; boarded = false;
+  boarding = true; purchased = false; boarded = false;
   departTs = effectiveDepartTs();   // the departure you picked, else the next one
   timetable = buildTimetable();
   document.getElementById('bdFrom').textContent = ROUTE.fromCode;
@@ -1197,23 +1208,36 @@ function showBoarding() {
   document.getElementById('bdDist').textContent = ROUTE.totalMiles + ' mi';
   document.getElementById('bdEarn').textContent = '+' + ROUTE.totalMiles;
   document.getElementById('bdClass').textContent = currentClass().name.toUpperCase();
+  renderTicket();
   tripOpen = true; lastScrolled = -1;
-  setTab('now');                    // the ticket lives on the Ride tab
+  setTab('now');                    // the fare / ticket lives on the Ride tab
   tripEl.classList.add('show'); tripScrim.classList.add('show');
 }
+// swap the ticket card between "fare to buy" and "paid boarding pass"
+function renderTicket() {
+  document.getElementById('bdTitle').childNodes[0].nodeValue = purchased ? 'Your ticket' : 'Buy a ticket';
+  document.getElementById('bdSub').textContent = purchased ? 'Boarding pass · Cozy Rail' : 'Fare · Cozy Rail';
+  document.getElementById('bdHead').textContent = purchased ? 'BOARDING PASS' : 'TICKET';
+  document.getElementById('bdGo').textContent = purchased ? 'Board this train →' : 'Buy ticket →';
+  document.getElementById('bdStamp').hidden = !purchased;
+}
+function buyTicket() {
+  purchased = true;
+  renderTicket();
+  toast('Ticket purchased ✓ · +' + ROUTE.totalMiles + ' mi when you arrive');
+}
 function board() {
-  // Commit to this departure. The train won't move until its scheduled time —
-  // you're aboard early, sitting at the platform until the clock hits it.
+  if (!purchased) return;           // can't board without a ticket
   departTs = effectiveDepartTs();
   timetable = buildTimetable();
-  boarding = false; boarded = true; atStation = false;
+  boarding = false; purchased = false; boarded = true; atStation = false;
   hideStation();
   closeTrip();                      // put the phone away — you're in the car now
   const wait = Math.round((departTs - Date.now()) / 1000);
   toast(wait > 45 ? 'Aboard · departs ' + fmtETClock(departTs)
                   : 'Aboard · departing shortly from ' + STATIONS[0].name);
 }
-document.getElementById('bdGo').addEventListener('click', board);
+document.getElementById('bdGo').addEventListener('click', () => { purchased ? board() : buyTicket(); });
 
 // --- station "home" concourse ----------------------------------------------
 // The app opens here, at the last station you were at — never straight to a
