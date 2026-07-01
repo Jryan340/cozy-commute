@@ -410,6 +410,7 @@
   #bag.show { transform: translateX(-50%) translateY(0); }
   .bag-head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 12px; }
   .bag-head b { font-size: 15px; letter-spacing: .3px; }
+  #bagIcon { image-rendering: pixelated; vertical-align: -5px; margin-right: 6px; }
   .bag-head span { font-size: 12px; opacity: .6; }
   #bagGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .chip {
@@ -459,7 +460,7 @@
 
   <div id="scrim"></div>
   <div id="bag">
-    <div class="bag-head"><b>Your bag</b><span id="bagCount">0/3 out</span></div>
+    <div class="bag-head"><b><img id="bagIcon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAANCAYAAACdKY9CAAACIElEQVR4nE2NPUwTYRyHf//37lr63doGpEIRiEhMVNAYYmQAwchgjFFWF1fddNXBjRhDjAmbq5OExMVFiCbq4MekCSHRAaR8lFZ717vrvW/fDyeNz/w8eQj/cWtufLV5UJ8eGBldmb04UV1cen6nUkp4hcrotcfPlt8AAP2VL01NXsgG2+8y3WXdOzjMbAZU601ltr9anlNaWV79fB0A2N9gIC0WTvSldF9Ggn5917q2ofrpgOWStlZ+/dyVudmZf4cbk6fWJo7a0/l0XP3cdS0hJYgYCAaZZMxYMPRxSwhTGpm3ASBseVNNN6m9QLJQKDgWAxEgFNDwO2QTk9zzYxt764ftk2fH5ju8YYwGIiGJiGBbFoTS0AZoBRxGG0YWmVw+VWFnyvmbqiNZPeDIJh0IpdGKOPwwAkGjOxtDWyiqeSElhHuXWZpfHc472Nz3mdQENxRI9ZQxOD4G1+dQivBty6X+QhJZFiVYyw9bBEKlkDAm8tEO2thpBCDNsXkQofE7QN+hJNpCo+ZGhtX3d9eZ40ApbcZHe3B6qIhobxcf1r7geG8G5WIKccdCV9wGA4zdUz5yzKvtIJZO0F49RLMlUcqmoA0QcAmbERzHhuYcxUKO2ZOzlx+8fvnqabX6A1py09FEbaHghR1oQ0jHGYKQ6658kZ2fmX5BALC48PDRp/dv78moreIxxyIiSKUgpQYAlctlrcrQyNL9hSe3/wAjcgNit8kJPwAAAABJRU5ErkJggg==" alt="" width="20" height="22">Your bag</b><span id="bagCount">0/3 out</span></div>
     <div id="bagGrid"></div>
     <button id="bagDone">Done</button>
   </div>
@@ -665,6 +666,17 @@ function drawSeatSprite(st) {
   ctx.drawImage(sofaImg, dx, dy, w, h);
   return true;
 }
+// the ¾-view wooden table (hand-drawn asset) that sits in front of each seat
+const tableImg = new Image(); let tableImgOK = false;
+tableImg.onload = () => { tableImgOK = true; };
+tableImg.src = 'data:image/png;base64,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';
+// small table-top things: a coffee mug and a book (hand-drawn assets)
+const mugImg = new Image(); let mugImgOK = false;
+mugImg.onload = () => { mugImgOK = true; };
+mugImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAMCAYAAAC5tzfZAAACIElEQVR4nE3Sy0uUURjH8d/znPO+zrziTGLjjN0MbCyywBShkkJJykokEinbFFgtAqNV1MJ9f0DQonUYbRKMUKELUuRCK3KhjUZQDEnm3HDmvZ05p63f/Wf3JQC4c324feeOyLTnbSWUCglGg6U0UcvZzG/6Vx8/f/kW2+Khc909LXvjMz3HUsl0XNF+J6B0XFNLraK+jqZE25Hk1I2RgZvbkWw71PJqX4NdOz7+xAi2icEgIvjaUGx60Yzdvezkd8eedh/vLX2cf/cCAOTGn9+1u7o6TevhA7TyPYuyXwUx4GkNIeP0d6NsuPJP959ofNZ/evShHUuOymK+YIJSjh6MXcD6ZgEqDMHEKAcKQttYy/yixS+rIpFKYvBsV/vc0tp7CV2lfK4IUw1hWQzjK4AlwpKLTLaIwHdRFVGIpk5MTr3R0fpUHRttQARIS6DiKXi+ghsEKLs+hBQAMYgYdQ31KFVCwAAsCZqlhCEBIoK0GK4XgABEbIZtSUB5WJ57jY7WJi65QYWdqM1MbKoaUEqhWHKhFMELDSKSEbEEHFa6QW7pDVeuOLHmM1IJZ/LrcvbS0YOpKjELkIWKpxGGgJDAj59Z7UcauW9oCJZV8+jarXvzcnD4ysTCwueLs5++WfU12ghpk9YEA6BYKGCLYtw/cH493bwnl8/nQgAgAFj6MN07OzszsZrJJKRlkdaatDHGEoyTp7qXR27fb9t+xH9+POlhqlbJcAAAAABJRU5ErkJggg==';
+const bookImg = new Image(); let bookImgOK = false;
+bookImg.onload = () => { bookImgOK = true; };
+bookImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAALCAYAAACprHcmAAABq0lEQVR4nE3RvWtTURjH8d9zzrkvuUmMLRLSxSFKIKIgWmh1EVykuNYOYocKioturv4dgtj+Ba6WDk6OBUFEwZRg0mKS26RNmpf7knvOeZwCfufP9iX81/PH9z7Li9mG0dp4DknLxJmxEI7TLdXq27SAb3Y2dwqt5i7NEiM8JRUYOtaYG8t+TtGJV0zVAttu720xZRRry7RU8TG6yOBKi3GY0t8/I/7V6XgCAF68errhx1E9Npn1AyOEYkBaZFYjnSYsci7dXL1+qgBg+vvodSmdI1GGW80hcoMY2jD63Rg60sitlFAuL52JrZdbd/JZ8sBqy5Fm6flAMtGIRxlcElCutDZw+fvPk5a63Ou9qwYqGM9hjRZ0NmD4UqLgOgClCANJmV+gh+v1j7S9fpv9yZDZdUhnFnPLEIJwyXcQTqamdqsqeuwe7n36sqba4TmuVEpYu38DDhEsgCiKMcwI+eMOjppdmpVX9gBAlKtXx74CTcI+k9Xw2CCQjErR49pyXmrL/f2Dr+8BQGw+e/KISuXW8Qj41jjnw8YAP9pTNJqntp1IvrZ698PixT9X/c3EagJd8gAAAABJRU5ErkJggg==';
 
 // everything you can take out of your bag
 const BAG = [
@@ -1782,6 +1794,13 @@ function itemSlots(st) {
   ];
 }
 function drawTable(st) {
+  if (tableImgOK) {                                 // hand-drawn wooden table sprite
+    const w = tableImg.width, h = tableImg.height;
+    const dx = Math.round(st.x + st.w / 2 - w / 2), dy = st.y - 17;   // top surface aligns to old table band
+    px(st.x + 1, st.y + 9, st.w - 2, 2, C.shadow);  // soft shadow under the legs
+    ctx.drawImage(tableImg, dx, dy, w, h);
+    return;
+  }
   const tw = st.w, th = 13, tx = st.x, ty = st.y - 16, O = C.outline;
   px(tx, ty + 3, tw, th, C.shadow);
   px(tx - 1, ty - 1, tw + 2, th + 2, O);          // outline
@@ -1791,6 +1810,14 @@ function drawTable(st) {
   px(tx, ty + th - 1, tw, 1, '#5e3a22');
 }
 function drawCoffee(r, t) {
+  if (mugImgOK) {                                              // hand-drawn mug sprite
+    const w = mugImg.width, h = mugImg.height;
+    const dx = Math.round(r.x + r.w / 2 - w / 2), dy = Math.round(r.y + r.h - h);
+    ctx.drawImage(mugImg, dx, dy, w, h);
+    px(dx + 3, dy - 1 - ((t * 9) % 4), 1, 2, 'rgba(255,255,255,.55)'); // steam
+    px(dx + 6, dy - 2 - ((t * 9 + 2) % 4), 1, 2, 'rgba(255,255,255,.4)');
+    return;
+  }
   px(r.x + 1, r.y + 3, r.w - 2, r.h - 3, '#efe6d6');           // mug
   px(r.x + 1, r.y + 3, r.w - 2, 2, '#5a3a22');                 // coffee surface
   px(r.x + r.w - 1, r.y + 5, 1, 3, '#cfc6b6');                 // handle
@@ -1810,6 +1837,12 @@ function drawWater(r) {
   px(r.x + 3, r.y + 3, 1, r.h - 4, 'rgba(255,255,255,.5)');        // shine
 }
 function drawBook(r) {
+  if (bookImgOK) {                                             // hand-drawn book sprite
+    const w = bookImg.width, h = bookImg.height;
+    const dx = Math.round(r.x + r.w / 2 - w / 2), dy = Math.round(r.y + r.h - h);
+    ctx.drawImage(bookImg, dx, dy, w, h);
+    return;
+  }
   px(r.x, r.y + 2, r.w, r.h - 3, '#9c5a4a');                   // covers
   px(r.x + 1, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');         // left page
   px(r.x + r.w/2, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');     // right page
