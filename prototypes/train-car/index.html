@@ -242,15 +242,16 @@
   }
   #boarding.show { opacity: 1; pointer-events: auto; }
   .bd-card {
-    width: min(350px, 86vw); background: linear-gradient(180deg, #f5f0e5, #e8e1d1); color: #2a2630;
-    border-radius: 20px; padding: 20px; box-shadow: 0 24px 70px rgba(0,0,0,.6);
+    width: 100%; background: linear-gradient(180deg, #f5f0e5, #e8e1d1); color: #2a2630;
+    border-radius: 20px; padding: 20px; box-shadow: 0 14px 40px rgba(0,0,0,.45);
     font-family: ui-monospace, monospace; position: relative;
-    transition: transform .42s cubic-bezier(.2,.85,.25,1), opacity .42s;
   }
-  #boarding:not(.show) .bd-card { transform: translateY(-26px) scale(.97); opacity: 0; }  /* slides in/out */
+  #nowTicket { animation: ticketIn .34s cubic-bezier(.2,.85,.25,1); }
+  @keyframes ticketIn { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+  /* notches punched out of the pass — coloured to match the app background behind it */
   .bd-card::before, .bd-card::after {
-    content: ''; position: absolute; top: 60%; width: 18px; height: 18px; border-radius: 50%;
-    background: #16141d; transform: translateY(-50%);
+    content: ''; position: absolute; top: 62%; width: 18px; height: 18px; border-radius: 50%;
+    background: #191622; transform: translateY(-50%);
   }
   .bd-card::before { left: -9px; } .bd-card::after { right: -9px; }
   .bd-head { display: flex; justify-content: space-between; align-items: center; font-size: 10px;
@@ -298,7 +299,7 @@
     padding: 0 0 calc(18px + env(safe-area-inset-bottom));
   }
   #station.show { opacity: 1; }                 /* stays pointer-events:none — the card handles taps */
-  #station .stn-card { pointer-events: auto; }
+  #station.show .stn-card { pointer-events: auto; }   /* only interactive while the station is shown */
   .stn-card {
     position: relative; z-index: 1; width: min(400px, 92vw);
     display: flex; flex-direction: column; gap: 14px;
@@ -426,10 +427,9 @@
         <div class="stn-city" id="stnCity">Boston · <b id="stnClock">3:15 PM</b></div>
       </div>
       <div class="stn-board">
-        <div class="stn-board-head"><span>Departures · tap to choose</span><span>Plat</span></div>
+        <div class="stn-board-head"><span>Departures · tap for a ticket</span><span>Plat</span></div>
         <div id="stnDeps"></div>
       </div>
-      <button class="stn-plan" id="stnBoard">Board →</button>
       <button class="stn-plan2" id="stnPlan">Plan a trip elsewhere →</button>
     </div>
   </div>
@@ -468,6 +468,24 @@
 
       <!-- Current ride -->
       <div class="app-panel" data-panel="now" hidden>
+        <div id="nowTicket" hidden>
+          <div class="ph-title">Your ticket<span>Boarding pass · Cozy Rail</span></div>
+          <div class="bd-card">
+            <div class="bd-head"><span>NOW BOARDING</span><span class="bd-on" id="bdClass">3RD CLASS</span></div>
+            <div class="bd-route">
+              <div class="bd-end"><b id="bdFrom">BOS</b><span id="bdFromName">Boston</span></div>
+              <div class="bd-mid"><span>🚆</span><div class="bd-dash"></div></div>
+              <div class="bd-end"><b id="bdTo">NYC</b><span id="bdToName">New York</span></div>
+            </div>
+            <div class="bd-meta">
+              <div><b id="bdDepart">3:15 PM</b><span>DEPARTS</span></div>
+              <div><b id="bdDist">229 mi</b><span>DISTANCE</span></div>
+              <div><b id="bdEarn">+229</b><span>MILES</span></div>
+            </div>
+            <button id="bdGo">Board this train →</button>
+            <div class="bd-status" id="bdStatus">Boarding open · departs at the top of the hour</div>
+          </div>
+        </div>
         <div id="nowLive">
           <div class="trip-top">
             <div class="trip-route" id="nowRoute">Boston <span>→</span> New York</div>
@@ -504,26 +522,6 @@
       <button data-tab="search"><span class="ic">🔍</span>Plan</button>
       <button data-tab="now"><span class="ic">🚆</span>Ride</button>
       <button data-tab="pass"><span class="ic">🎫</span>Passport</button>
-    </div>
-  </div>
-
-  <div id="boarding">
-    <div class="bd-card">
-      <button class="bd-dismiss" id="bdDismiss" aria-label="close">✕</button>
-      <div class="bd-head"><span>NOW BOARDING</span><span class="bd-on" id="bdClass">3RD CLASS</span></div>
-      <div class="bd-route">
-        <div class="bd-end"><b id="bdFrom">BOS</b><span id="bdFromName">Boston</span></div>
-        <div class="bd-mid"><span>🚆</span><div class="bd-dash"></div></div>
-        <div class="bd-end"><b id="bdTo">NYC</b><span id="bdToName">New York</span></div>
-      </div>
-      <div class="bd-meta">
-        <div><b id="bdDepart">3:15 PM</b><span>DEPARTS</span></div>
-        <div><b id="bdDist">229 mi</b><span>DISTANCE</span></div>
-        <div><b id="bdEarn">+229</b><span>MILES</span></div>
-      </div>
-      <button id="bdGo">Board →</button>
-      <div class="bd-status" id="bdStatus">Boarding open · train departs at the top of the hour</div>
-      <button class="bd-back" id="bdBack">↓ Explore the platform · plan another trip</button>
     </div>
   </div>
 
@@ -988,10 +986,12 @@ function buildStopList() {
 }
 function fmtClock(s) { return Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0'); }
 function updateTripCard() {
-  const live = boarded || arrived || boarding;   // there's always a ticket/ride to show
-  document.getElementById('nowLive').hidden  = !live;
-  document.getElementById('nowEmpty').hidden = live;
-  if (!live) return;                          // "no active ride" fallback
+  const ticket   = boarding && !boarded && !arrived;   // holding a ticket, not yet aboard
+  const liveRide = boarded || arrived;
+  document.getElementById('nowTicket').hidden = !ticket;
+  document.getElementById('nowLive').hidden   = !liveRide;
+  document.getElementById('nowEmpty').hidden  = ticket || liveRide;
+  if (!liveRide) return;                      // ticket screen or empty state — nothing more to compute
 
   if (!stRows) buildStopList();
   const total = ROUTE.totalMiles;
@@ -1030,8 +1030,8 @@ function updateTripCard() {
 }
 function openTrip()  {
   tripOpen = true; lastScrolled = -1;
-  const riding = arrived || (boarded && Date.now() >= departTs);
-  setTab(riding ? 'now' : 'search');          // hub opens on Plan unless you're actually moving
+  const onRide = boarding || boarded || arrived;   // ticket or active ride → Ride tab, else Plan
+  setTab(onRide ? 'now' : 'search');
   tripEl.classList.add('show'); tripScrim.classList.add('show');
 }
 function closeTrip() { tripOpen = false; tripEl.classList.remove('show'); tripScrim.classList.remove('show'); }
@@ -1136,9 +1136,8 @@ function effectiveDepartTs() {
 function bookRideAt(r, ts) {
   loadRoute(r);
   chosenDepartTs = ts;
-  resetJourney();               // reset + show the boarding pass for this departure
-  closeTrip();
-  toast(`Booked · ${r.from} → ${r.to} · ${fmtETClock(ts)}`);
+  resetJourney();               // reset + pull up your ticket inside the app
+  toast(`Ticket · ${r.from} → ${r.to} · ${fmtETClock(ts)}`);
 }
 function bookRoute(r) { bookRideAt(r, nextDepartTs()); }
 
@@ -1183,10 +1182,11 @@ function creditTrip() {
 }
 
 // --- boarding pass ---------------------------------------------------------
-const boardingEl = document.getElementById('boarding');
-let boarding = false;    // boarding pass is up / not yet committed to a departure
+let boarding = false;    // you hold a ticket (shown in the app) but haven't boarded yet
 let boarded  = false;    // aboard the scheduled train (schedule is now driving position)
 let departTs = 0;        // wall-clock (epoch ms) this train departs — clock-driven from here
+// Pull up your ticket *inside the app* (no standalone overlay). The departures
+// ticker / walking to the doors calls this; it opens the app on the Ride tab.
 function showBoarding() {
   boarding = true; boarded = false;
   departTs = effectiveDepartTs();   // the departure you picked, else the next one
@@ -1199,27 +1199,23 @@ function showBoarding() {
   document.getElementById('bdDist').textContent = ROUTE.totalMiles + ' mi';
   document.getElementById('bdEarn').textContent = '+' + ROUTE.totalMiles;
   document.getElementById('bdClass').textContent = currentClass().name.toUpperCase();
-  boardingEl.classList.add('show');
+  tripOpen = true; lastScrolled = -1;
+  setTab('now');                    // the ticket lives on the Ride tab
+  tripEl.classList.add('show'); tripScrim.classList.add('show');
 }
 function board() {
-  // Commit to the next departure. The train won't move until its scheduled
-  // time — you're aboard early, sitting at the platform until the clock hits it.
-  departTs = effectiveDepartTs();   // lock in against the live clock
+  // Commit to this departure. The train won't move until its scheduled time —
+  // you're aboard early, sitting at the platform until the clock hits it.
+  departTs = effectiveDepartTs();
   timetable = buildTimetable();
   boarding = false; boarded = true; atStation = false;
   hideStation();
-  boardingEl.classList.remove('show');
+  closeTrip();                      // put the phone away — you're in the car now
   const wait = Math.round((departTs - Date.now()) / 1000);
   toast(wait > 45 ? 'Aboard · departs ' + fmtETClock(departTs)
                   : 'Aboard · departing shortly from ' + STATIONS[0].name);
 }
 document.getElementById('bdGo').addEventListener('click', board);
-// dismiss the pass without boarding — the train stays at the platform and you
-// drop back to the station concourse, where you can plan another trip.
-function dismissBoarding() { boarding = false; boardingEl.classList.remove('show'); showStation(); }
-document.getElementById('bdDismiss').addEventListener('click', dismissBoarding);
-document.getElementById('bdBack').addEventListener('click', () => { dismissBoarding(); openTrip(); });
-boardingEl.addEventListener('click', (e) => { if (e.target === boardingEl) dismissBoarding(); });
 
 // --- station "home" concourse ----------------------------------------------
 // The app opens here, at the last station you were at — never straight to a
@@ -1235,43 +1231,37 @@ function departuresFrom(city) {
   return ROUTES.filter(r => r.from === city);
 }
 function onwardRoutes() { return departuresFrom(save.lastCity).filter(r => save.lifetimeMiles >= r.minMiles); }
-let selectedDepId = null;                     // the departure you've chosen = the train at the platform
-function platformNo(id) { return departuresFrom(save.lastCity).findIndex(r => r.id === id) + 3; }
-function selectDep(id) {
-  selectedDepId = id; renderStation();
-  const r = platformRoute();
-  if (r) toast('Platform ' + platformNo(id) + ' · ' + r.to + ' — walk aboard or tap Board');
+let selectedDepId = null;                     // the train currently at the platform (roll-sign + walk-on target)
+// tap a departure on the ticker → pull up the app with that ticket
+function takeTicket(id) {
+  selectedDepId = id;
+  const r = departuresFrom(save.lastCity).find(x => x.id === id);
+  if (r) bookRoute(r);
 }
-function boardSelected() { const r = platformRoute(); if (r) bookRoute(r); }
 function renderStation() {
   document.getElementById('stnName').textContent = save.lastStation;
   document.getElementById('stnCity').innerHTML = save.lastCity + ' · <b id="stnClock">' + fmtETClock(Date.now()) + '</b>';
   const board = document.getElementById('stnDeps'); board.innerHTML = '';
-  const boardBtn = document.getElementById('stnBoard');
   const deps = departuresFrom(save.lastCity);
   const t = fmtETClock(nextDepartTs());
   if (!deps.length) {
     board.innerHTML = `<div class="stn-empty">No scheduled departures from here right now.<br>Plan a trip to ride from another city.</div>`;
-    boardBtn.hidden = true;
     return;
   }
-  // keep the selection valid (default to the first unlocked departure)
+  // the train drawn at the platform = the first unlocked departure (unless you last tapped another)
   const unlocked = deps.filter(r => save.lifetimeMiles >= r.minMiles);
   if (!unlocked.some(r => r.id === selectedDepId)) selectedDepId = unlocked[0] ? unlocked[0].id : null;
   deps.forEach((r, i) => {
     const locked = save.lifetimeMiles < r.minMiles;
-    const sel = r.id === selectedDepId;
-    const row = document.createElement('div'); row.className = 'stn-dep' + (sel ? ' sel' : '');
+    const atPlat = r.id === selectedDepId;
+    const row = document.createElement('div'); row.className = 'stn-dep' + (atPlat ? ' sel' : '');
     row.innerHTML =
       `<span class="t">${t}</span>
        <span class="d">${r.to}<small>${locked ? '🔒 ' + r.minMiles + ' mi to unlock' : r.stations.length + ' stops · ' + RIDE_MINUTES + ' min'}</small></span>
-       <span class="p">${i + 3}</span><span class="go">${locked ? '🔒' : (sel ? '●' : '○')}</span>`;
-    if (!locked) row.onclick = () => selectDep(r.id);
+       <span class="p">${i + 3}</span><span class="go">${locked ? '🔒' : '›'}</span>`;
+    if (!locked) row.onclick = () => takeTicket(r.id);
     board.appendChild(row);
   });
-  const pr = platformRoute();
-  boardBtn.hidden = !pr;
-  if (pr) boardBtn.textContent = 'Board · ' + pr.to + ' →';
 }
 function showStation() {
   atStation = true; document.body.classList.add('at-station');
@@ -1279,7 +1269,6 @@ function showStation() {
   renderStation(); stationEl.classList.add('show');
 }
 function hideStation() { atStation = false; document.body.classList.remove('at-station'); stationEl.classList.remove('show'); }
-document.getElementById('stnBoard').addEventListener('click', boardSelected);
 document.getElementById('stnPlan').addEventListener('click', () => { openTrip(); });
 
 function fmtMMSS(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
@@ -2011,7 +2000,7 @@ function clampPlatform(x, y) {
 }
 // the train waiting at this platform = the departure you've selected (else the first unlocked one)
 function platformRoute() { const ow = onwardRoutes(); return ow.find(r => r.id === selectedDepId) || ow[0] || null; }
-function boardFromPlatform() { const r = platformRoute(); if (r) { toast('All aboard · ' + r.to + ' →'); bookRoute(r); } }
+function boardFromPlatform() { const r = platformRoute(); if (r) bookRoute(r); }
 function updateStation(dt) {
   stationT += dt;
   let dx = 0, dy = 0;
