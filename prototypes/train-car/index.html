@@ -55,7 +55,7 @@
   /* first-person mode hides the rest of the chrome for a clean look */
   body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp { display: none !important; }
 
-  /* premium pull-up trip sheet (Flighty-style) */
+  /* ---- the in-game phone: main hub (SBB planner × Flighty polish) -------- */
   #tripTab {
     position: fixed; left: 50%; bottom: env(safe-area-inset-bottom); transform: translateX(-50%);
     display: flex; align-items: center; gap: 7px;
@@ -74,15 +74,103 @@
 
   #trip {
     position: fixed; left: 50%; bottom: 0; transform: translateX(-50%) translateY(100%);
-    width: min(440px, 100vw);
-    background: linear-gradient(180deg, #2c2836 0%, #211d2a 55%, #1a1722 100%);
-    color: #efe8da; border: 1px solid rgba(255,255,255,.08); border-bottom: none;
-    border-radius: 24px 24px 0 0; padding: 10px 22px calc(22px + env(safe-area-inset-bottom));
-    box-shadow: 0 -18px 55px rgba(0,0,0,.6); transition: transform .34s cubic-bezier(.2,.85,.25,1); z-index: 9;
+    width: min(430px, 100vw); height: min(90vh, 820px);
+    display: flex; flex-direction: column; overflow: hidden;
+    background: linear-gradient(180deg, #26222f 0%, #1c1925 60%, #17141d 100%);
+    color: #efe8da; border: 1px solid rgba(255,255,255,.09); border-bottom: none;
+    border-radius: 30px 30px 0 0; box-shadow: 0 -18px 60px rgba(0,0,0,.62);
+    transition: transform .38s cubic-bezier(.2,.85,.25,1); z-index: 9;
   }
   #trip.show { transform: translateX(-50%) translateY(0); }
-  .trip-grip { width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.18); margin: 2px auto 16px; }
-  .trip-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; }
+  /* phone status bar */
+  .ph-status { display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 24px 2px; font: 700 13px ui-monospace, monospace; letter-spacing: .3px; color: #f2ecdd; }
+  .ph-status .ph-ind { display: flex; align-items: center; gap: 6px; font-size: 11px; opacity: .8; }
+  .ph-status .ph-ind .bat { font-weight: 700; color: #7fd3bd; }
+  .trip-grip { width: 38px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.2);
+    margin: 6px auto 8px; cursor: pointer; }
+  /* scrollable screen area */
+  .ph-screen { flex: 1; overflow-y: auto; padding: 6px 20px 14px; -webkit-overflow-scrolling: touch; }
+  .app-panel { min-height: 40px; }
+  .ph-title { font-size: 22px; font-weight: 800; letter-spacing: -.2px; color: #fff; margin: 4px 2px 14px; }
+  .ph-title span { color: #8f88a0; font-size: 12px; font-weight: 600; letter-spacing: .3px; display: block; margin-top: 3px; }
+
+  /* bottom nav (iOS-style) */
+  .ph-nav { display: flex; border-top: 1px solid rgba(255,255,255,.08);
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: rgba(20,17,26,.6); }
+  .ph-nav button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: none; border: none; cursor: pointer; color: #6f6980; padding: 4px 0;
+    font: 600 9.5px ui-monospace, monospace; letter-spacing: .4px; -webkit-tap-highlight-color: transparent; }
+  .ph-nav button .ic { font-size: 19px; line-height: 1; filter: grayscale(1) opacity(.6); }
+  .ph-nav button.on { color: #7fd3bd; }
+  .ph-nav button.on .ic { filter: none; }
+
+  /* ---- SBB-style journey planner ---------------------------------------- */
+  .sb-od { position: relative; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px; padding: 4px 12px; margin-bottom: 14px; }
+  .sb-field { display: flex; align-items: center; gap: 11px; padding: 11px 2px; }
+  .sb-field + .sb-field { border-top: 1px solid rgba(255,255,255,.07); }
+  .sb-ic { flex: 0 0 11px; width: 11px; height: 11px; border-radius: 50%; box-sizing: border-box; }
+  .sb-ic.from { border: 2px solid #7fd3bd; }
+  .sb-ic.to { background: #eb0000; box-shadow: 0 0 0 3px rgba(235,0,0,.18); }  /* SBB red destination */
+  .sb-field input { flex: 1; background: none; border: none; outline: none; color: #fff;
+    font: 600 15px ui-monospace, monospace; letter-spacing: .2px; min-width: 0; }
+  .sb-field input::placeholder { color: #6f6980; font-weight: 500; }
+  .sb-swap { position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,.12);
+    background: #2c2836; color: #cfc8ba; cursor: pointer; font-size: 15px; }
+  .sb-swap:active { transform: translateY(-50%) scale(.94); }
+
+  .sb-suggest { display: flex; flex-direction: column; gap: 2px; margin: -4px 0 14px; }
+  .sb-sug { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border-radius: 12px; cursor: pointer;
+    background: rgba(255,255,255,.03); border: 1px solid transparent; }
+  .sb-sug:active { background: rgba(127,211,189,.12); }
+  .sb-sug .pin { font-size: 15px; opacity: .7; }
+  .sb-sug b { font-size: 14px; color: #fff; font-weight: 700; }
+  .sb-sug span { font-size: 10.5px; color: #8f88a0; margin-left: auto; letter-spacing: .3px; }
+
+  .sb-sec { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: #6f6980;
+    margin: 4px 2px 9px; font-weight: 700; }
+
+  /* connection card (Flighty ticket feel) */
+  .cx-card { background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 17px; padding: 14px 15px 13px; margin-bottom: 11px; }
+  .cx-card.locked { opacity: .55; }
+  .cx-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cx-route { font-size: 14.5px; font-weight: 800; color: #fff; }
+  .cx-route span { opacity: .4; margin: 0 4px; }
+  .cx-cls { font-size: 9px; letter-spacing: 1px; padding: 4px 8px; border-radius: 999px;
+    background: rgba(127,211,189,.16); color: #7fd3bd; border: 1px solid rgba(127,211,189,.4); white-space: nowrap; }
+  .cx-cls.lock { background: rgba(255,201,120,.12); color: #ffd9a0; border-color: rgba(255,201,120,.4); }
+  .cx-times { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; }
+  .cx-end { text-align: center; }
+  .cx-end b { display: block; font-size: 21px; font-weight: 800; color: #fff; line-height: 1; letter-spacing: -.5px; }
+  .cx-end small { font-size: 9px; color: #8f88a0; letter-spacing: .6px; }
+  .cx-mid { flex: 1; text-align: center; position: relative; }
+  .cx-mid .dur { font-size: 9.5px; color: #8f88a0; letter-spacing: .3px; }
+  .cx-mid .rail { height: 2px; background: linear-gradient(90deg,#3a3646,#565062,#3a3646);
+    border-radius: 2px; margin: 5px 4px 0; position: relative; }
+  .cx-mid .rail::before, .cx-mid .rail::after { content: ''; position: absolute; top: 50%; width: 6px; height: 6px;
+    border-radius: 50%; background: #565062; transform: translateY(-50%); }
+  .cx-mid .rail::before { left: -1px; } .cx-mid .rail::after { right: -1px; }
+  .cx-deps { display: flex; flex-wrap: wrap; gap: 7px; }
+  .cx-dep { padding: 8px 13px; border-radius: 11px; cursor: pointer;
+    background: #2f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 2px;
+    font: 700 12.5px ui-monospace, monospace; letter-spacing: .3px; }
+  .cx-dep.later { background: rgba(255,255,255,.05); color: #cfc8ba; border-color: rgba(255,255,255,.12); }
+  .cx-dep:active { transform: translateY(1px); border-bottom-width: 1px; }
+  .cx-dep:disabled { background: #26222f; color: #6f6980; border-color: #3a3546; cursor: default; }
+
+  .ph-empty { text-align: center; padding: 34px 16px; color: #8f88a0; }
+  .ph-empty .em { font-size: 40px; opacity: .5; margin-bottom: 12px; }
+  .ph-empty p { font-size: 13px; line-height: 1.5; margin-bottom: 16px; }
+  .ph-cta { padding: 12px 20px; border-radius: 13px; cursor: pointer;
+    background: #2f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
+    font: 700 13px ui-monospace, monospace; letter-spacing: .5px; }
+  .ph-cta:active { transform: translateY(1px); border-bottom-width: 2px; }
+
+  /* ---- live ride (Now) --------------------------------------------------- */
+  .trip-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
   .trip-route { font-size: 18px; font-weight: 700; letter-spacing: .2px; }
   .trip-route span { opacity: .45; margin: 0 5px; }
   .trip-status {
@@ -90,15 +178,15 @@
     background: rgba(84,153,138,.2); color: #7fd3bd; border: 1px solid rgba(84,153,138,.45); white-space: nowrap;
   }
   .trip-status.arrived { background: rgba(255,201,120,.16); color: #ffd9a0; border-color: rgba(255,201,120,.45); }
+  .trip-status.boarding { background: rgba(140,170,255,.16); color: #aebfff; border-color: rgba(140,170,255,.4); }
 
-  /* named stop list (transit-line timeline) */
-  .tl-list { max-height: 188px; overflow-y: auto; margin: 2px 0 16px; padding: 2px 4px 2px 2px; }
+  .tl-list { max-height: 210px; overflow-y: auto; margin: 2px 0 16px; padding: 2px 4px 2px 2px; }
   .st-row { position: relative; display: flex; align-items: center; gap: 11px; padding: 5px 2px; }
   .st-row::before { content: ''; position: absolute; left: 6px; top: 50%; height: 100%; width: 2px;
     background: #3a3646; z-index: 0; }
   .st-row:last-child::before { display: none; }
   .st-dot { position: relative; z-index: 1; flex: 0 0 11px; width: 11px; height: 11px; border-radius: 50%;
-    border: 2px solid #56506220; border-color: #565062; background: #2a2735; box-sizing: border-box; }
+    border: 2px solid #565062; background: #2a2735; box-sizing: border-box; }
   .st-name { flex: 1; font-size: 13px; color: #cfc8ba; }
   .st-mi { font-size: 10px; opacity: .42; letter-spacing: .3px; }
   .st-row.passed .st-dot { background: #ffd9a0; border-color: #ffd9a0; }
@@ -114,31 +202,16 @@
   .trip-primary b { display: block; font-size: 23px; font-weight: 700; color: #fff; line-height: 1.1; }
   .trip-primary span { font-size: 10px; opacity: .6; letter-spacing: .4px; }
 
-  .trip-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 18px; text-align: center; }
+  .trip-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 16px; text-align: center; }
   .trip-stats > div { display: flex; flex-direction: column; gap: 3px; }
   .trip-stats b { font-size: 16px; color: #fff; font-weight: 700; }
   .trip-stats span { font-size: 9px; opacity: .55; letter-spacing: .3px; }
+  #nowAction { width: 100%; padding: 13px; border-radius: 13px; cursor: pointer;
+    background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
+    font: 700 14px ui-monospace, monospace; letter-spacing: .5px; }
+  #nowAction:active { transform: translateY(1px); border-bottom-width: 2px; }
 
-  /* app tabs */
-  .app-tabs { display: flex; gap: 4px; background: rgba(255,255,255,.05); border-radius: 12px; padding: 3px; margin-bottom: 16px; }
-  .app-tab { flex: 1; padding: 8px; border-radius: 9px; border: none; cursor: pointer; background: transparent;
-    color: #b8b1a4; font: 600 12px ui-monospace, monospace; letter-spacing: .3px; }
-  .app-tab.on { background: #3f7d6e; color: #fff; }
-  .app-panel { min-height: 60px; }
-
-  /* Book */
-  #bookList { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; max-height: 300px; overflow-y: auto; }
-  .book-card { display: flex; align-items: center; gap: 10px; padding: 12px 13px; border-radius: 13px;
-    background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.07); }
-  .book-card.locked { opacity: .5; }
-  .bk-main { flex: 1; }
-  .bk-route { font-size: 14px; font-weight: 700; color: #fff; }
-  .bk-sub { font-size: 10px; opacity: .6; margin-top: 3px; letter-spacing: .2px; }
-  .bk-go { padding: 8px 13px; border-radius: 10px; border: 1px solid #54998a; border-bottom-width: 2px;
-    background: #3f7d6e; color: #fff; font: 700 12px ui-monospace, monospace; cursor: pointer; white-space: nowrap; }
-  .bk-go:disabled { background: #2c2836; border-color: #3a3546; color: #8a836f; cursor: default; }
-
-  /* Passport */
+  /* ---- Passport ---------------------------------------------------------- */
   .pp-hero { text-align: center; margin-bottom: 16px; }
   .pp-hero b { display: block; font-size: 40px; font-weight: 800; color: #ffd9a0; line-height: 1; }
   .pp-hero span { font-size: 10px; letter-spacing: 2px; opacity: .6; }
@@ -152,18 +225,11 @@
   .pp-grid > div { background: rgba(255,255,255,.045); border-radius: 11px; padding: 12px; }
   .pp-grid b { display: block; font-size: 22px; color: #fff; font-weight: 700; }
   .pp-grid span { font-size: 9px; opacity: .55; letter-spacing: .5px; }
-  .pp-classpick { display: flex; gap: 6px; margin-bottom: 16px; }
+  .pp-classpick { display: flex; gap: 6px; margin-bottom: 8px; }
   .pp-cls { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #3a3546; background: #2c2836;
     color: #cfc8ba; font: 600 12px ui-monospace, monospace; cursor: pointer; }
   .pp-cls.on { background: #3f7d6e; border-color: #54998a; color: #fff; }
   .pp-cls.locked { opacity: .45; cursor: default; }
-
-  #tripClose {
-    width: 100%; padding: 13px; border-radius: 13px; cursor: pointer;
-    background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
-    font: 600 14px ui-monospace, monospace; letter-spacing: .5px;
-  }
-  #tripClose:active { transform: translateY(1px); border-bottom-width: 2px; }
 
   /* boarding pass screen */
   #boarding {
@@ -210,6 +276,13 @@
     letter-spacing: .3px; line-height: 1.5;
   }
   .bd-status b { color: #2f7d6e; }
+  .bd-dismiss {
+    position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 50%;
+    border: none; background: rgba(0,0,0,.06); color: #8a8170; font-size: 14px; cursor: pointer; line-height: 1;
+  }
+  .bd-dismiss:active { background: rgba(0,0,0,.12); }
+  .bd-back { margin-top: 10px; width: 100%; padding: 10px; border-radius: 11px; cursor: pointer;
+    background: none; border: none; color: #8a8170; font: 600 11px ui-monospace, monospace; letter-spacing: .5px; }
   #wclock {
     position: fixed; top: calc(8px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     display: flex; gap: 7px; align-items: baseline; z-index: 7;
@@ -298,42 +371,70 @@
     <button id="bagDone">Done</button>
   </div>
 
-  <button id="tripTab">TRIP</button>
+  <button id="tripTab">APP</button>
   <div id="tripScrim"></div>
   <div id="trip">
-    <div class="trip-grip"></div>
-    <div class="app-tabs">
-      <button class="app-tab on" data-tab="now">Now</button>
-      <button class="app-tab" data-tab="book">Book</button>
-      <button class="app-tab" data-tab="pass">Passport</button>
+    <div class="ph-status"><span id="phTime">3:15</span>
+      <span class="ph-ind">🚆 <span>Cozy Rail</span> <span class="bat">96%▮</span></span></div>
+    <div class="trip-grip" id="phGrip"></div>
+
+    <div class="ph-screen">
+      <!-- Plan a trip (SBB-style journey planner) -->
+      <div class="app-panel" data-panel="search">
+        <div class="ph-title">Plan a trip<span>Search the Northeast Corridor</span></div>
+        <div class="sb-od">
+          <div class="sb-field"><span class="sb-ic from"></span><input id="sbFrom" placeholder="From" autocomplete="off"></div>
+          <div class="sb-field"><span class="sb-ic to"></span><input id="sbTo" placeholder="Where to?" autocomplete="off"></div>
+          <button class="sb-swap" id="sbSwap" aria-label="swap">⇅</button>
+        </div>
+        <div class="sb-suggest" id="sbSuggest"></div>
+        <div id="sbResults"></div>
+      </div>
+
+      <!-- Current ride -->
+      <div class="app-panel" data-panel="now" hidden>
+        <div id="nowLive">
+          <div class="trip-top">
+            <div class="trip-route" id="nowRoute">Boston <span>→</span> New York</div>
+            <div class="trip-status" id="tripStatus">En route</div>
+          </div>
+          <div class="trip-primary">
+            <div><b id="tripEta">7:00</b><span id="tripEtaLbl">to arrival</span></div>
+            <div><b id="tripNext">Back Bay</b><span>next stop</span></div>
+          </div>
+          <div class="tl-list" id="tlList"></div>
+          <div class="trip-stats">
+            <div><b id="tripDone">0</b><span>MI TRAVELED</span></div>
+            <div><b id="tripLeft">229</b><span>MI TO GO</span></div>
+            <div><b id="tripAboard">0:00</b><span>ABOARD</span></div>
+            <div><b id="tripRiders">5</b><span>RIDERS</span></div>
+          </div>
+          <button id="nowAction" hidden>Ride again ↺</button>
+        </div>
+        <div id="nowEmpty" class="ph-empty" hidden>
+          <div class="em">🚉</div>
+          <p>No active ride.<br>Where would you like to go?</p>
+          <button class="ph-cta" id="nowPlan">Plan a trip →</button>
+        </div>
+      </div>
+
+      <!-- Passport -->
+      <div class="app-panel" data-panel="pass" hidden>
+        <div class="ph-title">Passport<span>Your miles &amp; tiers</span></div>
+        <div id="passBody"></div>
+      </div>
     </div>
 
-    <div class="app-panel" data-panel="now">
-      <div class="trip-top">
-        <div class="trip-route" id="nowRoute">Boston <span>→</span> New York</div>
-        <div class="trip-status" id="tripStatus">En route</div>
-      </div>
-      <div class="trip-primary">
-        <div><b id="tripEta">7:00</b><span>to arrival</span></div>
-        <div><b id="tripNext">Back Bay</b><span>next stop</span></div>
-      </div>
-      <div class="tl-list" id="tlList"></div>
-      <div class="trip-stats">
-        <div><b id="tripDone">0</b><span>MI TRAVELED</span></div>
-        <div><b id="tripLeft">229</b><span>MI TO GO</span></div>
-        <div><b id="tripAboard">0:00</b><span>ABOARD</span></div>
-        <div><b id="tripRiders">5</b><span>RIDERS</span></div>
-      </div>
+    <div class="ph-nav">
+      <button data-tab="search"><span class="ic">🔍</span>Plan</button>
+      <button data-tab="now"><span class="ic">🚆</span>Ride</button>
+      <button data-tab="pass"><span class="ic">🎫</span>Passport</button>
     </div>
-
-    <div class="app-panel" data-panel="book" hidden><div id="bookList"></div></div>
-    <div class="app-panel" data-panel="pass" hidden><div id="passBody"></div></div>
-
-    <button id="tripClose">Close</button>
   </div>
 
   <div id="boarding">
     <div class="bd-card">
+      <button class="bd-dismiss" id="bdDismiss" aria-label="close">✕</button>
       <div class="bd-head"><span>NOW BOARDING</span><span class="bd-on" id="bdClass">3RD CLASS</span></div>
       <div class="bd-route">
         <div class="bd-end"><b id="bdFrom">BOS</b><span id="bdFromName">Boston</span></div>
@@ -347,6 +448,7 @@
       </div>
       <button id="bdGo">Board →</button>
       <div class="bd-status" id="bdStatus">Boarding open · train departs at the top of the hour</div>
+      <button class="bd-back" id="bdBack">↓ Explore the platform · plan another trip</button>
     </div>
   </div>
 
@@ -806,6 +908,11 @@ function buildStopList() {
 }
 function fmtClock(s) { return Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0'); }
 function updateTripCard() {
+  const live = boarded || arrived || boarding;   // there's always a ticket/ride to show
+  document.getElementById('nowLive').hidden  = !live;
+  document.getElementById('nowEmpty').hidden = live;
+  if (!live) return;                          // "no active ride" fallback
+
   if (!stRows) buildStopList();
   const total = ROUTE.totalMiles;
   stRows.forEach((row, i) => {
@@ -814,61 +921,146 @@ function updateTripCard() {
     row.classList.toggle('passed', passed && !isNext);
     row.classList.toggle('next', isNext);
   });
-  if (lastScrolled !== nextStop) {       // keep the upcoming stop in view
+  if (lastScrolled !== nextStop) {            // keep the upcoming stop in view
     lastScrolled = nextStop;
     const r = stRows[Math.min(nextStop, stRows.length - 1)];
     if (r) r.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
+  const atPlatform = !arrived && (boarding || Date.now() < departTs);   // ticket held or waiting to leave
   const next = STATIONS[nextStop];
   document.getElementById('nowRoute').innerHTML = ROUTE.from + ' <span>→</span> ' + ROUTE.to;
   document.getElementById('tripNext').textContent = (!arrived && next) ? next.name : '—';
-  document.getElementById('tripEta').textContent = arrived ? 'Arrived' : fmtClock(etaSeconds);
+  const eta = document.getElementById('tripEta'), etaLbl = document.getElementById('tripEtaLbl');
+  if (arrived)         { eta.textContent = 'Arrived';                              etaLbl.textContent = 'complete'; }
+  else if (atPlatform) { eta.textContent = fmtMMSS((departTs - Date.now()) / 1000); etaLbl.textContent = 'to departure'; }
+  else                 { eta.textContent = fmtClock(etaSeconds);                    etaLbl.textContent = 'to arrival'; }
   document.getElementById('tripDone').textContent = Math.round(miles);
   document.getElementById('tripLeft').textContent = Math.max(0, Math.round(total - miles));
   document.getElementById('tripAboard').textContent = fmtClock(elapsed);
   document.getElementById('tripRiders').textContent = npcSeats.length;
   const status = document.getElementById('tripStatus');
-  status.textContent = arrived ? 'Arrived' : 'En route';
+  status.textContent = arrived ? 'Arrived' : atPlatform ? 'Boarding' : 'En route';
   status.classList.toggle('arrived', arrived);
-  document.getElementById('tripClose').textContent = (arrived && activeTab === 'now') ? 'Ride again ↺' : 'Close';
+  status.classList.toggle('boarding', atPlatform && !arrived);
+  // context action: board a held ticket, or ride again after arrival
+  const act = document.getElementById('nowAction');
+  if (arrived)       { act.hidden = false; act.textContent = 'Ride again ↺';      act.dataset.mode = 'again'; }
+  else if (boarding) { act.hidden = false; act.textContent = 'Board this train →'; act.dataset.mode = 'board'; }
+  else               { act.hidden = true;  act.dataset.mode = ''; }
 }
-function openTrip()  { tripOpen = true; lastScrolled = -1; setTab('now'); updateTripCard(); tripEl.classList.add('show'); tripScrim.classList.add('show'); }
+function openTrip()  {
+  tripOpen = true; lastScrolled = -1;
+  const riding = arrived || (boarded && Date.now() >= departTs);
+  setTab(riding ? 'now' : 'search');          // hub opens on Plan unless you're actually moving
+  tripEl.classList.add('show'); tripScrim.classList.add('show');
+}
 function closeTrip() { tripOpen = false; tripEl.classList.remove('show'); tripScrim.classList.remove('show'); }
 document.getElementById('tripTab').addEventListener('click', openTrip);
 tripScrim.addEventListener('click', closeTrip);
-document.getElementById('tripClose').addEventListener('click', () => { (arrived && activeTab === 'now') ? resetJourney() : closeTrip(); });
+document.getElementById('phGrip').addEventListener('click', closeTrip);
+document.getElementById('nowPlan').addEventListener('click', () => setTab('search'));
+document.getElementById('nowAction').addEventListener('click', () => {
+  const mode = document.getElementById('nowAction').dataset.mode;
+  if (mode === 'board') { board(); closeTrip(); }
+  else if (mode === 'again') { chosenDepartTs = 0; resetJourney(); }
+});
 
-// --- app tabs: Now / Book / Passport ---------------------------------------
+// --- phone hub tabs: Plan / Ride / Passport --------------------------------
 let activeTab = 'now';
 function setTab(t) {
   activeTab = t;
-  for (const b of document.querySelectorAll('.app-tab')) b.classList.toggle('on', b.dataset.tab === t);
-  for (const p of document.querySelectorAll('.app-panel')) p.hidden = p.dataset.panel !== t;
-  if (t === 'book') renderBook();
-  if (t === 'pass') renderPassport();
+  for (const b of document.querySelectorAll('.ph-nav button')) b.classList.toggle('on', b.dataset.tab === t);
+  for (const p of document.querySelectorAll('#trip .app-panel')) p.hidden = p.dataset.panel !== t;
+  if (t === 'search') renderSearch();
+  if (t === 'pass')   renderPassport();
+  if (t === 'now')    updateTripCard();
 }
-for (const b of document.querySelectorAll('.app-tab')) b.addEventListener('click', () => setTab(b.dataset.tab));
+for (const b of document.querySelectorAll('.ph-nav button')) b.addEventListener('click', () => setTab(b.dataset.tab));
 
-function renderBook() {
-  const el = document.getElementById('bookList'); el.innerHTML = '';
-  for (const r of ROUTES) {
-    const tot = r.stations[r.stations.length - 1].mile;
-    const locked = save.lifetimeMiles < r.minMiles;
-    const active = ROUTE && ROUTE.id === r.id;
-    const card = document.createElement('div'); card.className = 'book-card' + (locked ? ' locked' : '');
-    card.innerHTML = `<div class="bk-main"><div class="bk-route">${r.from} → ${r.to}</div>
-      <div class="bk-sub">${r.stations.length} stops · ${tot} mi · departs every ${DEPART_INTERVAL_MIN === 60 ? 'hour' : DEPART_INTERVAL_MIN + ' min'}</div></div>
-      <button class="bk-go">${locked ? '🔒 ' + r.minMiles + ' mi' : (active ? 'Re-book' : 'Book')}</button>`;
-    const btn = card.querySelector('.bk-go');
-    if (locked) btn.disabled = true; else btn.onclick = () => bookRide(r);
-    el.appendChild(card);
+// --- SBB-style journey planner ---------------------------------------------
+const sbFromEl = document.getElementById('sbFrom'), sbToEl = document.getElementById('sbTo');
+function cityMatches(q) {
+  q = q.trim().toLowerCase(); if (!q) return [];
+  const seen = new Set(), out = [];
+  for (const r of ROUTES) for (const c of [r.from, r.to]) {
+    const k = c.toLowerCase();
+    if (k.includes(q) && !seen.has(k)) { seen.add(k); out.push(c); }
   }
+  return out.slice(0, 6);
 }
-function bookRide(r) {
+function routeMatches(fromV, toV) {
+  const f = fromV.trim().toLowerCase(), t = toV.trim().toLowerCase();
+  return ROUTES.filter(r => {
+    const fromOk = !f || r.from.toLowerCase().includes(f);
+    const toOk   = !t || r.to.toLowerCase().includes(t);   // match where you're actually going
+    return fromOk && toOk;
+  });
+}
+function connectionCard(r, deps) {
+  const locked = save.lifetimeMiles < r.minMiles;
+  const card = document.createElement('div'); card.className = 'cx-card' + (locked ? ' locked' : '');
+  const dep0 = deps[0], arr0 = dep0 + RIDE_MINUTES * 60000;
+  card.innerHTML =
+    `<div class="cx-head"><div class="cx-route">${r.from}<span>→</span>${r.to}</div>
+       <div class="cx-cls${locked ? ' lock' : ''}">${locked ? '🔒 ' + r.minMiles + ' mi' : 'Direct'}</div></div>
+     <div class="cx-times">
+       <div class="cx-end"><b>${fmtETClock(dep0)}</b><small>${r.fromCode}</small></div>
+       <div class="cx-mid"><div class="dur">${RIDE_MINUTES} min · ${r.stations.length} stops</div><div class="rail"></div></div>
+       <div class="cx-end"><b>${fmtETClock(arr0)}</b><small>${r.toCode}</small></div>
+     </div>
+     <div class="cx-deps"></div>`;
+  const depsEl = card.querySelector('.cx-deps');
+  deps.forEach((ts, i) => {
+    const b = document.createElement('button');
+    b.className = 'cx-dep' + (i ? ' later' : '');
+    b.textContent = fmtETClock(ts);
+    if (locked) b.disabled = true; else b.onclick = () => bookRideAt(r, ts);
+    depsEl.appendChild(b);
+  });
+  return card;
+}
+function renderSearch() {
+  const fromV = sbFromEl.value, toV = sbToEl.value;
+  // destination autocomplete
+  const sug = document.getElementById('sbSuggest'); sug.innerHTML = '';
+  const q = toV.trim().toLowerCase();
+  const exact = ROUTES.some(r => r.to.toLowerCase() === q || r.from.toLowerCase() === q);
+  if (q && !exact) for (const c of cityMatches(toV)) {
+    const d = document.createElement('div'); d.className = 'sb-sug';
+    d.innerHTML = `<span class="pin">📍</span><b>${c}</b><span>station</span>`;
+    d.onclick = () => { sbToEl.value = c; renderSearch(); };
+    sug.appendChild(d);
+  }
+  // connection results
+  const res = document.getElementById('sbResults'); res.innerHTML = '';
+  const routes = routeMatches(fromV, toV)
+    .sort((a, b) => (save.lifetimeMiles >= a.minMiles ? 0 : 1) - (save.lifetimeMiles >= b.minMiles ? 0 : 1));
+  const head = document.createElement('div'); head.className = 'sb-sec';
+  head.textContent = (fromV || toV) ? (routes.length ? 'Connections' : 'No direct service') : 'Popular routes';
+  res.appendChild(head);
+  const deps = upcomingDepartures(3);
+  for (const r of routes) res.appendChild(connectionCard(r, deps));
+}
+sbFromEl.addEventListener('input', renderSearch);
+sbToEl.addEventListener('input', renderSearch);
+document.getElementById('sbSwap').addEventListener('click', () => {
+  const a = sbFromEl.value; sbFromEl.value = sbToEl.value; sbToEl.value = a; renderSearch();
+});
+
+// book a specific departure (from the planner) — or the next one
+let chosenDepartTs = 0;
+// the departure we're actually holding: your pick if it hasn't left yet, else the next train
+function effectiveDepartTs() {
+  return (chosenDepartTs && chosenDepartTs > Date.now() - 1000) ? chosenDepartTs : nextDepartTs();
+}
+function bookRideAt(r, ts) {
   loadRoute(r);
-  resetJourney();               // reset the journey + show the boarding pass for the new route
-  toast(`Booked · ${r.from} → ${r.to}`);
+  chosenDepartTs = ts;
+  resetJourney();               // reset + show the boarding pass for this departure
+  closeTrip();
+  toast(`Booked · ${r.from} → ${r.to} · ${fmtETClock(ts)}`);
 }
+function bookRoute(r) { bookRideAt(r, nextDepartTs()); }
 
 function renderPassport() {
   const unlocked = classUnlocked(), cur = Math.min(save.classCurrent, unlocked);
@@ -915,7 +1107,7 @@ let boarded  = false;    // aboard the scheduled train (schedule is now driving 
 let departTs = 0;        // wall-clock (epoch ms) this train departs — clock-driven from here
 function showBoarding() {
   boarding = true; boarded = false;
-  departTs = nextDepartTs();               // the next train off the platform
+  departTs = effectiveDepartTs();   // the departure you picked, else the next one
   timetable = buildTimetable();
   document.getElementById('bdFrom').textContent = ROUTE.fromCode;
   document.getElementById('bdTo').textContent = ROUTE.toCode;
@@ -930,7 +1122,7 @@ function showBoarding() {
 function board() {
   // Commit to the next departure. The train won't move until its scheduled
   // time — you're aboard early, sitting at the platform until the clock hits it.
-  departTs = nextDepartTs();               // lock in against the live clock
+  departTs = effectiveDepartTs();   // lock in against the live clock
   timetable = buildTimetable();
   boarding = false; boarded = true;
   boardingEl.classList.remove('show');
@@ -939,11 +1131,18 @@ function board() {
                   : 'Aboard · departing shortly from ' + STATIONS[0].name);
 }
 document.getElementById('bdGo').addEventListener('click', board);
+// dismiss the pass without boarding — you keep the ticket, train stays at the platform,
+// and the phone hub becomes reachable so you can plan another trip.
+function dismissBoarding() { boardingEl.classList.remove('show'); }
+document.getElementById('bdDismiss').addEventListener('click', dismissBoarding);
+document.getElementById('bdBack').addEventListener('click', () => { dismissBoarding(); openTrip(); });
+boardingEl.addEventListener('click', (e) => { if (e.target === boardingEl) dismissBoarding(); });
 
 function fmtMMSS(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function updateWorldClock() {
   const now = Date.now();
   document.getElementById('wcTime').textContent = fmtETClock(now);
+  document.getElementById('phTime').textContent = fmtETClock(now);
   const dep = document.getElementById('wcDep');
   const toDep = (departTs - now) / 1000;
   if (arrived) {
@@ -957,7 +1156,7 @@ function updateWorldClock() {
   }
   if (boarding) {
     // keep the pass's departure + countdown live against the wall clock
-    departTs = nextDepartTs();
+    departTs = effectiveDepartTs();
     document.getElementById('bdDepart').textContent = fmtETClock(departTs);
     document.getElementById('bdStatus').innerHTML =
       'Boarding open · departs ' + fmtETClock(departTs) + ' <b>(in ' + fmtMMSS((departTs - now) / 1000) + ')</b>';
@@ -1077,6 +1276,12 @@ function msToNextDeparture() {
   return rem;
 }
 function nextDepartTs() { return Date.now() + msToNextDeparture(); }
+// the next N scheduled departures (epoch ms) — the SBB-style options list
+function upcomingDepartures(n) {
+  const first = nextDepartTs(), step = DEPART_INTERVAL_MIN * 60 * 1000, out = [];
+  for (let i = 0; i < n; i++) out.push(first + i * step);
+  return out;
+}
 
 // speed profile at an arbitrary milepost (RI sprint / shoreline crawl) — used
 // to shape the timetable so the ride still *feels* like the real corridor.
