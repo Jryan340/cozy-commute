@@ -115,6 +115,45 @@
   .trip-stats b { font-size: 16px; color: #fff; font-weight: 700; }
   .trip-stats span { font-size: 9px; opacity: .55; letter-spacing: .3px; }
 
+  /* app tabs */
+  .app-tabs { display: flex; gap: 4px; background: rgba(255,255,255,.05); border-radius: 12px; padding: 3px; margin-bottom: 16px; }
+  .app-tab { flex: 1; padding: 8px; border-radius: 9px; border: none; cursor: pointer; background: transparent;
+    color: #b8b1a4; font: 600 12px ui-monospace, monospace; letter-spacing: .3px; }
+  .app-tab.on { background: #3f7d6e; color: #fff; }
+  .app-panel { min-height: 60px; }
+
+  /* Book */
+  #bookList { display: flex; flex-direction: column; gap: 9px; margin-bottom: 16px; max-height: 300px; overflow-y: auto; }
+  .book-card { display: flex; align-items: center; gap: 10px; padding: 12px 13px; border-radius: 13px;
+    background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.07); }
+  .book-card.locked { opacity: .5; }
+  .bk-main { flex: 1; }
+  .bk-route { font-size: 14px; font-weight: 700; color: #fff; }
+  .bk-sub { font-size: 10px; opacity: .6; margin-top: 3px; letter-spacing: .2px; }
+  .bk-go { padding: 8px 13px; border-radius: 10px; border: 1px solid #54998a; border-bottom-width: 2px;
+    background: #3f7d6e; color: #fff; font: 700 12px ui-monospace, monospace; cursor: pointer; white-space: nowrap; }
+  .bk-go:disabled { background: #2c2836; border-color: #3a3546; color: #8a836f; cursor: default; }
+
+  /* Passport */
+  .pp-hero { text-align: center; margin-bottom: 16px; }
+  .pp-hero b { display: block; font-size: 40px; font-weight: 800; color: #ffd9a0; line-height: 1; }
+  .pp-hero span { font-size: 10px; letter-spacing: 2px; opacity: .6; }
+  .pp-class { background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.07); border-radius: 13px; padding: 12px 14px; margin-bottom: 14px; }
+  .pp-tier { font-size: 16px; font-weight: 700; color: #fff; }
+  .pp-tier.tier1 { color: #8fb7e0; } .pp-tier.tier2 { color: #e0a8c4; }
+  .pp-next { font-size: 11px; opacity: .65; margin: 5px 0 8px; }
+  .pp-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden; }
+  .pp-bar > div { height: 100%; background: linear-gradient(90deg,#4f9a8a,#ffd9a0); }
+  .pp-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; margin-bottom: 14px; text-align: center; }
+  .pp-grid > div { background: rgba(255,255,255,.045); border-radius: 11px; padding: 12px; }
+  .pp-grid b { display: block; font-size: 22px; color: #fff; font-weight: 700; }
+  .pp-grid span { font-size: 9px; opacity: .55; letter-spacing: .5px; }
+  .pp-classpick { display: flex; gap: 6px; margin-bottom: 16px; }
+  .pp-cls { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid #3a3546; background: #2c2836;
+    color: #cfc8ba; font: 600 12px ui-monospace, monospace; cursor: pointer; }
+  .pp-cls.on { background: #3f7d6e; border-color: #54998a; color: #fff; }
+  .pp-cls.locked { opacity: .45; cursor: default; }
+
   #tripClose {
     width: 100%; padding: 13px; border-radius: 13px; cursor: pointer;
     background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
@@ -241,36 +280,48 @@
   <div id="tripScrim"></div>
   <div id="trip">
     <div class="trip-grip"></div>
-    <div class="trip-top">
-      <div class="trip-route">Boston <span>→</span> New York</div>
-      <div class="trip-status" id="tripStatus">En route</div>
+    <div class="app-tabs">
+      <button class="app-tab on" data-tab="now">Now</button>
+      <button class="app-tab" data-tab="book">Book</button>
+      <button class="app-tab" data-tab="pass">Passport</button>
     </div>
-    <div class="trip-primary">
-      <div><b id="tripEta">7:00</b><span>to arrival</span></div>
-      <div><b id="tripNext">Back Bay</b><span>next stop</span></div>
+
+    <div class="app-panel" data-panel="now">
+      <div class="trip-top">
+        <div class="trip-route" id="nowRoute">Boston <span>→</span> New York</div>
+        <div class="trip-status" id="tripStatus">En route</div>
+      </div>
+      <div class="trip-primary">
+        <div><b id="tripEta">7:00</b><span>to arrival</span></div>
+        <div><b id="tripNext">Back Bay</b><span>next stop</span></div>
+      </div>
+      <div class="tl-list" id="tlList"></div>
+      <div class="trip-stats">
+        <div><b id="tripDone">0</b><span>MI TRAVELED</span></div>
+        <div><b id="tripLeft">229</b><span>MI TO GO</span></div>
+        <div><b id="tripAboard">0:00</b><span>ABOARD</span></div>
+        <div><b id="tripRiders">5</b><span>RIDERS</span></div>
+      </div>
     </div>
-    <div class="tl-list" id="tlList"></div>
-    <div class="trip-stats">
-      <div><b id="tripDone">0</b><span>MI TRAVELED</span></div>
-      <div><b id="tripLeft">229</b><span>MI TO GO</span></div>
-      <div><b id="tripAboard">0:00</b><span>ABOARD</span></div>
-      <div><b id="tripRiders">5</b><span>RIDERS</span></div>
-    </div>
+
+    <div class="app-panel" data-panel="book" hidden><div id="bookList"></div></div>
+    <div class="app-panel" data-panel="pass" hidden><div id="passBody"></div></div>
+
     <button id="tripClose">Close</button>
   </div>
 
   <div id="boarding">
     <div class="bd-card">
-      <div class="bd-head"><span>NOW BOARDING</span><span class="bd-on">ON TIME</span></div>
+      <div class="bd-head"><span>NOW BOARDING</span><span class="bd-on" id="bdClass">3RD CLASS</span></div>
       <div class="bd-route">
-        <div class="bd-end"><b>BOS</b><span>Boston</span></div>
+        <div class="bd-end"><b id="bdFrom">BOS</b><span id="bdFromName">Boston</span></div>
         <div class="bd-mid"><span>🚆</span><div class="bd-dash"></div></div>
-        <div class="bd-end"><b>NYC</b><span>New York</span></div>
+        <div class="bd-end"><b id="bdTo">NYC</b><span id="bdToName">New York</span></div>
       </div>
       <div class="bd-meta">
-        <div><b>South Station</b><span>PLATFORM</span></div>
-        <div><b>3:15 PM</b><span>DEPARTS</span></div>
-        <div><b>229 mi</b><span>DISTANCE</span></div>
+        <div><b id="bdDepart">3:15 PM</b><span>DEPARTS</span></div>
+        <div><b id="bdDist">229 mi</b><span>DISTANCE</span></div>
+        <div><b id="bdEarn">+229</b><span>MILES</span></div>
       </div>
       <button id="bdGo">Board →</button>
     </div>
@@ -709,7 +760,7 @@ const tripScrim = document.getElementById('tripScrim');
 let tripOpen = false, arrived = false;
 let stRows = null, lastScrolled = -1;
 function buildStopList() {
-  const list = document.getElementById('tlList');
+  const list = document.getElementById('tlList'); list.innerHTML = '';
   stRows = STATIONS.map(s => {
     const row = document.createElement('div'); row.className = 'st-row';
     row.innerHTML = `<div class="st-dot"></div><div class="st-name">${s.name}</div><div class="st-mi">${s.mile} mi</div>`;
@@ -732,6 +783,7 @@ function updateTripCard() {
     if (r) r.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
   const next = STATIONS[nextStop];
+  document.getElementById('nowRoute').innerHTML = ROUTE.from + ' <span>→</span> ' + ROUTE.to;
   document.getElementById('tripNext').textContent = (!arrived && next) ? next.name : '—';
   document.getElementById('tripEta').textContent = arrived ? 'Arrived' : fmtClock(etaSeconds);
   document.getElementById('tripDone').textContent = Math.round(miles);
@@ -741,19 +793,100 @@ function updateTripCard() {
   const status = document.getElementById('tripStatus');
   status.textContent = arrived ? 'Arrived' : 'En route';
   status.classList.toggle('arrived', arrived);
-  document.getElementById('tripClose').textContent = arrived ? 'Ride again ↺' : 'Close';
+  document.getElementById('tripClose').textContent = (arrived && activeTab === 'now') ? 'Ride again ↺' : 'Close';
 }
-function openTrip()  { tripOpen = true; lastScrolled = -1; updateTripCard(); tripEl.classList.add('show'); tripScrim.classList.add('show'); }
+function openTrip()  { tripOpen = true; lastScrolled = -1; setTab('now'); updateTripCard(); tripEl.classList.add('show'); tripScrim.classList.add('show'); }
 function closeTrip() { tripOpen = false; tripEl.classList.remove('show'); tripScrim.classList.remove('show'); }
 document.getElementById('tripTab').addEventListener('click', openTrip);
 tripScrim.addEventListener('click', closeTrip);
-document.getElementById('tripClose').addEventListener('click', () => { if (arrived) resetJourney(); else closeTrip(); });
+document.getElementById('tripClose').addEventListener('click', () => { (arrived && activeTab === 'now') ? resetJourney() : closeTrip(); });
+
+// --- app tabs: Now / Book / Passport ---------------------------------------
+let activeTab = 'now';
+function setTab(t) {
+  activeTab = t;
+  for (const b of document.querySelectorAll('.app-tab')) b.classList.toggle('on', b.dataset.tab === t);
+  for (const p of document.querySelectorAll('.app-panel')) p.hidden = p.dataset.panel !== t;
+  if (t === 'book') renderBook();
+  if (t === 'pass') renderPassport();
+}
+for (const b of document.querySelectorAll('.app-tab')) b.addEventListener('click', () => setTab(b.dataset.tab));
+
+function renderBook() {
+  const el = document.getElementById('bookList'); el.innerHTML = '';
+  for (const r of ROUTES) {
+    const tot = r.stations[r.stations.length - 1].mile;
+    const locked = save.lifetimeMiles < r.minMiles;
+    const active = ROUTE && ROUTE.id === r.id;
+    const card = document.createElement('div'); card.className = 'book-card' + (locked ? ' locked' : '');
+    card.innerHTML = `<div class="bk-main"><div class="bk-route">${r.from} → ${r.to}</div>
+      <div class="bk-sub">${r.stations.length} stops · ${tot} mi · dep ${r.depart}</div></div>
+      <button class="bk-go">${locked ? '🔒 ' + r.minMiles + ' mi' : (active ? 'Re-book' : 'Book')}</button>`;
+    const btn = card.querySelector('.bk-go');
+    if (locked) btn.disabled = true; else btn.onclick = () => bookRide(r);
+    el.appendChild(card);
+  }
+}
+function bookRide(r) {
+  loadRoute(r);
+  resetJourney();               // reset the journey + show the boarding pass for the new route
+  toast(`Booked · ${r.from} → ${r.to}`);
+}
+
+function renderPassport() {
+  const unlocked = classUnlocked(), cur = Math.min(save.classCurrent, unlocked);
+  const stationsCount = Object.keys(save.stations).length;
+  const next = CLASSES[unlocked + 1];
+  const el = document.getElementById('passBody');
+  el.innerHTML =
+    `<div class="pp-hero"><b>${Math.round(save.lifetimeMiles)}</b><span>LIFETIME MILES</span></div>
+     <div class="pp-class">
+       <div class="pp-tier tier${cur}">${CLASSES[cur].name}</div>
+       ${next ? `<div class="pp-next">${Math.max(0, next.at - Math.round(save.lifetimeMiles))} mi to ${next.name}</div>
+                 <div class="pp-bar"><div style="width:${Math.min(100, save.lifetimeMiles / next.at * 100)}%"></div></div>`
+              : `<div class="pp-next">Top tier reached ✦</div>`}
+     </div>
+     <div class="pp-grid"><div><b>${save.trips}</b><span>TRIPS</span></div>
+       <div><b>${stationsCount}</b><span>STATIONS VISITED</span></div></div>
+     <div class="pp-classpick"></div>`;
+  const pick = el.querySelector('.pp-classpick');
+  CLASSES.forEach((c, i) => {
+    const avail = i <= unlocked;
+    const b = document.createElement('button');
+    b.className = 'pp-cls' + (i === cur ? ' on' : '') + (avail ? '' : ' locked');
+    b.textContent = avail ? c.short : '🔒 ' + c.short;
+    if (avail) b.onclick = () => { save.classCurrent = i; persist(); renderPassport(); toast('Riding ' + c.name); };
+    pick.appendChild(b);
+  });
+}
+
+// credit the completed trip to your passport (once, on arrival)
+function creditTrip() {
+  const before = classUnlocked();
+  save.lifetimeMiles += ROUTE.totalMiles;
+  save.trips += 1;
+  STATIONS.forEach(s => { save.stations[s.name] = 1; });
+  persist();
+  const after = classUnlocked();
+  if (after > before) setTimeout(() => toast('✦ Unlocked ' + CLASSES[after].name + '!'), 1400);
+}
 
 // --- boarding pass ---------------------------------------------------------
 const boardingEl = document.getElementById('boarding');
 let boarding = true;
-function showBoarding() { boarding = true; boardingEl.classList.add('show'); }
-function board() { boarding = false; boardingEl.classList.remove('show'); toast('Departing · Boston South Station'); }
+function showBoarding() {
+  boarding = true;
+  document.getElementById('bdFrom').textContent = ROUTE.fromCode;
+  document.getElementById('bdTo').textContent = ROUTE.toCode;
+  document.getElementById('bdFromName').textContent = ROUTE.from;
+  document.getElementById('bdToName').textContent = ROUTE.to;
+  document.getElementById('bdDepart').textContent = ROUTE.depart;
+  document.getElementById('bdDist').textContent = ROUTE.totalMiles + ' mi';
+  document.getElementById('bdEarn').textContent = '+' + ROUTE.totalMiles;
+  document.getElementById('bdClass').textContent = currentClass().name.toUpperCase();
+  boardingEl.classList.add('show');
+}
+function board() { boarding = false; boardingEl.classList.remove('show'); toast('Departing · ' + STATIONS[0].name); }
 document.getElementById('bdGo').addEventListener('click', board);
 
 function resetJourney() {
@@ -764,7 +897,6 @@ function resetJourney() {
   if (wideView) setWide(false);
   showBoarding();        // every ride begins back at the platform
 }
-showBoarding();
 
 function nearestFreeSeat() {
   let best = null, bd = 50*50;
@@ -846,26 +978,49 @@ const feats = [];
   }
 })();
 
-// the real Boston → New York run: Northeast Corridor stops, with mileposts from
-// Boston South Station (approx. real distances; ~229 mi total to NY Penn)
-const ROUTE = { label: 'Boston → New York', totalMiles: 229 };
-const STATIONS = [
-  { name: 'Boston South Station',  mile: 0   },
-  { name: 'Back Bay',              mile: 1   },
-  { name: 'Route 128',             mile: 11  },
-  { name: 'Providence',            mile: 43  },
-  { name: 'Kingston',              mile: 75  },
-  { name: 'Westerly',              mile: 92  },
-  { name: 'Mystic',                mile: 105 },
-  { name: 'New London',            mile: 118 },
-  { name: 'Old Saybrook',          mile: 136 },
-  { name: 'New Haven',             mile: 156 },
-  { name: 'Bridgeport',            mile: 175 },
-  { name: 'Stamford',              mile: 193 },
-  { name: 'New Rochelle',          mile: 207 },
-  { name: 'New York Penn Station', mile: 229 },
+// --- bookable routes (real Northeast Corridor lines; approx. mileposts) -----
+const ROUTES = [
+  { id:'bosprov', from:'Boston', to:'Providence', fromCode:'BOS', toCode:'PVD', depart:'3:15 PM', minMiles:0,
+    stations:[ {name:'Boston South Station',mile:0},{name:'Back Bay',mile:1},{name:'Route 128',mile:11},{name:'Providence',mile:43} ] },
+  { id:'bosny', from:'Boston', to:'New York', fromCode:'BOS', toCode:'NYC', depart:'3:15 PM', minMiles:0,
+    stations:[ {name:'Boston South Station',mile:0},{name:'Back Bay',mile:1},{name:'Route 128',mile:11},{name:'Providence',mile:43},
+      {name:'Kingston',mile:75},{name:'Westerly',mile:92},{name:'Mystic',mile:105},{name:'New London',mile:118},
+      {name:'Old Saybrook',mile:136},{name:'New Haven',mile:156},{name:'Bridgeport',mile:175},{name:'Stamford',mile:193},
+      {name:'New Rochelle',mile:207},{name:'New York Penn Station',mile:229} ] },
+  { id:'nydc', from:'New York', to:'Washington', fromCode:'NYC', toCode:'WAS', depart:'9:00 AM', minMiles:300,
+    stations:[ {name:'New York Penn Station',mile:0},{name:'Newark',mile:10},{name:'Metropark',mile:25},{name:'Trenton',mile:58},
+      {name:'Philadelphia 30th St',mile:91},{name:'Wilmington',mile:116},{name:'Baltimore Penn',mile:184},
+      {name:'BWI Airport',mile:194},{name:'New Carrollton',mile:214},{name:'Washington Union',mile:226} ] },
+  { id:'bosdc', from:'Boston', to:'Washington DC', fromCode:'BOS', toCode:'WAS', depart:'6:10 AM', minMiles:1500,
+    stations:[ {name:'Boston South Station',mile:0},{name:'Providence',mile:43},{name:'New Haven',mile:156},
+      {name:'New York Penn Station',mile:229},{name:'Newark',mile:239},{name:'Philadelphia 30th St',mile:320},
+      {name:'Baltimore Penn',mile:413},{name:'Washington Union',mile:455} ] },
 ];
-STATIONS.forEach((s, i) => { s.side = i % 2 ? 'L' : 'R'; s.announced = false; });
+
+// --- classes + saved progress (miles economy) ------------------------------
+const CLASSES = [
+  { name:'3rd Class', short:'3rd', at:0,    seat:'#3f7d6e', seatDk:'#2c5a4f', seatHi:'#54998a', head:'#274c43' },
+  { name:'2nd Class', short:'2nd', at:500,  seat:'#3f6d9c', seatDk:'#2c4f74', seatHi:'#5a86b8', head:'#26405e' },
+  { name:'1st Class', short:'1st', at:2500, seat:'#8a4c6a', seatDk:'#5f3049', seatHi:'#b0688a', head:'#4a2438' },
+];
+const SAVE_KEY = 'cozycommute.v1';
+let save = { lifetimeMiles:0, trips:0, classCurrent:0, stations:{} };
+try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s); } catch (e) {}
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+function classUnlocked() { let t = 0; for (let i = 0; i < CLASSES.length; i++) if (save.lifetimeMiles >= CLASSES[i].at) t = i; return t; }
+function currentClass() { return CLASSES[Math.min(save.classCurrent, classUnlocked())]; }
+
+// active route + its stations (set by loadRoute)
+let ROUTE, STATIONS;
+function loadRoute(r) {
+  const last = r.stations[r.stations.length - 1].mile;
+  ROUTE = { id:r.id, from:r.from, to:r.to, fromCode:r.fromCode, toCode:r.toCode, depart:r.depart,
+            label:`${r.from} → ${r.to}`, totalMiles:last };
+  STATIONS = r.stations.map((s, i) => ({ name:s.name, mile:s.mile, side:i % 2 ? 'L' : 'R', announced:false }));
+  stRows = null;   // stop list rebuilds for the new route
+}
+loadRoute(ROUTES[1]);   // default: Boston → New York
+showBoarding();         // start at the platform (now that ROUTE is set)
 
 // --- living-window state ----------------------------------------------------
 let dayT = 0;            // 0..1 position in a looping day/night cycle
@@ -946,7 +1101,7 @@ function update(dt) {
       const d = target.mile - miles;
       if (d <= 0.2) {                                      // pulled into the stop
         miles = target.mile; trainSpeed = 0;
-        if (nextStop >= STATIONS.length - 1) { arrived = true; openTrip(); }  // New York
+        if (nextStop >= STATIONS.length - 1) { arrived = true; creditTrip(); openTrip(); }  // journey's end
         else { dwellTimer = DWELL; toast('🚉 Now stopping · ' + target.name); }
       } else {                                             // approach: brake near the stop, else cruise
         const want = d < BRAKE_DIST ? Math.max(0.28, CRUISE * (d / BRAKE_DIST)) : CRUISE;
@@ -1196,16 +1351,15 @@ function drawCar() {
 }
 
 function drawSeat(st) {
+  const c = currentClass();                    // seats take on your class's upholstery
   const {x,y,w,h} = st;
-  px(x, y+3, w, h, C.shadow);                 // soft shadow
-  px(x, y, w, h, C.seatDk);                    // base/frame
-  px(x+2, y+2, w-4, h-4, C.seat);              // cushion
-  px(x+2, y+2, w-4, 3, C.seatHi);              // cushion highlight
-  // headrest toward the front (top) of the car
-  px(x+5, y-4, w-10, 6, C.head);
-  // little armrests on either side of the single seat
-  px(x-2, y+4, 3, h-8, C.seatDk);
-  px(x+w-1, y+4, 3, h-8, C.seatDk);
+  px(x, y+3, w, h, C.shadow);                  // soft shadow
+  px(x, y, w, h, c.seatDk);                     // base/frame
+  px(x+2, y+2, w-4, h-4, c.seat);               // cushion
+  px(x+2, y+2, w-4, 3, c.seatHi);               // cushion highlight
+  px(x+5, y-4, w-10, 6, c.head);                // headrest
+  px(x-2, y+4, 3, h-8, c.seatDk);               // armrests
+  px(x+w-1, y+4, 3, h-8, c.seatDk);
 }
 
 function drawPerson(cx, cy, p, t, hp) {
