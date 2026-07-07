@@ -34,7 +34,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   #act:active { transform: translateY(1px); border-bottom-width: 2px; }
-  #snd, #wide, #fp {
+  #snd, #wide, #fp, #charBtn {
     position: fixed; width: 46px; height: 46px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
     background: linear-gradient(180deg, #e6d6b2, #d2ba88); border: 2px solid #8a6a42; border-bottom-width: 4px;
@@ -44,12 +44,23 @@
   #snd { left: 18px; bottom: 64px; }
   #wide { right: 18px; top: 64px; }
   #fp   { left: 18px; top: 64px; display: none; }
-  #snd:active, #wide:active, #fp:active { transform: translateY(1px); border-bottom-width: 3px; }
+  #charBtn { right: 18px; bottom: 64px; }
+  #snd:active, #wide:active, #fp:active, #charBtn:active { transform: translateY(1px); border-bottom-width: 3px; }
   /* first-person mode hides the rest of the chrome for a clean look */
-  body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp { display: none !important; }
+  body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp, body.fp #charBtn { display: none !important; }
   /* at the station you're on the platform, not in the car — hide the in-car chrome */
-  body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp,
+  body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp, body.at-station #charBtn,
   body.at-station #hint, body.at-station #tripTab, body.at-station #wclock { display: none !important; }
+  /* the character picker panel + its swatches (mirrors the bag panel) */
+  #charGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .cchip {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 10px 4px; border-radius: 12px; cursor: pointer;
+    background: #2c2836; border: 1px solid #3a3546; color: #d9d2c4;
+    font: 600 11px ui-monospace, monospace; -webkit-tap-highlight-color: transparent;
+  }
+  .cchip img { image-rendering: pixelated; height: 54px; width: auto; }
+  .cchip.on { background: #2f5a46; border-color: #6fae8f; color: #eaf6ee; }
 
   /* ---- the in-game phone: main hub (SBB planner × Flighty polish) -------- */
   #tripTab {
@@ -399,7 +410,7 @@
     opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 5;
   }
   #scrim.show { opacity: 1; pointer-events: auto; }
-  #bag {
+  #bag, #charPick {
     position: fixed; left: 50%; bottom: 0; transform: translateX(-50%) translateY(110%);
     width: min(440px, 96vw); background: #221f2a; color: #efe8da;
     border: 1px solid rgba(255,255,255,.08); border-bottom: none;
@@ -407,7 +418,7 @@
     box-shadow: 0 -12px 40px rgba(0,0,0,.5); transition: transform .26s cubic-bezier(.2,.8,.2,1);
     z-index: 6;
   }
-  #bag.show { transform: translateX(-50%) translateY(0); }
+  #bag.show, #charPick.show { transform: translateX(-50%) translateY(0); }
   .bag-head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 12px; }
   .bag-head b { font-size: 15px; letter-spacing: .3px; }
   #bagIcon { image-rendering: pixelated; vertical-align: -5px; margin-right: 6px; }
@@ -422,12 +433,12 @@
   .chip .emo { font-size: 22px; line-height: 1; }
   .chip:active { transform: translateY(1px); }
   .chip.on { background: #2f6d5f; border-color: #54998a; color: #fff; box-shadow: 0 0 0 2px rgba(84,153,138,.35); }
-  #bagDone {
+  #bagDone, #charDone {
     width: 100%; margin-top: 14px; padding: 12px; border-radius: 12px; cursor: pointer;
     background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
     font: 600 14px ui-monospace, monospace; letter-spacing: .5px;
   }
-  #bagDone:active { transform: translateY(1px); border-bottom-width: 2px; }
+  #bagDone:active, #charDone:active { transform: translateY(1px); border-bottom-width: 2px; }
 </style>
 </head>
 <body>
@@ -457,12 +468,19 @@
   <button id="snd" aria-label="toggle train sounds">🔇</button>
   <button id="wide" aria-label="see the whole train">🗺️</button>
   <button id="fp" aria-label="first-person view">🪟</button>
+  <button id="charBtn" aria-label="choose your character">🧑</button>
 
   <div id="scrim"></div>
   <div id="bag">
     <div class="bag-head"><b><img id="bagIcon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAANCAYAAACdKY9CAAAB+ElEQVR4nE2SP2hTURyFv3tf3kvzp0lsajUOVatUUdAIKtrBpYMo6CJOOhSETh2cRBwcBNHJxcnBQUEcXAURWhBB0IJCqyJY0VIcato0aZO8v/e+n4O0eLZz+A5nOfCfZPo2U+MHZebRDdnMHkyMiciWRW3BIlwd2y9Xzp7guy3TXW0QW6OWvn6SWimv7r1aACCzWXhx67zU9/bTaPyit26IY0M+68jObXk6gRERUUqpfwsPJ89J4DeoFFyWmz6JsYiAUpDLajytmV/sMttyVQZg+v0c9X1VOr2YbhDhOgqtFYkR/EiRdRTtTohZS9DHrz/DN2BMShBZtNa4mQxWFCmK9V7En3ZAivCjsYKe6Dymz3NwHEW54JKkKd0wouOHKIShkkeSCJKmTJ4eFO37gYyUc3xcWMGIIokt1eHdjByr0/NDUqtYXO4yUPRYDQx6T7VIbC21UhYJezg2wnE98p6w1jWstX2ODFfwI8PSqo++fHdcWQErivrodmpDZT7PzvP29QdqlRy1agGloZD16HMzaFW+SRwZsq7DcjOgtZFQLeUZLBfZ8C0bocXiEMUJ1ZxGiQh3zozypbUuhZwm47iEiaXVieglwq5+DxtHeAM7ePrum9q6xpsn95lb+CknDx/i1NED/G40ef5yhmuXLuD1ORTrFxXAXyks7xZXXAU6AAAAAElFTkSuQmCC" alt="" width="20" height="22">Your bag</b><span id="bagCount">0/3 out</span></div>
     <div id="bagGrid"></div>
     <button id="bagDone">Done</button>
+  </div>
+
+  <div id="charPick">
+    <div class="bag-head"><b>🧑 Choose your traveller</b><span>tap to swap</span></div>
+    <div id="charGrid"></div>
+    <button id="charDone">Done</button>
   </div>
 
   <button id="tripTab">APP</button>
@@ -631,7 +649,7 @@ npcSeats.forEach((i, k) => {
     hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][k % 4],
     bob: Math.random() * 6.28,
     item: NPC_ITEMS[k % NPC_ITEMS.length],
-    sprite: k === 1 ? 'silver' : k === 3 ? 'brown' : null,   // hand-drawn passengers
+    sprite: [null, 'silver', null, 'rust', 'traveller'][k],   // hand-drawn passengers from the roster
   };
 });
 
@@ -640,6 +658,7 @@ const player = {
   x: AISLE_L + 22, y: 250, w: 10, h: 12,
   shirt: '#e0795f', skin: '#e8b88f', hair: '#4a3220',
   speed: 64, facing: 1, walkT: 0, seat: null,
+  char: 'classic',             // which roster character you play as (see the picker)
   items: ['coffee', 'book'],   // what's out on your table (max 3); chosen from your bag
 };
 // your character — a hand-drawn sprite (background keyed out + resized to 17×30)
@@ -647,13 +666,7 @@ const playerImg = new Image(); let playerImgOK = false;
 playerImg.onload = () => { playerImgOK = true; };
 playerImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAAeCAYAAADKO/UvAAAGnUlEQVR4nF2VWWyU1x3Fz//e+83msY3t8QzGC/YYTLzEQIoXbBCBJKxqloJD0rTq8tBKTRSpTVLSpGjk0LR9SS01D22RmkpAlYpKKE1R2ghFCW2IKcEQQwGbJmBsAzZ4PDPfLN92v3v7kKaV+ns/L+fop0MAGDGmuhsS74TDgdiTz738ld+//joqykPb56Zv7JdSSg0oRuDVsfi79z/+1E9f3b9/Fv9DEwA2dPQoTb7w7DuJEG3NOHohb7tGWUCUcWihtIZgDEFOcHzl2oqsqkTi0IfjE88Oep44CfgEgAFQgz09jxfnpo4sMcjwQVAacJTWWmsEGCFscDACQSnYJCAjlT84PX55BABRKpUS0/+a2H725InfxiOBWG1ZEOmSSyWpiAAoDWitERQMQcGhtFZaKWUpomCs7rkSBQ7Srl0PJOevfjpZJzxREw3qsMHpVs5GzpGQSoMAGJwhwBkAgKBRETIAaFxasOCVVbeIuanZb5JdECgPaUcqkgqoKgtAAzAdHwEOCEYQjOArhSXhAEqeD9OWOsS0igj2VVpRF5P1Ec4qQgagNTm+Ql15CFnbg1QaNWEDGctDUDAEOMHyFIquD0sq7StFNwuuxTzpZ3xfUcGRKHoKYcGRsTxMZ21IpcCIoDWQsSRsqWA6EkoDjAhSaTiezArGCJ4GLNfHkpCAVBp3iw6Krgvb45gv2Ch5CmnLA6MgPAVoraCBLzrTTClVWXQlAICBcC1rwfMlvttTj/mCg4KrYEsF5bmYzVkgACXPh+crWFIBjKpYdSz25p2Sq13pI217CJOPPV9qwvaeNmztqMMt08ZMpoj9OzqwMhHFVKYERgTTkcjangoGQ29Qa3tP53I1fVGAaGrRwkuDdbhqEWqryrF7bSOOjU3Dlj5u5h1UksSVuTz+MVtAc7mBvOP51434Knbj+kTF+tWrqC1Zrzc3RfTKtffhl6dmMTZnoaq1A1977AE8vXcb3hqbwulFgRd3b0BbBdNdq5bjwYFu7hbMOHtiz3culHhFyjYLtHZ5FbVt3olVjXWfT7qkBjYPo2BEEWUKze2r0dk3oDcmq6hM2qiINby67+cHxsWRI68VA4HgK/2ru6raXevbVdyJ7ujvoHhYkVUqgZQEKcLW/i50tyW0YFqXhYKZEzP6N6PvH/2xPvgH/FfATZtSwpv59eyuzkTiyW29KtHUxHJFG0QExgUqQgL529Pq2Imz7NDY3FzfI08kR0ZGrBTAKJUCO344Wd7R3nJ4z56Hv1zIF9RHf3mbGaUs9qytR6K2EjduZTE6cRNZI4otQ08pHoqwo2/+8fhnM+mv3//ooyZpral3RfP3973wvdcGNgzIO3PzwghHMH7uE3x89HfY3hHHX6+k0b5jN/oH1wO+h0Si1jv1t1PGT3428vTY1O1fCSLSz3xjbyzZmtSXLl4hBYWO9lXo7e9Bc7IFo28fw9C+Z9DY1Ajl2jhz5jLS6UWWXNGqt+3a2UBEmm3svudHra3JF5fE4jhzdowXCiVIKeG5DhLxGvTtfBjx2hiKZg6elFjI5HD+/AVeWbsU1bWxH26+r/N5URnES1uW+jT27p/0389dgmEYaFvRglA4DM9xwRngujYYMZg5E7ZVwuiFSTSUv4VNMY+/z9Uwgy+LcV5U5dc+gli4AakZctkcspkMTNPE5NVrmJ6+CTNnolgogokAcp9dROX1U1gWcJTvOiYTnJfuZgtssKNZdtYYOH95Eo5jg6AhPQnOOSqjEXAGpNNpnLs0iXsTEWzsbpHzaZOFQxFX5KLLHjv03j+P99UFG/58dREOG8dB38Vg3zr4vo87C4t+Nm9y5fv44MPT+GTiU1TAxfqx68bHd9VNo6n7EQKAhzY91OVk53ZOL8w/v7S6stbxpHYch3xfQ/oSjDEYQiAYDGhDMLqdzt9OJpb+ovXe1e+9cfjweUoBbBhQxDkaaqsuJqoru6KRkPKkYrfuLHi+xignbKirrWaCc99yHD6Xzp2ZmV/sg1ZIpcDYMKBTAFNSBgVjZJk5fTdjYjGbQ7FkFYPR2IGSZTuLWRMLuTxymQy08oVWvhgaGuLDw1ACgB4G8ArjTn2sgseiggiOlFCwBZVb0kuUCQo3BrQqebbyBbjl6TAxLqEV4T/yAQCU8ikar385r0UhajAD0EyEwidb71k5GQxHRjU0ixjMyCsha5YuOwDoz2/o/2AgwkDfur1r2ldMrmxuOLduzZoHAaC3t3dLy7L4Bx3JxrG+dWu/RcQAgH8R/DfwYEutK+5txAAAAABJRU5ErkJggg==';
 function drawPlayerSprite(cx, cy, facing, bob) {
-  if (!playerImgOK) return false;
-  const w = playerImg.width, h = playerImg.height;       // drawn 1:1 for crisp pixels
-  const dx = Math.round(cx - w / 2), dy = Math.round(cy + 8 - h + (bob || 0));
-  px(cx - 6, cy + 7, 12, 2, C.shadow); px(cx - 5, cy + 9, 10, 1, C.shadow);   // soft shadow
-  if (facing < 0) { ctx.save(); ctx.translate(dx + w, dy); ctx.scale(-1, 1); ctx.drawImage(playerImg, 0, 0, w, h); ctx.restore(); }
-  else ctx.drawImage(playerImg, dx, dy, w, h);
-  return true;
+  return drawCharSprite(player.char, cx, cy, bob, facing);   // your chosen roster character
 }
 // the green high-back sofa (a hand-drawn asset) used for the booth seats
 const sofaImg = new Image(); let sofaImgOK = false;
@@ -710,16 +723,35 @@ npcCharImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABMAAAAeCAYAAADO
 const npcBrownImg = new Image(); let npcBrownImgOK = false;
 npcBrownImg.onload = () => { npcBrownImgOK = true; };
 npcBrownImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAeCAYAAAAhDE4sAAAFRUlEQVR4nH2Vy29dVxWHv7X3Pvfta1+/qBPXdp6WEyeipSgKAVK1FFqlQW3UDkAtA4IyQR1AxYghzBAj/gNAFCQGPIRAKkGUNpC0kBa5bdKqColTO4nf9n2ex96LwTFW09KeyTlrS7/fWd/aWmsJ/+e5//5ThM4C880W9zVS9cClxUgmR2tUKobLly9/RCMfPpiZ2q27q1ApWDqpZ6DsMCK0E09kDZvdjJUOzF1fkI81emh2QqcaEUVnqBYNXpUkVTpxRmSFoBAUVIRrawkvvXVzR2/+93FielynBiMgkAWlmypJBrEPVEsRlVKBaiki8Uokyv6hAl+YHtedjM6dO8d7//iTTvRHOFFiHxARfFCMCEbA2fx/quBDIChYATGG+Y2E02efFzl88CAH67GOVi2tJGAk51XAGgMKiqIKxgghKIgQVClZuNP2/PlGTUxVN3WoYulm26wiiDH5GzAGrBGMEQQhcgZQrAhehZITju+O1aC5QFUpOoMzBlXdRlF8UEAw21mo5ibAjnkIivFB8QrO5LeSeI8giACSc+Z10e1QUHJcq0oz9rx6TcQARNbQSzMy7/NCA7JdaCtmW5hffRoCCBiTnzsjTExEGCNCnKaMDA5Qq5ZpdhOWV9dp91LAkPlAMXIkcczqRpM4DaSpp9PtYV2O2OsJxlpDnKRM3buL577xFPWC8PVvfZue7WNra5OgysrKMrMPHOfAAyeJ21uMDjd4+HOfIY5TgkIZMKhSLTjEZ4yNDvHj7z/Hy69cZH5pg0dOHmNkaICj0wdorq/xqz/8lTOPPcwPv3OWsU8NkyQp5YKjC7g0KHMLTcb3QjFyYA2tjVWmJ8c498yTvPPudfprFV67Ms8L51/n0QePsbHV4tjh/bz4911cunKDmalZ5HtnvsTv37jG1Wu39GfffZynT3+RW6ubWIRqpcRmp0dfpYQTYXl9i8g5+vur/OiF8/zktxd4dHa3/PrlN3G/eH+Lz1YzPXVyiva7V3nvn3XGjsxy8/3bnP/LRdbbXSQEjh7ez6fvmyGLU+YuvcHmW2/yxL4GzSwvuOzau5cHB4I+e3SMW80U7zNq9Rp7jhwijVMaI4NkQVldXqPRX+Pqa6/TarYZ6y/zr8VNfnllhasLS+LEGFLvWe+meFUKhYi02+PtC68SZxn1xgAF51i+s0wxchjnKBUjmklG4hUX5Q3tsiwCUow1aOpJMo8zhuAcBRcRtzv0gL56LW8XVbKgVCKHNQZRmxtBlyzL6LQ6BHEgeRN41XwSiGDF0I1TrBG8KiVn6fZ6dDrdnaFo0jRlfPweJg/N0FevUbQGY4SiMxSdJTKCiOKsoWAtlciSeWVkYpLpQ/uJttHM2sICp758goeeP0t9eIjF9RYbvYylVsJyO2apnbDUilltJ6x1E25v9VBj+MrXTvPMs1+lXNhBg3+/M0/20z8yd2OJW80ehV6GV0UAZy2okviQo3lltZvy89/8DQ+MjjaEt6/fPfw/v2dUi5UKxXIZNKAKq2sb9PXVKBYiEEiTlOZWk4vXl+7Sug8Gr/xnSfZM3KMjhSpZphhjuLkVM1yoUnOO4APdWFnqfHSNmQ8GqlAyjqIVSs5SEChaIRKwBIoGys5wYqr+YZ+7MxKBPeOeVi8jhJA7C/RSD4lHVUnijI3YfbLRI0dmsLaNtd3t7QErAUbLGYPVhG7iqdUta604H+Qfh/bi3BX2DZfYN+i4d8AxXreIEYYqlvF+y2QjYrIR0U3ST87oB988w+9euoBuLzYFjh+YksW1O7q42cJnAessuwb7gNt3Gf0XU4F2O3qphPwAAAAASUVORK5CYII=';
-function drawNpcSprite(cx, cy, bob, which) {
-  const img = which === 'brown' ? npcBrownImg : npcCharImg;
-  const ok  = which === 'brown' ? npcBrownImgOK : npcCharImgOK;
-  if (!ok) return false;
-  const w = img.width, h = img.height;                    // drawn 1:1 for crisp pixels
+// a fourth character (flat cap, red scarf, backpack) for the pick-your-traveller roster
+const travellerImg = new Image(); let travellerImgOK = false;
+travellerImg.onload = () => { travellerImgOK = true; };
+travellerImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAeCAYAAAAhDE4sAAAFnklEQVR4nG2VS4xcRxWGv1NV93bf7p6e9rwftnE8tsc4kMTjoAAGW4mdOAgQTyHBAiViAUsEO4TYIBFEZGXLCkEWFiZsQpBCYkAKchIyWMgi8YzfHs+MPe+ZnunH7du3bhWLNnEm4exOlc6nU7/O+Qv+b5SBAIDjD4344w+N+M55cO/uoyEfTPb0Dfmvnxhk4kA3QaAxSijkFUYrNhspNvM0Y8ulWzXOvrbEfHXx/XoD8IVDn6Fv57r/2vFRnv70EFFekaaeIBSS2BGGGgkElzoy67AOTjzaz+/PdfuV+R55dertDmj8wbr/6TMPUywE1Jtt6rEggBJopQ6jFd45nBcy5ygXDU8+NsTEeIXnXrzsX51CzHdPHfSnHhuk0WoTGkWoNR4PXkA8oe90r0NNoBWtJKOderxP2ay3eXyin7WNcW9wsLAW01XQ3LrTZPdQEQ9452nZjNw9sJIOsJDX1GPL3dWYQMHGZhujFGZutU4+7GVyehnnHf+5aQCNFkHrzlMy59EiGKOIkwytHB5HPhAmpxv89tysGKM1c8stxkaGCYxBa8vi+jIA1jo8gtaQDzrQgR05ckGJKBeRCzz/vnKFQmEYs76Vk9/8ac4/c2qQwAibzTqfP7yHA7uGacSWtt3CuozuQh9xO+Hlf/wLm2rKUR4njotXE5rNW5iwqOhTIRevzuCAZ790jJ29AxTDMkJKoDNS6yjkIrqijC9+to8zr73JxcuXWK01mJ6tdgbyk/v2UQ7a/twLPyTznmq9SS6fI0kSrM1wHor5EG00jTihEBoKUZ5iMeL0715haavF82f/LsrFMVoJd9c2WNtqECjPu7USL/zxLbqiHCIKlya0cv386s+XmFtYYX2rQa3e4PZylX9OzQCgnh4dxYuiu1TEOcdgfw8/f+40U9dn6Kl0kaaWMB/x+rlz/PrFs/T39mC04DLHN584wvziRgd0enKS3q5upmeW6K90UWskHJsY58jHP0at2SLKB4Aw0NPNN45P4LwHFEoUxajA0U/s2b60z375JN976pA/MDqE1grnPRu1JqtbDfq6ilS6InKBYWWzzkhviSvz6zz/hzfkzOtv31/anxw9yC9e+Ss3Fzf4/u6AVhyTCwJCrViPEyKjCbUQW4+2KfnDj/KzM39h9fbCfRv59t4dXK7s9f279lIqVzg49w7SjomUoJUgRpN6oZk6vHeozHJj9AirBLRWF5D1Oc6/e03MtXodM1xiaOwQSb3Kew88Tmlxkid8DZt6SiNDnN/xIHfqmsLyBdo79pMr7WBnVGABuH1zuiN2MTC4zJI061hrCXI5lFK0rEUpuDC3yfRSg2LOoERhtKHdTkmaDWzaRivV0cjaGKM16p7sIoJoxUozIdIBmQoxeKzNMM6hROFEEIEwCNDqnkNGwN04ZaOVkQe0dyjvGS7lKQV51m0eMQYTBiglZAIeYbOVsVZvkbqsA5pJI07s7+HYIxXO39jgbiL4zPJW+SAq6max2SYShxeFErBAaDRPjoXUBgZ56Va+o9H19ZivHN7Fd766nwfKmtpmlUbvIdaiAaphGa8NWWpJGls0y2M0WikuafKDoyP86OQ+AmPuD+SPv3XS95XzvLMszDc9Bo/LMrQSUAY6nomn4935XMDn+lIyayG18suX/rb9O9q/a5fPdVeo7BwjyywAS1MXKI/updQ7gHMZyVaV2p3rXJ1d2FarPphcm5uTditGtEFEUCK04yaCR5RCG4PgGPgQ5P0V+V986sBuP1jxhNX3AI91MKsNpfgufdUNUusYNMLNsWHPje2wbaAkzUgSsO0EEKzzeDztJCFuZGTO4wNNO7Ufbmg7yHlHasF6D0oQEbRSOA/tDDLncTgy/xHOdtBTRx6Wl9+c9IgAHu/hkfHdcn32jq82UjLn0ErR390FrGwD/Rfa+JmfoXnb9QAAAABJRU5ErkJggg==';
+// the roster: front-view sprites shared by the player (pickable) and the seated NPCs.
+// getters keep each image's live .ok flag, so we reuse the sprites already loaded above.
+const CHAR_IMG = {
+  classic:   { img: playerImg,    get ok() { return playerImgOK; } },
+  silver:    { img: npcCharImg,   get ok() { return npcCharImgOK; } },
+  rust:      { img: npcBrownImg,  get ok() { return npcBrownImgOK; } },
+  traveller: { img: travellerImg, get ok() { return travellerImgOK; } },
+};
+const CHARACTERS = [
+  { id: 'classic',   name: 'Sam' },
+  { id: 'silver',    name: 'Ash' },
+  { id: 'rust',      name: 'Rowan' },
+  { id: 'traveller', name: 'Wren' },
+];
+// draw any roster character 1:1 at (cx,cy), optionally flipped to face left
+function drawCharSprite(id, cx, cy, bob, facing) {
+  const rec = CHAR_IMG[id]; if (!rec || !rec.ok) return false;
+  const img = rec.img, w = img.width, h = img.height;     // drawn 1:1 for crisp pixels
   const dx = Math.round(cx - w / 2), dy = Math.round(cy + 8 - h + (bob || 0));
   px(cx - 6, cy + 7, 12, 2, C.shadow); px(cx - 5, cy + 9, 10, 1, C.shadow);   // soft shadow
-  ctx.drawImage(img, dx, dy, w, h);
+  if (facing < 0) { ctx.save(); ctx.translate(dx + w, dy); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, w, h); ctx.restore(); }
+  else ctx.drawImage(img, dx, dy, w, h);
   return true;
 }
+function drawNpcSprite(cx, cy, bob, which) { return drawCharSprite(which, cx, cy, bob, 1); }
 
 // everything you can take out of your bag
 const BAG = [
@@ -890,11 +922,30 @@ function pickItem(key) {
   refreshBag();
   if (key === 'headphones') setHeadphones(player.items.includes('headphones'));   // music + duck the train
 }
-function openBag()  { bagOpen = true;  bagEl.classList.add('show');  scrimEl.classList.add('show'); refreshBag(); }
+function openBag()  { bagOpen = true;  closeCharPick(); bagEl.classList.add('show');  scrimEl.classList.add('show'); refreshBag(); }
 function closeBag() { bagOpen = false; bagEl.classList.remove('show'); scrimEl.classList.remove('show'); }
 function toggleBag(){ bagOpen ? closeBag() : openBag(); }
 document.getElementById('bagDone').addEventListener('click', closeBag);
-scrimEl.addEventListener('click', closeBag);
+scrimEl.addEventListener('click', () => { closeBag(); closeCharPick(); });
+
+// --- character picker: pick which roster character you play as ---------------
+const charEl = document.getElementById('charPick');
+const charGrid = document.getElementById('charGrid');
+let charOpen = false;
+for (const c of CHARACTERS) {
+  const b = document.createElement('button');
+  b.className = 'cchip'; b.dataset.id = c.id;
+  b.innerHTML = `<img alt=""><span>${c.name}</span>`;
+  b.querySelector('img').src = CHAR_IMG[c.id].img.src;   // reuse the already-loaded sprite
+  b.addEventListener('click', () => pickChar(c.id));
+  charGrid.appendChild(b);
+}
+function refreshCharPick() { for (const b of charGrid.children) b.classList.toggle('on', b.dataset.id === player.char); }
+function pickChar(id) { player.char = id; save.character = id; persist(); refreshCharPick(); }
+function openCharPick()  { charOpen = true;  closeBag(); charEl.classList.add('show');  scrimEl.classList.add('show'); refreshCharPick(); }
+function closeCharPick() { charOpen = false; charEl.classList.remove('show'); scrimEl.classList.remove('show'); }
+document.getElementById('charDone').addEventListener('click', closeCharPick);
+document.getElementById('charBtn').addEventListener('click', () => charOpen ? closeCharPick() : openCharPick());
 
 // --- audio: looped train-interior recording; tap 🔇 to cycle Off/Background/Prominent ---
 let actx = null, master = null, trainBus = null, lofiBus = null, loopLP = null, loopSrc = null;
@@ -1686,6 +1737,7 @@ const SAVE_KEY = 'cozycommute.v1';
 let save = { lifetimeMiles:0, trips:0, classCurrent:0, stations:{}, lastStation:'Boston South Station', lastCity:'Boston' };
 try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s); } catch (e) {}
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+if (save.character && CHAR_IMG[save.character]) player.char = save.character;   // restore your pick
 function classUnlocked() { let t = 0; for (let i = 0; i < CLASSES.length; i++) if (save.lifetimeMiles >= CLASSES[i].at) t = i; return t; }
 function currentClass() { return CLASSES[Math.min(save.classCurrent, classUnlocked())]; }
 
