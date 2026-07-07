@@ -649,7 +649,7 @@ npcSeats.forEach((i, k) => {
     hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][k % 4],
     bob: Math.random() * 6.28,
     item: NPC_ITEMS[k % NPC_ITEMS.length],
-    sprite: [null, 'silver', null, 'rust', 'traveller'][k],   // hand-drawn passengers from the roster
+    sprite: ['ivy', 'silver', null, 'rust', 'traveller'][k],   // hand-drawn passengers from the roster
   };
 });
 
@@ -727,6 +727,10 @@ npcBrownImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAeCAYAAAA
 const travellerImg = new Image(); let travellerImgOK = false;
 travellerImg.onload = () => { travellerImgOK = true; };
 travellerImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAeCAYAAAAhDE4sAAAFnklEQVR4nG2VS4xcRxWGv1NV93bf7p6e9rwftnE8tsc4kMTjoAAGW4mdOAgQTyHBAiViAUsEO4TYIBFEZGXLCkEWFiZsQpBCYkAKchIyWMgi8YzfHs+MPe+ZnunH7du3bhWLNnEm4exOlc6nU7/O+Qv+b5SBAIDjD4344w+N+M55cO/uoyEfTPb0Dfmvnxhk4kA3QaAxSijkFUYrNhspNvM0Y8ulWzXOvrbEfHXx/XoD8IVDn6Fv57r/2vFRnv70EFFekaaeIBSS2BGGGgkElzoy67AOTjzaz+/PdfuV+R55dertDmj8wbr/6TMPUywE1Jtt6rEggBJopQ6jFd45nBcy5ygXDU8+NsTEeIXnXrzsX51CzHdPHfSnHhuk0WoTGkWoNR4PXkA8oe90r0NNoBWtJKOderxP2ay3eXyin7WNcW9wsLAW01XQ3LrTZPdQEQ9452nZjNw9sJIOsJDX1GPL3dWYQMHGZhujFGZutU4+7GVyehnnHf+5aQCNFkHrzlMy59EiGKOIkwytHB5HPhAmpxv89tysGKM1c8stxkaGCYxBa8vi+jIA1jo8gtaQDzrQgR05ckGJKBeRCzz/vnKFQmEYs76Vk9/8ac4/c2qQwAibzTqfP7yHA7uGacSWtt3CuozuQh9xO+Hlf/wLm2rKUR4njotXE5rNW5iwqOhTIRevzuCAZ790jJ29AxTDMkJKoDNS6yjkIrqijC9+to8zr73JxcuXWK01mJ6tdgbyk/v2UQ7a/twLPyTznmq9SS6fI0kSrM1wHor5EG00jTihEBoKUZ5iMeL0715haavF82f/LsrFMVoJd9c2WNtqECjPu7USL/zxLbqiHCIKlya0cv386s+XmFtYYX2rQa3e4PZylX9OzQCgnh4dxYuiu1TEOcdgfw8/f+40U9dn6Kl0kaaWMB/x+rlz/PrFs/T39mC04DLHN584wvziRgd0enKS3q5upmeW6K90UWskHJsY58jHP0at2SLKB4Aw0NPNN45P4LwHFEoUxajA0U/s2b60z375JN976pA/MDqE1grnPRu1JqtbDfq6ilS6InKBYWWzzkhviSvz6zz/hzfkzOtv31/anxw9yC9e+Ss3Fzf4/u6AVhyTCwJCrViPEyKjCbUQW4+2KfnDj/KzM39h9fbCfRv59t4dXK7s9f279lIqVzg49w7SjomUoJUgRpN6oZk6vHeozHJj9AirBLRWF5D1Oc6/e03MtXodM1xiaOwQSb3Kew88Tmlxkid8DZt6SiNDnN/xIHfqmsLyBdo79pMr7WBnVGABuH1zuiN2MTC4zJI061hrCXI5lFK0rEUpuDC3yfRSg2LOoERhtKHdTkmaDWzaRivV0cjaGKM16p7sIoJoxUozIdIBmQoxeKzNMM6hROFEEIEwCNDqnkNGwN04ZaOVkQe0dyjvGS7lKQV51m0eMQYTBiglZAIeYbOVsVZvkbqsA5pJI07s7+HYIxXO39jgbiL4zPJW+SAq6max2SYShxeFErBAaDRPjoXUBgZ56Va+o9H19ZivHN7Fd766nwfKmtpmlUbvIdaiAaphGa8NWWpJGls0y2M0WikuafKDoyP86OQ+AmPuD+SPv3XS95XzvLMszDc9Bo/LMrQSUAY6nomn4935XMDn+lIyayG18suX/rb9O9q/a5fPdVeo7BwjyywAS1MXKI/updQ7gHMZyVaV2p3rXJ1d2FarPphcm5uTditGtEFEUCK04yaCR5RCG4PgGPgQ5P0V+V986sBuP1jxhNX3AI91MKsNpfgufdUNUusYNMLNsWHPje2wbaAkzUgSsO0EEKzzeDztJCFuZGTO4wNNO7Ufbmg7yHlHasF6D0oQEbRSOA/tDDLncTgy/xHOdtBTRx6Wl9+c9IgAHu/hkfHdcn32jq82UjLn0ErR390FrGwD/Rfa+JmfoXnb9QAAAABJRU5ErkJggg==';
+// a fifth character (blonde pigtails, maroon pinafore)
+const ivyImg = new Image(); let ivyImgOK = false;
+ivyImg.onload = () => { ivyImgOK = true; };
+ivyImg.src = 'data:image/png;base64,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';
 // the roster: front-view sprites shared by the player (pickable) and the seated NPCs.
 // getters keep each image's live .ok flag, so we reuse the sprites already loaded above.
 const CHAR_IMG = {
@@ -734,12 +738,14 @@ const CHAR_IMG = {
   silver:    { img: npcCharImg,   get ok() { return npcCharImgOK; } },
   rust:      { img: npcBrownImg,  get ok() { return npcBrownImgOK; } },
   traveller: { img: travellerImg, get ok() { return travellerImgOK; } },
+  ivy:       { img: ivyImg,       get ok() { return ivyImgOK; } },
 };
 const CHARACTERS = [
   { id: 'classic',   name: 'Sam' },
   { id: 'silver',    name: 'Ash' },
   { id: 'rust',      name: 'Rowan' },
   { id: 'traveller', name: 'Wren' },
+  { id: 'ivy',       name: 'Ivy' },
 ];
 // draw any roster character 1:1 at (cx,cy), optionally flipped to face left
 function drawCharSprite(id, cx, cy, bob, facing) {
