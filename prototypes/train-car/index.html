@@ -2073,25 +2073,48 @@ function drawSpriteAt(list, idx, cx, groundY) {
   ctx.drawImage(rec.img, Math.round(cx - w / 2), Math.round(groundY - h), w, h);
   return true;
 }
-function drawStreetscape(urban, coast, cityOnly, inset) {
+// The buildings are taller than one lot, so the city packs them into runs of
+// ceil(height/LOT_H) lots inside fixed 6-lot blocks — no overlap by construction.
+// `spans` lists platform windows gliding past; nothing is built where they'll be.
+function drawStreetscape(urban, coast, cityOnly, inset, spans) {
   if (urban < 0.35) return;                              // deep countryside — no street out here
   inset = inset || WALL_L - 18;                          // how deep the street strip reaches in
+  spans = spans || [];
+  const CHUNK = 6;                                       // lots per city block
   const L = lightingFor(dayT);
   const dusk = Math.max(tunnelAmount, Math.min(1, (L.a - 0.15) / 0.3));
-  const winCol = dusk > 0.25 ? '#ffe2a0' : '#cfeefb';    // windows glow warm come evening
   for (const left of [true, false]) {
     if (left && coast > 0.5) continue;                   // the sea owns the left side
     const sSeed = left ? 11 : 23;
+    const side = left ? 'L' : 'R';
+    const hits = (top, bot) => spans.some(sp => sp[2] === side && bot > sp[0] && top < sp[1]);
     const i0 = Math.floor((-LOT_H * 1.5 - scroll) / LOT_H), i1 = Math.floor((H + LOT_H * 1.5 - scroll) / LOT_H);
+    // 1) buildings, packed by height within each block (drawn first: behind the sidewalk)
+    const c0 = Math.floor(i0 / CHUNK) - 1, c1 = Math.floor(i1 / CHUNK) + 1;
+    for (let c = c0; c <= c1; c++) {
+      let slot = 0;
+      while (slot < CHUNK) {
+        const li = c * CHUNK + slot;
+        const idx = Math.floor(lotR(li, sSeed + 7) * 97) % CITY_SPRITES.length;
+        const rec = CITY_SPRITES[idx];
+        const hgt = rec.ok ? rec.img.height : LOT_H;
+        const span = Math.min(CHUNK, Math.max(1, Math.ceil((hgt + 4) / LOT_H)));
+        if (slot + span > CHUNK) break;                  // the rest of the block stays open
+        const bot = (li + span) * LOT_H + scroll - 1;
+        const u = urban + (lotR(li, sSeed) - 0.5) * 0.3;
+        if (u > 0.62 && !hits(bot - hgt, bot)) drawEdgeSprite(CITY_SPRITES, idx, left, bot);
+        slot += span + (lotR(li, sSeed + 13) > 0.7 ? 1 : 0);   // the odd alley between towers
+      }
+    }
+    // 2) per-lot street furniture + cottages
     for (let i = i0; i <= i1; i++) {
       const t = i * LOT_H + scroll;                      // screen y of this lot's top
       const r1 = lotR(i, sSeed), r2 = lotR(i, sSeed + 7), r3 = lotR(i, sSeed + 13);
       const u = urban + (r1 - 0.5) * 0.3;
       if (u > 0.62) {
-        drawRowhouseLot(left, t, r2, r3, winCol, inset);   // building stands behind the sidewalk
         drawSidewalk(left, t, inset);
         if (r3 > 0.72) drawStreetlamp(left, t + 6 + Math.floor(r2 * (LOT_H - 14)), dusk, inset);
-      } else if (u > 0.44 && !cityOnly) drawCottageLot(left, t, r2, r3, inset);
+      } else if (u > 0.44 && !cityOnly && !hits(t, t + LOT_H)) drawCottageLot(left, t, r2, r3, inset);
     }
   }
 }
@@ -2100,9 +2123,6 @@ function drawSidewalk(left, t, inset) {
   px(sx, t, 4, LOT_H, '#a8a196');
   px(left ? sx + 3 : sx, t, 1, LOT_H, '#948d82');        // kerb by the grass
   for (let k = 4; k < LOT_H; k += 10) px(sx, t + k, 4, 1, '#968f84');   // paving seams
-}
-function drawRowhouseLot(left, t, r2, r3, winCol, inset) {
-  drawEdgeSprite(CITY_SPRITES, Math.floor(r2 * 97), left, t + LOT_H + 1);   // a hand-drawn city building
 }
 function drawStreetlamp(left, y, dusk, inset) {
   const x = left ? inset - 5 : W - inset + 4;
@@ -2261,6 +2281,15 @@ function drawScenery() {
   const urban = urbanAt(miles / ROUTE.totalMiles);
   const uc = Math.min(1, urban);
   const coast = coastAmount();
+  // where platforms will glide past this frame — the streetscape leaves them clear
+  const stnSpans = [];
+  for (const s of STATIONS) {
+    const d = s.mile - miles;
+    if (d < 5.5 && d > -3) {
+      const yy = ((5.5 - d) / 8.5) * H;
+      stnSpans.push([yy - 8, yy + 114, (coast > 0.5 && s.side === 'L') ? 'R' : s.side]);
+    }
+  }
   const gA = hexMix(C.fieldA, '#9a958c', uc*0.85), gB = hexMix(C.fieldB, '#8b867d', uc*0.85);
   // 1) the grass field, out to the verge
   for (const band of [{x:0,w:WALL_L,left:true},{x:WALL_R,w:W-WALL_R,left:false}]) {
@@ -2284,7 +2313,7 @@ function drawScenery() {
     const u = urban + (r - 0.5) * 0.4;                          // soft blending at region edges
     if (u <= 0.5) drawTreeish(f, bxT, yy);
   }
-  drawStreetscape(urban, coast);                                // rowhouses, sidewalks + cottage yards
+  drawStreetscape(urban, coast, false, 0, stnSpans);            // buildings, sidewalks + cottage yards
   if (coast > 0.01) drawSea(coast);               // Long Island Sound out the left window
   const br = bridgeAmount();
   if (br > 0.01) drawBridgeWater(br);             // a tidal river passing beneath the bridge
