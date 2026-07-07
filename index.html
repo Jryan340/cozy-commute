@@ -678,6 +678,29 @@ mugImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAALCAYAAACksgdh
 const bookImg = new Image(); let bookImgOK = false;
 bookImg.onload = () => { bookImgOK = true; };
 bookImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAALCAYAAACprHcmAAABk0lEQVR4nE3RvWtTYRiG8es55805SdP25MuvxYCLIoo6FMVRQSHi5CAWFBz6B1hw66I4Vv8AR2dBFwURghWEGiw4WISiRoSaRm1CIOZ8vec8Dhrwnn9cyy38t1erS/r08WtUcxzjYjRnYqHWqHL32brIFKoqK+dPqRtbHM9gNCeLMiKbUZ7xmABmijvLixpYh/KhgGBfkdEoxXdyhv2QwfZvOt0+zrTafr9FZC3FUoZrFNycRC12nJD7BVo3L/wtt+/f0mEco2Lpfo4p/QqxmfKzF2InlkqzzvLKIqKq3Gst6Gg3IpaU/XWIEpckVWyYE2c5xWaN480DYtp3ltRXxRchyzwGQ8V3XeYLDuLG9DyDv2cvNx48wbx4/pYZJ8X3XBpOgeZ8mW9hhKIcrM8RzhY5cewIIoKcCwI9fXGBk2cOUy56+J6h199le6zUSHi3tsHDNx9FRDCXrl3m+84Xtj58olIPcBCyLGWuNMvg6w5HGxXk3x0CkK494uXGpnZ/DKnWqly90oJ0zHpnk7PXb8sU/wF4Lq5TUIgYZQAAAABJRU5ErkJggg==';
+// hand-drawn table trinkets, keyed by bag item — set out on your café table
+const ITEM_SPRITES = {};
+function loadItemSprite(key, uri) {
+  const img = new Image(); const rec = { img, ok: false };
+  img.onload = () => { rec.ok = true; };
+  img.src = uri;
+  ITEM_SPRITES[key] = rec;
+}
+loadItemSprite('water',     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAcAAAAOCAYAAADjXQYbAAABLUlEQVR4nDWPu0oDQRiFv39mdhMIahJWNBgF8QJKyDsIVr6CtmJl7YtYa5knEARBG7EUEVEIVgomRsEEDcbNzvwWq6c5nEtxDvwhqSS6u7WiSSXRf08O9zbxtq9BYboc8dYfYwSsL4u5avcoxsJiLcYAi7WYYixctXu46mSJ1mWHjcYUUWwYp4GLuwGNuRqu23/V06NtXKGEZhniHAc/Q3b2W+p8lkJhBju7jgaPGEvWvcdnKSafBfgxPN/kLPnaPETzRjzx18zfuDwTsA5mlsDYXANObIQfdhi/fBKyDOMc/vsLsREOhOBT9GeABkW9ELwHBEeIOD+7Jo4to1GgWDSkqYcQ4eqVuhyftHVtoYQRIajy8DRkoboqAtBcbjKffKizQuaV5/eK3D7e8gtgTXgrbe53ggAAAABJRU5ErkJggg==');
+loadItemSprite('tea',       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAJCAYAAADpeqZqAAABeklEQVR4nF2QT0iTcRzGP9/e31jrXRBFl7EmCEthWDBBaDlKCIXMQwf/ISKIYF52UEKJoA4duuht3jsF3bpEnTyoAyU8CF2mZtH8k6jv1hbr3Tv9drAm7Lk+n4fn4RHq9PLpuF4M2JQsD3VP8HnQlWiRO48naoypDznF30yNDXN8mCd4OYDjFBjqG1NAMpkMiUQCmU6NamvsJn3jM5Kefa7JZDuRSJhC/ghjGUBYXl5ld2tTdg7zGmuKYvw+Qyx+m/dv57Wn+wFi/JRLRa5fvQaAniq9IwOsLCzq5NQLKieK+bKyJtn4Le1+1Mm7Dx/xqh6Wdb5aBP64Lo3hG0SjjRSKJeS/OfFkQOWKn7xTwDIG0LMQQsXzaAiFyK1/ww5eOj+iORwhNZM6Y90Kp9UqF4wBVQjaZD4tMPc5S//9Dqk1AbxJv9LWtjjlsottB3DdCj5jsbGxza/vORl59vpfe50GH3bokeOQvHeX44MD9vd+8mPrqyxlczXmL6n5jBZgXfjrAAAAAElFTkSuQmCC');
+loadItemSprite('pastry',    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAGCAYAAAAYLBS/AAABBElEQVR4nGWOvUrDYBhGz/eZBtJotWArVsRB4uAgEpd2kYI4tFBvwcULyOAF1BsQl2xegLPFRRDEyamIg4PFQcSKrSD+pIE0fq+DDv6c7YHzwIG/1D3CoCLR8aaEQUWoe/8U9XP4vk9jNpGN8hyD1JC1NIfnt7TubNVut3+fmsGWuLkxpswVnoq4POtjWYo0FZZWC3TE5VEvEr2+0dzbV9buzras12pkkwc++oKxHKplQSuNEYMYRTmNGSmsMLCnyeUnRB0dhPIeG0ozJRx3HPUdPEyGZOwMACIQRy9077uMOvorb7lYZK1RFTc/iREDwII3z3XnBgCtNNHzEyetU3XR6/EJd5FdwyF/yZAAAAAASUVORK5CYII=');
+loadItemSprite('newspaper', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAGCAYAAAAYLBS/AAAA6UlEQVR4nG2PvUrDYBhGz5vvTSxWUETa+tOSUfwplHbpIrh5b16Ag5fgNRTcpJO7BTuEgukQbRMlaZPvcyhO9kzPcng48vhw7w4bTcpVjucJIPzHYa1DgxrJPEaj0TMHrSbLLMN43hZhg7WO/b060UeMRumS4d0tF2GbolghIjjnENk8/m1jDLNoRvQ0QTv9a85vhiTzmEXxg6ssO7UaRZ5j1GBUSRcLeoMB9c4p4fsU7XevCNsn7KpibMV3lqK2xPgGEcFWa44bRwTG0ArP6HUv0fH4lbfJlHVZIrK9SYBq9ELg+3wmX/wCRoZVzID+MYkAAAAASUVORK5CYII=');
+loadItemSprite('letter',    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAICAYAAAAiJnXPAAABWElEQVR4nC3Mv2sTYRjA8e9z996l+SF3t1SrNU0RElSEVvwBcZIOTooogpODju7+TToUuhTaUYQOxUHQttChJTbRxMnaIb287z2Pg06f7SOvn61Ze3mZi4tXKadTzAyJBDMDBDAEoVavMxme8P34GHf3QZ/nTx8xPBnSvX4Dl6b4siR2Dq0qXJIQvOfwYJ/FJ2usb2zjfAi0soLG7zN2d3aYv7TAQmeJPz8ntPKMX4MBk9GIy+0lWlmBDwFnJqhW5EVBnueMxz/49H6dbx82ybsd+m9ecnNlFTNDtcJMiABEhBACBnS6PUa7Xzn6/IW9rY/MEROnCd57RAQAJ2Ko6r+pqvDljDsvHjM+GnDt3ipF+wqz6TkAqoqI4RKX0mw28D4QxzGqxq2HfXr3b5PUa4SZBzUqrWg2GyQuRd69fWUXsozzskQkAsBUkSj6rwCCmTJXq3F2espflYqWjBauZgYAAAAASUVORK5CYII=');
+loadItemSprite('watch',     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAAOCAYAAAD5YeaVAAAByklEQVR4nHWRsU8TYQDFf9/Xu2u99loLpmiaaIME4tlaLYoYMRCNGw6QlMFN507wB/hPsDC4ESeFGEYnBoTaoHYQtSgNBoTUJpLKFdu79nNQSTrwlvde3m970KEFxocTamIkocaHEwoWOlbZCecwA4L+eAAzIIDcyfDc3BNQglq9BUr87SdrBrgEnP3nMx2r+B+m7qZUIuoQMCRIH1K1OXBcylWTlysbAkADeHjPVo/vR4inp1D+LoqFPKnMdbyjn3xcXcIybTX/akNotp0lHi7QO/SIaGqC6v4uVq/BueQtvJbACgV5+2kW284ik91ramzkGuGLowjXobq3w075C11nwug0ifSNMnYnQ7J7TUnLlPj8FjXHRakWp0IhNje/8uzpPPnXq/xugtSDWKZE87w2uqGj6zrNRoOenhiT2Umcw0Oi0QjSJ9ENA89ro9XqBpXdMmnNpSUM8BpczVzBc10UPtyjGj++l6nVDeSiNS2W81vsvXuO1P0Iw6JU2qbehKan2H//guX8FovWtBAAuQc31IWYw+DQTUzrNB+KRS6n09R/HbD+Js92JcjsUkEcn9J/fpDbAxVFW6H5/XiNBkjByueYKH1bB+APk6uoBPqFpFEAAAAASUVORK5CYII=');
+loadItemSprite('snacks',    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAANCAYAAACdKY9CAAABs0lEQVR4nF2SPWhTURiGn++cc28SGm5t06FaMZPooINUcBJHRWe34tDJWRBXVwedhS4OLhV0E3ehBfEHSQsVxQpt0UA1yW1y83dyz+cQG7Xv/Lzw8vAKR/Js5SH7aVMjF5G2Uu7efyRHGQBUletn51i+eU0121bVur56vqLnZiL9l/vbvnSPKwdPtDqfMHO8iogw7LbZ3PrK6+ll4c0DANwhf6eyQa1n6XQy9msfAIgjRyGOWKps8PQPNym829nUM3NFkpLFuQRVRVVp93M+733SwzUCsHT5tJ6ctizMFvAj5aDv8SMFASfQ9cpOy7O6ti1y6+pFir6p5xemKBdjQlB+ZUN+tgc4axgFJSkY9lqerjsmLktTrc7HfG/2cc4jwDAPE3MFa+gNA7NTjnq9ocYSUB1PHPiAzwMCRNaAgg8BYwRjBGsCRkws2VCxBowBY4SgoIAYQRWsgU4vR00iZnV9i93GgFLBIaJoroQwNhTyQOSgXIr5kXperNfGWvMTF2Tty1utlB1JyY49ezAitNsjPu72iE4tCnzjv5/cvrFIo5lp0eXkAVQikqQkj1++nzC/AdlryA7IaTy/AAAAAElFTkSuQmCC');
+loadItemSprite('briefcase', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAKCAYAAABv7tTEAAABaUlEQVR4nF2RvW4TQRRGz70z+2PLjiOR8FNEFFBYFIiCl6DlmXgHWl4DCToaGhAUFEigACscRMzGiXc3O56ZS+EKvvac4kif8N+WyyVHtIYZiPB+o9KtVv848ubZU16++2LZjA+nLfOJpy7ATACjLjy7DJf9jocnhzx5dCL+xeuP9vjunOuYOZ4r944nVIVDVYjZmJWO5mLAiXDrQHj+6pP5fow0654+Zroh8usqMKscyQCDCyesNyNXIfLjvKcbIx7Ae6UCFgcFVaGoCIiRM4gZ9cTjSqUsHCqC70NivQ1kMx7cP+TsbKDdjqgqBqSYuX1zSj1RmqajCxE/rRw3ZiUhGavf1xQiLKYlIiAiiMEYEkNIHM0r/gwZFfbQgM+nG4YxUXqHIACoCuftyLefW5xTBMGnbIwxEWJmNvGknBlCJGVDBJwKzkFdKuMukc3waMnbr5dkMwRo2h2yvwgwDNnnAN/bwJ3FnL+naauFc6yzLwAAAABJRU5ErkJggg==');
+function drawItemSprite(key, r) {
+  const rec = ITEM_SPRITES[key];
+  if (!rec || !rec.ok) return false;
+  const w = rec.img.width, h = rec.img.height;              // drawn 1:1, bottom-centred on the slot
+  ctx.drawImage(rec.img, Math.round(r.x + r.w / 2 - w / 2), Math.round(r.y + r.h - h), w, h);
+  return true;
+}
 // a hand-drawn passenger (front view) seated as one of the NPCs
 const npcCharImg = new Image(); let npcCharImgOK = false;
 npcCharImg.onload = () => { npcCharImgOK = true; };
@@ -701,12 +724,20 @@ const BAG = [
   { key: 'notepad',    label: 'Notepad', emoji: '✏️' },
   { key: 'pastry',     label: 'Pastry',  emoji: '🥐' },
   { key: 'headphones', label: 'Music',   emoji: '🎧' },
+  { key: 'newspaper',  label: 'News',    emoji: '📰' },
+  { key: 'letter',     label: 'Letter',  emoji: '✉️' },
+  { key: 'watch',      label: 'Watch',   emoji: '⏱️' },
+  { key: 'snacks',     label: 'Snacks',  emoji: '👝' },
+  { key: 'briefcase',  label: 'Papers',  emoji: '💼' },
 ];
 const MAX_ITEMS = 3;
 const USE_MSG = {
   coffee: 'Sipping coffee ☕', tea: 'A warm cup of tea 🍵', water: 'A cool sip of water 💧',
   book: 'Reading a while 📖', laptop: 'A little work 💻', notepad: 'Jotting a thought ✏️',
   pastry: 'A flaky bite 🥐', headphones: 'Drifting into a song 🎧',
+  newspaper: 'Catching up on the news 📰', letter: 'A letter from home ✉️',
+  watch: 'Watching the miles tick by ⏱️', snacks: 'A little nibble 👝',
+  briefcase: 'Sorting through some papers 💼',
 };
 
 // --- camera / zoom ----------------------------------------------------------
@@ -1884,12 +1915,20 @@ function drawHeadphones(r) {
   px(r.x + 2, r.y + 2, r.w - 4, 2, '#3a3f47');                 // band
   px(r.x + 1, r.y + 3, 2, 5, '#2b2f36'); px(r.x + r.w - 3, r.y + 3, 2, 5, '#2b2f36'); // ear cups
 }
+function drawSteam(r, t) {                                    // a rising wisp, e.g. off the teapot
+  px(r.x + r.w/2 - 2, r.y - 1 - ((t*9)%4),   1, 2, 'rgba(255,255,255,.5)');
+  px(r.x + r.w/2 + 1, r.y - 2 - ((t*9+2)%4), 1, 2, 'rgba(255,255,255,.4)');
+}
 function drawItemKind(key, r, t) {
-  switch (key) {
-    case 'coffee': return drawCoffee(r, t);
+  if (key === 'coffee') return drawCoffee(r, t);             // (mug sprite + steam)
+  if (key === 'book')   return drawBook(r);                  // (book sprite)
+  if (drawItemSprite(key, r)) {                              // hand-drawn trinket art
+    if (key === 'tea') drawSteam(r, t);
+    return;
+  }
+  switch (key) {                                             // procedural fallbacks
     case 'tea': return drawTea(r, t);
     case 'water': return drawWater(r);
-    case 'book': return drawBook(r);
     case 'laptop': return drawLaptop(r, t);
     case 'notepad': return drawNotepad(r);
     case 'pastry': return drawPastry(r);
