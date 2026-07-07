@@ -1923,34 +1923,85 @@ function hexMix(a, b, t) {
   const bl = Math.round((A&255)      + ((B&255)        - (A&255))      * t);
   return `rgb(${r},${g},${bl})`;
 }
-// a cosy outlined rowhouse — brick, cream, slate or brownstone, warm lit windows
-function drawBuilding(bx, yy, urban, r) {
-  const w = 11 + Math.round(r*2);
-  const h = 18 + Math.round(urban*14 + r*8);
-  const top = yy + 12 - h;                        // grow upward from a baseline
-  const bodies = ['#a5604a', '#c8a878', '#7b8494', '#8a7464'];
-  const body = bodies[Math.floor(r * 7) % 4];
-  px(bx - 1, yy + 11, w + 2, 2, 'rgba(20,16,12,.25)');   // ground shadow
-  px(bx - 1, top - 1, w + 2, h + 2, C.outline);          // outline
-  px(bx, top, w, h, body);
-  px(bx, top, w, 2, shade(body, 16));                    // parapet catch-light
-  px(bx, top + 2, w, 1, shade(body, -22));               // cornice
-  px(bx, top + 3, 1, h - 3, shade(body, 10));            // side sheen
-  px(bx + w - 1, top + 3, 1, h - 3, shade(body, -16));   // side shade
-  // warm lit windows in a tidy grid (stable per building — no scroll flicker)
-  const seed = Math.floor(r * 18);
-  let k = 0;
-  for (let wy = top + 5; wy < yy + 5; wy += 6, k++) {
-    for (let j = 0; j * 5 + 2 < w - 3; j++) {
-      const wx = bx + 2 + j * 5;
-      const lit = (j * 3 + k * 5 + seed) % 3 !== 0;
-      px(wx - 1, wy - 1, 5, 6, C.outline);
-      px(wx, wy, 3, 4, lit ? '#ffdf9a' : '#3a3f47');
-      if (lit) px(wx, wy, 1, 2, '#fff2c8');
+// --- the streetscape: city + suburbs built on fixed lots, so nothing overlaps ---
+// each lot is a LOT_H-tall slice of the world keyed by a stable hash; dense areas
+// get attached rowhouses with alleys + sidewalks + streetlamps, lighter areas get
+// cottages with fenced yards, and the countryside is left to the trees
+const LOT_H = 40;
+function lotR(i, k) {
+  let h = (Math.imul(i, 374761393) + Math.imul(k, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function drawStreetscape(urban, coast, cityOnly) {
+  if (urban < 0.35) return;                              // deep countryside — no street out here
+  const L = lightingFor(dayT);
+  const dusk = Math.max(tunnelAmount, Math.min(1, (L.a - 0.15) / 0.3));
+  const winCol = dusk > 0.25 ? '#ffe2a0' : '#cfeefb';    // windows glow warm come evening
+  for (const left of [true, false]) {
+    if (left && coast > 0.5) continue;                   // the sea owns the left side
+    const sSeed = left ? 11 : 23;
+    const i0 = Math.floor((-LOT_H * 1.5 - scroll) / LOT_H), i1 = Math.floor((H + LOT_H * 1.5 - scroll) / LOT_H);
+    for (let i = i0; i <= i1; i++) {
+      const t = i * LOT_H + scroll;                      // screen y of this lot's top
+      const r1 = lotR(i, sSeed), r2 = lotR(i, sSeed + 7), r3 = lotR(i, sSeed + 13);
+      const u = urban + (r1 - 0.5) * 0.3;
+      if (u > 0.62) {
+        drawSidewalk(left, t);
+        drawRowhouseLot(left, t, r2, r3, winCol);
+        if (r3 > 0.72) drawStreetlamp(left, t + 6 + Math.floor(r2 * (LOT_H - 14)), dusk);
+      } else if (u > 0.44 && !cityOnly) drawCottageLot(left, t, r2, r3);
     }
   }
-  const dx = bx + Math.floor(w / 2) - 2;                 // street door
-  px(dx, yy + 6, 4, 6, C.outline); px(dx + 1, yy + 7, 2, 5, '#5a3d26'); px(dx + 1, yy + 7, 2, 1, '#7a5334');
+}
+function drawSidewalk(left, t) {
+  const sx = left ? 8 : W - 12;
+  px(sx, t, 4, LOT_H, '#a8a196');
+  px(left ? sx + 3 : sx, t, 1, LOT_H, '#948d82');        // kerb by the grass
+  for (let k = 4; k < LOT_H; k += 10) px(sx, t + k, 4, 1, '#968f84');   // paving seams
+}
+function drawRowhouseLot(left, t, r2, r3, winCol) {
+  const gap = 3 + Math.floor(r3 * 5);                    // alley between neighbours
+  const bh = LOT_H - gap, by = t + gap;
+  const w = 9 + Math.floor(r2 * 3);                      // block reaches in from the view's edge
+  const bx = left ? -3 : W + 3 - w;
+  const bodies = ['#a5604a', '#c8a878', '#7b8494', '#8a7464', '#b07a56'];
+  const body = bodies[Math.floor(r2 * 11) % 5];
+  px(bx - 1, by - 1, w + 2, bh + 2, C.outline);
+  px(bx, by, w, bh, body);
+  px(bx, by, w, 2, shade(body, 16));                     // parapet catch-light
+  px(bx, by + 2, w, 1, shade(body, -22));                // cornice
+  px(left ? bx + w - 1 : bx, by + 3, 1, bh - 3, shade(body, -14));   // street-side shade
+  if (r3 > 0.5) {                                        // a chimney on the roofline
+    const cxp = bx + 2 + Math.floor(r2 * (w - 5));
+    px(cxp, by - 3, 3, 3, C.outline); px(cxp + 1, by - 2, 1, 2, '#6e4c34');
+  }
+  const seed = Math.floor(r3 * 9);                       // stable lit-window pattern
+  let k = 0;
+  for (let wy = by + 5; wy < by + bh - 7; wy += 6, k++) {
+    for (let j = 0; j * 4 + 3 < w - 1; j++) {
+      const wx = bx + 2 + j * 4;
+      const lit = (j * 3 + k * 5 + seed) % 3 !== 0;
+      px(wx - 1, wy - 1, 4, 6, C.outline);
+      px(wx, wy, 2, 4, lit ? winCol : '#3a3f47');
+      if (lit) px(wx, wy, 1, 1, '#fff2c8');
+    }
+  }
+  const dx = left ? bx + w - 4 : bx + 1;                 // front door onto the sidewalk
+  px(dx, by + bh - 6, 3, 6, C.outline); px(dx + 1, by + bh - 5, 2, 4, '#5a3d26'); px(dx + 1, by + bh - 5, 2, 1, '#7a5334');
+}
+function drawStreetlamp(left, y, dusk) {
+  const x = left ? 10 : W - 11;
+  px(x, y, 1, 6, '#3a3f47');                             // post
+  px(x - 1, y - 2, 3, 3, C.outline);
+  px(x, y - 1, 1, 1, dusk > 0.25 ? '#ffd98a' : '#e8e0c8');   // lit come evening
+}
+function drawCottageLot(left, t, r2, r3) {
+  const bx = left ? 0 : W - 12 - Math.floor(r3 * 2);
+  drawHouse(bx, t + LOT_H - 20, r2 * 0.5);
+  const fx = left ? 9 : W - 10;                          // picket fence along the yard
+  for (let k = 2; k < LOT_H - 2; k += 4) px(fx, t + k, 1, 3, '#d8cba8');
+  drawGrassBit(left ? 4 + r2 * 4 : W - 8 - r2 * 4, t + 6 + r3 * 10, 3 + Math.floor(r2 * 2));   // garden flowers
 }
 function drawHouse(bx, yy, r) {
   const w = 12 + Math.round(r*3), h = 8, y = yy + 12 - h;
@@ -2108,19 +2159,17 @@ function drawScenery() {
       drawGrassBit(band.left ? 1 + b.fx * 10 : WALL_R + 18 + b.fx * 10, yy, b.kind);
     }
   }
-  // 2) lineside features, set back from the track: skyline ↔ houses ↔ trees
+  // 2) lineside trees hug the outer edge; the streetscape lots carry the towns
   for (const f of feats) {
     if (f.side === 'L' && coast > 0.5) continue;                // left side gives way to the sea
     const yy = ((f.y + scroll) % (H + 60)) - 30;
     const jit = (f.off % 10) * 0.4;
-    const bxT = f.side==='L' ? -9 + jit : W - 12 - jit;          // trees hug the outer edge of the view
-    const bxS = f.side==='L' ? -3 + jit*0.5 : W - 10 - jit*0.5;  // rowhouses line the street, façades visible
+    const bxT = f.side==='L' ? -9 + jit : W - 12 - jit;
     const r = (f.off % 18) / 18;                                // stable per-feature 0..1
     const u = urban + (r - 0.5) * 0.4;                          // soft blending at region edges
-    if (u > 0.62) drawBuilding(bxS, yy, urban, r);
-    else if (u > 0.46) drawHouse(bxS, yy, r);
-    else drawTreeish(f, bxT, yy);
+    if (u <= 0.5) drawTreeish(f, bxT, yy);
   }
+  drawStreetscape(urban, coast);                                // rowhouses, sidewalks + cottage yards
   if (coast > 0.01) drawSea(coast);               // Long Island Sound out the left window
   const br = bridgeAmount();
   if (br > 0.01) drawBridgeWater(br);             // a tidal river passing beneath the bridge
@@ -2624,15 +2673,27 @@ function drawWideView() {
     for (const b of groundBits) { const yy = ((b.y*1.3 + scroll*0.5) % (H+40)) - 20; if (b.kind === 4) drawRock(cx - 30 + b.fx * 10, yy, 0.9); }
     ctx.globalAlpha = 1;
   }
-  // 2) lineside on both sides of the track: skyline ↔ houses ↔ trees, matching the region
+  // 2) lineside trees + cottages on both sides; city blocks come from the streetscape lots
   for (const f of feats) {
     const yy = ((f.y*1.3 + scroll) % (H+60)) - 30;
     const r = (f.off % 18) / 18, u = urban + (r - 0.5) * 0.4;
     const sides = coast > 0.5 ? [W - 22 - f.off*1.3] : [10 + f.off*1.3, W - 22 - f.off*1.3];  // left is sea
     for (const bx of sides) {
-      if (u > 0.62) drawBuilding(bx, yy, urban, r);
+      if (u > 0.62) continue;                       // dense blocks are drawn by the streetscape
       else if (u > 0.46) drawHouse(bx, yy, r);
       else drawTreeish(f, bx, yy);
+    }
+  }
+  drawStreetscape(urban, coast, true);              // rowhouse blocks line the edges of the map
+  if (uc > 0.55) {                                  // cross-streets slide past through the city grid
+    const j0 = Math.floor((-LOT_H - scroll) / LOT_H), j1 = Math.floor((H + LOT_H - scroll) / LOT_H);
+    for (let i = j0; i <= j1; i++) {
+      if (lotR(i, 31) < 0.62) continue;
+      const y = i * LOT_H + scroll + 14;
+      const x0 = coast > 0.5 ? cx + 21 : 12;
+      px(x0, y, W - 12 - x0, 7, '#8f8a80');
+      px(x0, y, W - 12 - x0, 1, '#a7a196'); px(x0, y + 6, W - 12 - x0, 1, '#6f6a60');   // kerbs
+      for (let x = x0 + 4; x < W - 16; x += 8) px(x, y + 3, 4, 1, '#c9c2b2');           // centreline dashes
     }
   }
   // 2) the track: gravel ballast, wooden sleepers, two steel rails
