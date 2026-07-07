@@ -1240,13 +1240,13 @@ function connectionCard(r, deps) {
   const locked = save.lifetimeMiles < r.minMiles;
   const here = r.from === save.lastCity;                               // can you board this now?
   const card = document.createElement('div'); card.className = 'cx-card' + (locked ? ' locked' : '');
-  const dep0 = deps[0], arr0 = dep0 + RIDE_MINUTES * 60000;
+  const dep0 = deps[0], arr0 = dep0 + routeMinutes(r) * 60000;
   card.innerHTML =
     `<div class="cx-head"><div class="cx-route">${r.from}<span>→</span>${r.to}</div>
        <div class="cx-cls${locked ? ' lock' : ''}">${locked ? '🔒 ' + r.minMiles + ' mi' : (here ? 'Board here' : 'Board at ' + r.fromCode)}</div></div>
      <div class="cx-times">
        <div class="cx-end"><b>${fmtETClock(dep0)}</b><small>${r.fromCode}</small></div>
-       <div class="cx-mid"><div class="dur">${RIDE_MINUTES} min · ${r.stations.length} stops</div><div class="rail"></div></div>
+       <div class="cx-mid"><div class="dur">${fmtDur(routeMinutes(r))} · ${r.stations.length} stops</div><div class="rail"></div></div>
        <div class="cx-end"><b>${fmtETClock(arr0)}</b><small>${r.toCode}</small></div>
      </div>
      <div class="cx-deps"></div>
@@ -1454,7 +1454,7 @@ function renderStation() {
     const row = document.createElement('div'); row.className = 'stn-dep' + (atPlat ? ' sel' : '');
     row.innerHTML =
       `<span class="t">${t}</span>
-       <span class="d">${r.to}<small>${locked ? '🔒 ' + r.minMiles + ' mi to unlock' : r.stations.length + ' stops · ' + RIDE_MINUTES + ' min'}</small></span>
+       <span class="d">${r.to}<small>${locked ? '🔒 ' + r.minMiles + ' mi to unlock' : r.stations.length + ' stops · ' + fmtDur(routeMinutes(r))}</small></span>
        <span class="p">${i + 3}</span><span class="go">${locked ? '🔒' : '›'}</span>`;
     if (!locked) row.onclick = () => takeTicket(r.id);
     board.appendChild(row);
@@ -1590,16 +1590,22 @@ const SCROLL_PER_MILE = 44;   // scenery px per mile (so motion matches speed)
 // The world runs on the real Eastern-Time clock. Trains leave on a fixed
 // cadence whether or not anyone is aboard, and a train's position is a pure
 // function of the wall clock — so every browser (and a refresh) agrees without
-// a server. Ride length is COMPRESSED for now so it's testable in one sitting.
-let DEPART_INTERVAL_MIN = 60;  // a train leaves every N minutes, on the clock (60 = hourly)
-let BOARD_LEAD_MIN      = 60;  // you may board up to this many minutes before departure
-let RIDE_MINUTES        = 20;  // compressed ride length (real 3½h → ~20 min for testing)
-let SCHED_DWELL         = 6;   // world-seconds paused at each intermediate stop
-// Add ?fast to the URL to shrink the cadence so the whole board→wait→ride→arrive
-// loop is watchable in a few minutes. Same mechanics, just tighter numbers.
+// a server. Rides run at REAL TIME: the journey takes as long as it really
+// would (distance ÷ average speed), so it's a proper sit-back-and-watch ride.
+let DEPART_INTERVAL_MIN = 30;  // a train leaves every half hour, on the clock (:00 and :30)
+let BOARD_LEAD_MIN      = 30;  // you may board up to this many minutes before departure
+let AVG_MPH             = 60;  // real-time cruising average incl. stops (≈ 1 mile / minute)
+let SCHED_DWELL         = 60;  // world-seconds paused at each intermediate stop
+let FAST_MODE           = false;
+// Add ?fast to the URL to compress the whole board→wait→ride→arrive loop for
+// testing — a 2-minute cadence and a 3-minute ride. Same mechanics, tighter numbers.
 if (new URLSearchParams(location.search).has('fast')) {
-  DEPART_INTERVAL_MIN = 2; BOARD_LEAD_MIN = 2; RIDE_MINUTES = 3; SCHED_DWELL = 3;
+  DEPART_INTERVAL_MIN = 2; BOARD_LEAD_MIN = 2; SCHED_DWELL = 3; FAST_MODE = true;
 }
+function routeMiles(r) { return r.stations[r.stations.length - 1].mile; }
+function routeMinutes(r) { return FAST_MODE ? 3 : Math.max(1, Math.round(routeMiles(r) / AVG_MPH * 60)); }
+function rideSeconds() { return FAST_MODE ? 3 * 60 : (ROUTE.totalMiles / AVG_MPH) * 3600; }   // real-time ride length
+function fmtDur(min) { return min >= 60 ? (Math.floor(min / 60) + 'h' + (min % 60 ? ' ' + (min % 60) + 'm' : '')) : (min + ' min'); }
 
 // Eastern-Time wall clock (works from any device timezone).
 function etNow() {
@@ -1637,11 +1643,11 @@ function speedFactorAt(m) {
 }
 // Build a deterministic timetable: seconds-since-departure for each station's
 // arrival + departure. Travel time per segment is weighted by the speed profile
-// so RI flies by and the CT shoreline lingers, then normalised to RIDE_MINUTES.
+// so RI flies by and the CT shoreline lingers, then normalised to the real ride time.
 let timetable = null;
 function buildTimetable() {
   const st = STATIONS, n = st.length, total = ROUTE.totalMiles;
-  const rideSec = RIDE_MINUTES * 60;
+  const rideSec = rideSeconds();
   const stops = Math.max(0, n - 2);                    // intermediate stops that dwell
   const moveSec = Math.max(1, rideSec - SCHED_DWELL * stops);
   // weighted segment costs
@@ -1736,7 +1742,7 @@ function buildRoutes() {
     const has = c => A.city === c || B.city === c;
     const minMiles = has('Washington') ? (has('New York') ? 300 : 1500) : 0;   // the long southern hauls unlock later
     out.push({
-      id: A.slug + B.slug, from:A.city, to:B.city, fromCode:A.code, toCode:B.code, depart:'hourly', minMiles,
+      id: A.slug + B.slug, from:A.city, to:B.city, fromCode:A.code, toCode:B.code, depart:'every 30 min', minMiles,
       stations, fast:spans(CORR.fast), slow:spans(CORR.slow), coast:spans(CORR.coast), bridges,
       underground: B.city === 'New York' ? Math.max(0, total - 15) : null,     // the dark dive into Penn on arrival
     });
