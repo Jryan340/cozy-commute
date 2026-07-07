@@ -1972,8 +1972,12 @@ function drawRock(bx, by, s) {
   px(bx, by, w, h, '#7f7c76'); px(bx, by, w, 1, '#9d9a92'); px(bx, by + h - 1, w, 1, '#5c5952'); px(bx + 1, by + 1, 1, 1, '#b2afa6');
 }
 function drawTreeish(f, bx, yy) {
-  if (f.kind === 'bush') {                            // a leafy round shrub
-    px(bx, yy + 3, 11, 8, C.treeDk); px(bx + 1, yy + 2, 9, 7, C.tree); px(bx + 2, yy + 2, 5, 2, '#5aa457'); px(bx + 4, yy + 11, 3, 2, '#4a3a24');
+  if (f.kind === 'bush') {                            // a leafy berry bush, outlined + shaded
+    px(bx + 2, yy + 12, 8, 2, 'rgba(18,26,12,.2)');   // ground shadow
+    px(bx + 1, yy + 2, 9, 10, C.outline); px(bx, yy + 3, 11, 8, C.outline);
+    px(bx + 1, yy + 3, 9, 7, C.treeDk); px(bx + 2, yy + 3, 7, 5, C.tree); px(bx + 3, yy + 3, 4, 2, '#5aa457');
+    px(bx + 3, yy + 7, 1, 1, '#d8708c'); px(bx + 7, yy + 5, 1, 1, '#e6cf4a'); // berries
+    px(bx + 4, yy + 11, 3, 2, '#4a3a24');             // little trunk
   } else if (f.kind === 'pole') {
     if (!drawTreeSprite(treeBImg, treeBOK, bx + 6, yy + 12, 1)) drawPine(bx, yy - 2, 0.82); // a slimmer pine
   } else {
@@ -1981,13 +1985,25 @@ function drawTreeish(f, bx, yy) {
     if (!drawTreeSprite(treeAImg, treeAOK, bx + 6, yy + 12, s)) drawPine(bx - 1, yy - 4, 1 + (f.off % 6) / 12);
   }
 }
-// scattered grass tufts + wildflowers along the line
+// scattered grass tufts, wildflowers, rocks + clover along the line
 const groundBits = [];
-(function () { for (let i = 0; i < 80; i++) groundBits.push({ y: i * 19 + (i * 7 % 14), fx: (i * 37 % 1000) / 1000, kind: i % 5 }); })();
+(function () { for (let i = 0; i < 96; i++) groundBits.push({ y: i * 16 + (i * 7 % 14), fx: (i * 37 % 1000) / 1000, kind: i % 8 }); })();
 function drawGrassBit(bx, yy, kind) {
   if (kind < 2) { px(bx, yy, 1, 2, '#4c8a3c'); px(bx - 1, yy + 1, 3, 1, '#4c8a3c'); }        // grass tuft
   else if (kind === 2) { px(bx, yy, 2, 2, '#e6cf4a'); px(bx, yy - 1, 1, 1, '#fff0a0'); }     // buttercup
   else if (kind === 3) { px(bx, yy, 2, 2, '#d8708c'); px(bx, yy - 1, 1, 1, '#f2aec2'); }     // pink flower
+  else if (kind === 4) {                                                                     // a little flower cluster
+    px(bx - 1, yy + 1, 5, 2, '#4c8a3c');
+    px(bx - 1, yy - 1, 2, 2, '#d8708c'); px(bx + 2, yy, 2, 2, '#e6cf4a'); px(bx, yy - 2, 1, 1, '#f6f2e2');
+  }
+  else if (kind === 5) {                                                                     // mossy rock
+    px(bx - 1, yy + 1, 5, 3, 'rgba(20,30,15,.18)');
+    px(bx - 1, yy, 5, 3, '#7f7c76'); px(bx - 1, yy, 5, 1, '#9d9a92'); px(bx + 1, yy + 2, 2, 1, '#5f7d4a');
+  }
+  else if (kind === 6) {                                                                     // tall waving grass
+    px(bx, yy - 2, 1, 4, '#57984a'); px(bx - 1, yy - 1, 1, 3, '#4c8a3c'); px(bx + 1, yy, 1, 2, '#67a858');
+  }
+  else { px(bx, yy, 2, 1, '#5f9c48'); px(bx - 1, yy - 1, 1, 1, '#7db868'); px(bx + 2, yy - 1, 1, 1, '#7db868'); } // clover patch
 }
 
 // --- corridor character (the real ride's geography) ------------------------
@@ -2005,77 +2021,116 @@ function speedFactor() { return inBands(ROUTE.fast) ? 1.35 : inBands(ROUTE.slow)
 function bridgeAmount() { let m = 0; for (const b of ROUTE.bridges) { const d = Math.abs(miles-b.m); if (d<0.6) m = Math.max(m, 1-d/0.6); } return m; }
 function undergroundAmount() { return (ROUTE.underground==null || miles<ROUTE.underground) ? 0 : Math.min(1, (miles-ROUTE.underground)/4); }
 
-function drawSea(a) {                       // the Sound on the left window
+function drawSea(a) {                       // the Sound out the left window, with a real shoreline
   ctx.globalAlpha = a;
-  for (let y=-8; y<H+8; y+=8) {
+  for (let y=-8; y<H+8; y+=8) {             // open water fills the outer view
     const yy = ((y + scroll*0.5) % (H+16)) - 8;
-    px(0, yy, WALL_L, 8, (Math.floor((yy+scroll)/8)%2) ? '#4f97b4' : '#448aa6');
+    px(0, yy, 11, 8, (Math.floor((yy+scroll)/8)%2) ? '#4f97b4' : '#448aa6');
   }
-  for (const b of groundBits) {             // ripple flecks + the odd rock in the shallows
-    const yy = ((b.y*1.3 + scroll*0.5) % (H+40)) - 20, bx = 2 + b.fx * (WALL_L - 8);
-    if (b.kind === 4) drawRock(bx, yy, 0.8);
-    else px(bx, yy, 2, 1, 'rgba(230,246,252,.4)');
+  for (const b of groundBits) {             // ripple flecks
+    const yy = ((b.y*1.3 + scroll*0.5) % (H+40)) - 20;
+    px(1 + b.fx * 8, yy, 2, 1, 'rgba(230,246,252,.4)');
   }
-  px(WALL_L-5, 0, 5, H, '#7fc0d3');         // bright shore band nearest the track
-  for (let y=0; y<H; y+=12) px(WALL_L-5, ((y + scroll*0.5) % H), 5, 2, 'rgba(255,255,255,.28)');
-  for (const f of feats) {                  // sailboats + buoys drifting on the water
+  // gentle surf line, then a sandy beach running up to the railbed
+  px(10, 0, 1, H, '#bfe6ee');
+  for (let y=0; y<H; y+=10) px(10, ((y + scroll*0.5) % H), 1, 4, '#eaf6f9');
+  px(11, 0, 3, H, '#d9c290'); px(11, 0, 1, H, '#e8d5a8');
+  for (const b of groundBits) {             // pebbles + the odd rock on the sand
+    const yy = ((b.y + scroll*0.9) % (H+20)) - 10;
+    if (b.kind === 5) drawRock(11 + b.fx * 1.5, yy, 0.6);
+    else if (b.kind === 2) px(11 + b.fx * 2, yy, 1, 1, '#b8a67e');
+  }
+  for (const f of feats) {                  // sailboats + buoys drifting out on the water
     if (f.side !== 'L') continue;
     const yy = ((f.y*1.1 + scroll*0.5) % (H+60)) - 30, k = f.off % 3;
-    if (k === 0) { px(5, yy+4, 11, 3, '#efe8da'); px(10, yy-4, 2, 8, '#cfc6b6'); px(11, yy-4, 6, 5, '#e6eef4'); }
-    else if (k === 1) { px(9, yy+2, 4, 4, '#c9542e'); px(10, yy-1, 2, 3, '#c9542e'); }
+    if (k === 0) { px(2, yy+4, 8, 3, '#efe8da'); px(5, yy-3, 1, 7, '#cfc6b6'); px(6, yy-3, 4, 4, '#e6eef4'); }
+    else if (k === 1) { px(4, yy+2, 3, 3, '#c9542e'); px(5, yy, 1, 2, '#c9542e'); }
   }
   ctx.globalAlpha = 1;
 }
-function drawBridge(a) {                     // crossing a tidal river: water both sides + steel girders
+function drawBridgeWater(a) {                // the tidal river below — the deck + railbed stay above it
   ctx.globalAlpha = a;
-  for (const band of [{x:0,w:WALL_L},{x:WALL_R,w:W-WALL_R}]) {
+  for (const [bx, bw] of [[0, 14], [W-14, 14]]) {
     for (let y=-8; y<H+8; y+=8) {
       const yy = ((y + scroll*0.6) % (H+16)) - 8;
-      px(band.x, yy, band.w, 8, (Math.floor((yy+scroll)/8)%2) ? '#5b9fb8' : '#4e93ac');
+      px(bx, yy, bw, 8, (Math.floor((yy+scroll)/8)%2) ? '#5b9fb8' : '#4e93ac');
     }
   }
-  for (let y=-24; y<H+24; y+=28) {           // truss beams flicking overhead
+  ctx.globalAlpha = 1;
+}
+function drawBridgeBeams(a) {                // steel girders sweeping past over the deck
+  ctx.globalAlpha = a;
+  for (let y=-24; y<H+24; y+=28) {
     const yy = ((y + scroll) % (H+48)) - 24;
-    px(0, yy, WALL_L, 4, '#3a3f47'); px(WALL_R, yy, W-WALL_R, 4, '#3a3f47');
+    px(0, yy, WALL_L-8, 4, '#3a3f47'); px(WALL_R+8, yy, W-WALL_R-8, 4, '#3a3f47');
     px(0, yy, 3, 22, '#4b515a'); px(W-3, yy, 3, 22, '#4b515a');
   }
   ctx.globalAlpha = 1;
 }
 
+// The window-view outside, rebuilt in layers so the train visibly rides a railbed:
+//   grass field → trees/houses set back → (sea + beach) → sleeper ends + ballast
+// snug against the car shell, with bridges carrying the deck over the water.
 function drawScenery() {
   const urban = urbanAt(miles / ROUTE.totalMiles);
   const uc = Math.min(1, urban);
   const coast = coastAmount();
   const gA = hexMix(C.fieldA, '#9a958c', uc*0.85), gB = hexMix(C.fieldB, '#8b867d', uc*0.85);
+  // 1) the grass field, out to the verge
   for (const band of [{x:0,w:WALL_L,left:true},{x:WALL_R,w:W-WALL_R,left:false}]) {
     for (let y=-40; y<H+40; y+=8) {
       const yy = ((y + scroll*0.9) % (H+80)) - 40;
       px(band.x, yy, band.w, 8, (Math.floor((yy+scroll)/8)%2) ? gA : gB);
     }
-    px(band.x===0 ? WALL_L-4 : WALL_R, 0, 4, H, hexMix(C.dirt, '#7c7a78', uc*0.7));  // ballast edge
-    if (uc < 0.5 && !(band.left && coast > 0.5)) for (const b of groundBits) {       // countryside wildflowers
+    if (uc < 0.5 && !(band.left && coast > 0.5)) for (const b of groundBits) {   // wildflowers keep off the railbed
       const yy = ((b.y + scroll*0.9) % (H+40)) - 20;
-      drawGrassBit(band.x + 3 + b.fx * (band.w - 8), yy, b.kind);
+      drawGrassBit(band.left ? 1 + b.fx * 10 : WALL_R + 18 + b.fx * 10, yy, b.kind);
     }
   }
-  // lineside features morph with the region: skyline ↔ houses ↔ trees (left side gives way to the sea)
+  // 2) lineside features, set back from the track: skyline ↔ houses ↔ trees
   for (const f of feats) {
-    if (f.side === 'L' && coast > 0.5) continue;
+    if (f.side === 'L' && coast > 0.5) continue;                // left side gives way to the sea
     const yy = ((f.y + scroll) % (H + 60)) - 30;
-    const bx = f.side==='L' ? 4 + f.off*0.4 : WALL_R + 2 + f.off*0.4;
-    const r = (f.off % 18) / 18;                  // stable per-feature 0..1
-    const u = urban + (r - 0.5) * 0.4;            // soft blending at region edges
+    const jit = (f.off % 10) * 0.4;
+    const bx = f.side==='L' ? -9 + jit : W - 12 - jit;          // hug the outer edge of the view
+    const r = (f.off % 18) / 18;                                // stable per-feature 0..1
+    const u = urban + (r - 0.5) * 0.4;                          // soft blending at region edges
     if (u > 0.62) drawBuilding(bx, yy, urban, r);
     else if (u > 0.46) drawHouse(bx, yy, r);
     else drawTreeish(f, bx, yy);
   }
   if (coast > 0.01) drawSea(coast);               // Long Island Sound out the left window
   const br = bridgeAmount();
-  if (br > 0.01) drawBridge(br);                  // crossing a tidal river
+  if (br > 0.01) drawBridgeWater(br);             // a tidal river passing beneath the bridge
+  // 3) the dirt verge, then the railbed the car actually rides on
+  const dirtCol = hexMix('#a59062', '#8a8580', uc*0.6);
+  if (!(coast > 0.5)) px(WALL_L-18, 0, 2, H, dirtCol);          // (the beach replaces the left verge)
+  px(WALL_R+16, 0, 2, H, dirtCol);
+  drawRailbed(uc);
+  if (br > 0.01) drawBridgeBeams(br);             // girders sweep past over the deck
   // station platforms glide past as we pull in (announcements handled in update)
   for (const s of STATIONS) {
     const d = s.mile - miles;
     if (d < 5.5 && d > -3) drawStation(s, ((5.5 - d) / 8.5) * H);
+  }
+}
+// sleeper ends + gravel ballast peeking out from under the car on both sides
+function drawRailbed(uc) {
+  const ballast = hexMix('#96897a', '#7e7c7a', uc*0.6);
+  for (const left of [true, false]) {
+    const bx = left ? WALL_L-16 : WALL_R+8;                     // 8px of ballast beside the shell
+    px(bx, 0, 8, H, ballast);
+    px(left ? WALL_L-16 : WALL_R+15, 0, 1, H, shade('#96897a', -14));   // shoulder edge
+    for (const b of groundBits) {                               // gravel speckle, scrolling
+      const yy = ((b.y + scroll) % (H+16)) - 8;
+      px(bx + 1 + b.fx*6, yy, 1, 1, (b.kind%2) ? 'rgba(60,52,44,.35)' : 'rgba(240,234,222,.3)');
+    }
+    const sx = left ? WALL_L-13 : WALL_R+8;                     // sleeper ends under the car
+    for (let y=-12; y<H+12; y+=9) {
+      const yy = ((y + scroll) % (H+24)) - 12;
+      px(sx, yy, 5, 4, '#6b4a2c'); px(sx, yy, 5, 1, '#7d5836');
+    }
+    px(left ? WALL_L-10 : WALL_R+8, 0, 2, H, 'rgba(20,12,6,.25)');      // shadow of the car body
   }
 }
 
@@ -2096,17 +2151,33 @@ function drawStation(s, yy) {
 function drawCar() {
   // floor planks with grain + seams
   px(WALL_L, 0, WALL_R-WALL_L, H, C.floor);
-  for (let y=0; y<H; y+=12) { px(WALL_L, y, WALL_R-WALL_L, 1, C.plank); px(WALL_L, y+6, WALL_R-WALL_L, 1, shade(C.floor, 10)); }
+  for (let y=0; y<H; y+=12) {
+    px(WALL_L, y, WALL_R-WALL_L, 1, C.plank); px(WALL_L, y+6, WALL_R-WALL_L, 1, shade(C.floor, 10));
+    // staggered plank ends + the odd knot for a lived-in floor
+    const seed = (y * 31) % 97;
+    px(WALL_L + 12 + seed, y+1, 1, 5, 'rgba(40,24,12,.18)');
+    if (seed % 3 === 0) { const kx = WALL_L + 20 + (seed * 7) % 140; px(kx, y+3, 2, 2, shade(C.plank, -14)); px(kx, y+3, 1, 1, shade(C.plank, -26)); }
+  }
   for (let x=WALL_L+18; x<WALL_R; x+=42) px(x, 0, 1, H, 'rgba(40,24,12,.14)');
+  // warm baseboard shadow where floor meets the walls
+  px(WALL_L, 0, 3, H, 'rgba(30,16,6,.18)'); px(WALL_R-3, 0, 3, H, 'rgba(30,16,6,.18)');
 
-  // centre aisle: a patterned red runner (like the reference)
+  // centre aisle: an ornate red runner (like the reference)
   const AW = AISLE_R-AISLE_L, AY = CAR_TOP, AH = CAR_BOT-CAR_TOP;
-  px(AISLE_L, AY, AW, AH, '#7d3a33');
-  px(AISLE_L+2, AY+2, AW-4, AH-4, '#8c463c');
+  px(AISLE_L, AY, AW, AH, '#6e2f2a');                                          // deep red base
+  px(AISLE_L+3, AY+3, AW-6, AH-6, '#8c463c');                                  // inner field
   px(AISLE_L, AY, AW, 2, '#b5854a'); px(AISLE_L, AY+AH-2, AW, 2, '#b5854a');   // gold border
   px(AISLE_L, AY, 2, AH, '#9a6a3e'); px(AISLE_R-2, AY, 2, AH, '#9a6a3e');
-  for (let y=AY+8; y<CAR_BOT-4; y+=16) { px(AISLE_L+AW/2-2, y, 4, 4, '#6e2f2a'); px(AISLE_L+AW/2-1, y+1, 2, 2, '#a85a4e'); }
-
+  px(AISLE_L+3, AY+3, AW-6, 1, '#a06a40'); px(AISLE_L+3, AY+AH-4, AW-6, 1, '#a06a40'); // inner gold pinstripe
+  // diamond lattice woven through the field
+  for (let y=AY+10, r=0; y<CAR_BOT-8; y+=11, r++) {
+    for (let x=AISLE_L+8+(r%2?5:0); x<AISLE_R-6; x+=10) { px(x, y, 1, 1, '#b08048'); px(x-1, y-1, 1, 1, 'rgba(0,0,0,.14)'); }
+  }
+  // centre medallions
+  for (let y=AY+16; y<CAR_BOT-10; y+=44) {
+    const mx = AISLE_L+AW/2;
+    px(mx-3, y, 6, 6, '#6e2f2a'); px(mx-2, y+1, 4, 4, '#a85a4e'); px(mx-1, y+2, 2, 2, '#d9a15a');
+  }
   // side walls: warm wood panelling
   for (const [wx, dir] of [[WALL_L-6, 1],[WALL_R, -1]]) {
     px(wx, 0, 6, H, C.wall);
@@ -2120,19 +2191,60 @@ function drawCar() {
     const gx = st.side==='L' ? WALL_L-5 : WALL_R+1;
     px(gx, wy+2, 4, wh-4, C.glass1); px(gx, wy+2, 4, 3, C.glass2);
     px(gx, wy+2, 1, wh-4, 'rgba(255,255,255,.35)');            // glass sheen
+    px(wx, wy, 6, 2, '#a8433a'); px(wx, wy+2, 1, 2, '#8c3830'); px(wx+5, wy+2, 1, 2, '#8c3830'); // little red curtain valance
+    px(wx, wy+wh-2, 6, 1, '#8a6340');                          // sill
   }
 
-  // end caps: doors
+  // the car shell: a dark rounded frame so the carriage reads as one cosy object
+  px(WALL_L-8, 0, 2, H, C.outline); px(WALL_R+6, 0, 2, H, C.outline);
+
+  // end caps: vestibules with sliding doors
   px(WALL_L, 0, WALL_R-WALL_L, CAR_TOP, C.wall);
-  px(AISLE_L-6, CAR_TOP-9, (AISLE_R-AISLE_L)+12, 9, C.trim);   // top door frame
-  px(AISLE_L-2, CAR_TOP-7, (AISLE_R-AISLE_L)+4, 6, C.panel);
+  px(WALL_L, CAR_TOP-2, WALL_R-WALL_L, 2, shade(C.wall, -16));
+  px(AISLE_L-6, CAR_TOP-11, (AISLE_R-AISLE_L)+12, 11, C.trim);   // top door frame
+  px(AISLE_L-2, CAR_TOP-9, (AISLE_R-AISLE_L)+4, 8, C.panel);
+  px(AISLE_L+2, CAR_TOP-7, (AISLE_R-AISLE_L)-4, 3, '#9fd0e2');   // door window
+  px(AISLE_L+2, CAR_TOP-7, (AISLE_R-AISLE_L)-4, 1, '#cfeefb');
+  px(AISLE_L+AW/2-1, CAR_TOP-3, 2, 1, '#d9a15a');                // brass handle
   px(WALL_L, CAR_BOT, WALL_R-WALL_L, H-CAR_BOT, C.wall);
-  px(AISLE_L-6, CAR_BOT, (AISLE_R-AISLE_L)+12, 9, C.trim);     // bottom door frame
-  px(AISLE_L-2, CAR_BOT+1, (AISLE_R-AISLE_L)+4, 6, C.panel);
+  px(WALL_L, CAR_BOT, WALL_R-WALL_L, 2, shade(C.wall, 14));
+  px(AISLE_L-6, CAR_BOT, (AISLE_R-AISLE_L)+12, 11, C.trim);      // bottom door frame
+  px(AISLE_L-2, CAR_BOT+1, (AISLE_R-AISLE_L)+4, 8, C.panel);
+  px(AISLE_L+2, CAR_BOT+4, (AISLE_R-AISLE_L)-4, 3, '#9fd0e2');
+  px(AISLE_L+AW/2-1, CAR_BOT+2, 2, 1, '#d9a15a');
+  // fringe tassels where the runner meets the vestibules
+  for (let x=AISLE_L+1; x<AISLE_R-1; x+=3) { px(x, AY-3, 1, 3, '#c9a45e'); px(x, CAR_BOT, 1, 3, '#c9a45e'); }
+
+  // potted plants tucked into the vestibule corners
+  drawPlant(WALL_L+8,  CAR_TOP+10); drawPlant(WALL_R-14, CAR_TOP+10);
+  drawPlant(WALL_L+8,  CAR_BOT-4);  drawPlant(WALL_R-14, CAR_BOT-4);
 
   // overhead luggage rail hint along both sides
   px(WALL_L, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.07)');
   px(WALL_R-4, CAR_TOP, 4, CAR_BOT-CAR_TOP, 'rgba(0,0,0,.07)');
+}
+// a little potted plant — terracotta pot, leafy top
+function drawPlant(bx, by) {
+  px(bx, by+2, 8, 2, C.shadow);                                  // ground shadow
+  px(bx+1, by-2, 6, 5, C.outline); px(bx+2, by-1, 4, 3, '#b0603c'); px(bx+2, by-1, 4, 1, '#c97a4e'); // pot
+  px(bx, by-8, 8, 7, C.outline);                                 // leaf outline
+  px(bx+1, by-7, 6, 5, '#3c7a3e'); px(bx+2, by-8, 4, 2, '#5aa457');
+  px(bx+1, by-5, 2, 2, '#2b5c30'); px(bx+5, by-4, 2, 2, '#2b5c30');
+  px(bx+3, by-7, 1, 4, '#6fbf63');                               // bright centre leaf
+}
+// warm sconce lamps on the wall above each booth (glow pools live in applyAmbient,
+// screen-space, so the lamplight cuts through dusk + tunnel darkness)
+function drawLamps() {
+  for (const st of seats) {
+    const left = st.side === 'L';
+    const lx = left ? WALL_L - 3 : WALL_R - 2;                   // fixture hugs the wall
+    const ly = st.row - 27;
+    // the sconce: brass stem + cream shade + warm core
+    px(lx + 1, ly + 3, 3, 2, C.outline); px(lx + 2, ly + 4, 1, 1, '#caa24e');   // bracket
+    px(lx, ly - 1, 5, 4, C.outline);
+    px(lx + 1, ly, 3, 2, '#f0e0b8'); px(lx + 1, ly, 3, 1, '#fdf3d4');           // shade
+    px(lx + 2, ly + 2, 1, 1, '#ffd98a');                                        // glowing bulb
+  }
 }
 
 function drawSeat(st) {
@@ -2395,7 +2507,7 @@ function frame(now) {
     const L = lightingFor(dayT);                    // soft time-of-day wash on the platform
     if (L.a > 0.001) { ctx.fillStyle = `rgba(${L.r},${L.g},${L.b},${L.a})`; ctx.fillRect(0,0,W,H); }
     const g = ctx.createRadialGradient(W/2,H/2,80, W/2,H/2,260);
-    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.28)');
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(26,12,4,.34)');
     ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
     requestAnimationFrame(frame);
     return;
@@ -2419,6 +2531,7 @@ function frame(now) {
       drawSeatItems(st, dt);        // table sits in front of whoever's seated here
     }
     drawPlayer();                   // only the walking (un-seated) player
+    drawLamps();                    // sconce lamplight pools over the booths
 
     ctx.restore();
   }
@@ -2426,7 +2539,7 @@ function frame(now) {
 
   // gentle vignette for cosiness
   const g = ctx.createRadialGradient(W/2,H/2,80, W/2,H/2,260);
-  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.28)');
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(26,12,4,.34)');
   ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
 
   requestAnimationFrame(frame);
@@ -2445,11 +2558,19 @@ function applyAmbient() {
       ctx.fillRect(0,0,WALL_L,H); ctx.fillRect(WALL_R,0,W-WALL_R,H);  // dark through the windows only
     }
   }
-  if (!wideView) {   // carriage lamps warm the interior as it darkens
+  if (!wideView) {   // carriage lamps warm the interior — a gentle glow always, deeper as it darkens
     const dark = Math.max(tunnelAmount, Math.min(1, (L.a - 0.15) / 0.3));
-    if (dark > 0.001) {
-      ctx.fillStyle = `rgba(255,188,110,${dark*0.10})`;
-      ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
+    ctx.fillStyle = `rgba(255,196,124,${0.045 + dark*0.10})`;
+    ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
+    // pools of sconce lamplight, drawn over the dusk so they genuinely glow
+    const a = 0.08 + dark * 0.30;
+    for (const st of seats) {
+      const wx = st.side==='L' ? WALL_L+7 : WALL_R-7, wy = st.row-23;
+      const sx = (wx - cam.fx)*cam.s + W/2, sy = (wy - cam.fy)*cam.s + H/2;   // world → screen
+      const rad = 30*cam.s;
+      const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, rad);
+      g.addColorStop(0, `rgba(255,214,136,${a})`); g.addColorStop(0.45, `rgba(255,196,116,${a*0.45})`); g.addColorStop(1, 'rgba(255,196,116,0)');
+      ctx.fillStyle = g; ctx.fillRect(sx-rad, sy-rad, rad*2, rad*2);
     }
   }
 }
@@ -2501,23 +2622,41 @@ function drawWideView() {
   }
   for (const rx of [cx-12, cx+9]) { px(rx, 0, 3, H, '#4c5157'); px(rx, 0, 1, H, '#90969d'); } // rails + shine
   // 3) the train: locomotive + carriages, your car marked
+  const Lw = lightingFor(dayT);
+  const duskW = Math.max(tunnelAmount, Math.min(1, (Lw.a - 0.15) / 0.3));
+  const winCol = duskW > 0.25 ? '#ffe2a0' : '#cfeefb';          // windows glow warm come evening
   for (let i = 0; i < TRAIN.length; i++) {
     const s = TRAIN[i];
     const w = s.type === 'loco' ? 34 : 40, x = cx - w/2;
     px(cx-1, s.y + s.h, 2, 8, '#2c2c30');                       // coupler to next
     px(x+2, s.y+3, w, s.h, C.shadow);                           // shadow
     if (s.type === 'loco') {
+      px(x-1, s.y-1, w+2, s.h+2, C.outline);                    // shell outline
       px(x, s.y, w, s.h, '#3a3f47');
-      px(x+6, s.y-5, w-12, 7, '#2b2f36');                       // nose
-      px(x+w/2-2, s.y+3, 4, 6, '#ffcf86');                      // headlight
+      px(x+6, s.y-6, w-12, 8, C.outline); px(x+7, s.y-5, w-14, 7, '#2b2f36'); // nose
+      px(x+w/2-2, s.y+3, 4, 6, '#ffcf86'); px(x+w/2-1, s.y+4, 2, 2, '#fff3cd'); // headlight
       px(x+4, s.y+16, w-8, 4, '#54606a'); px(x+4, s.y+26, w-8, 4, '#54606a');
+      px(x+4, s.y+16, w-8, 1, '#6b7883'); px(x+4, s.y+26, w-8, 1, '#6b7883');
+      px(x+w/2-3, s.y+9, 6, 4, '#2b2f36'); px(x+w/2-2, s.y+10, 4, 2, '#caa24e'); // brass stack
+      // puffs of smoke drifting off the stack
+      for (let k = 0; k < 3; k++) {
+        const ph = (elapsed * 0.5 + k / 3) % 1;
+        const sy = s.y + 8 - ph * 26, sxo = Math.sin((elapsed + k * 2.1) * 1.7) * (2 + ph * 4);
+        ctx.fillStyle = `rgba(230,228,222,${0.30 * (1 - ph)})`;
+        const r = 2 + ph * 4; ctx.fillRect((cx + sxo - r)|0, (sy - r)|0, (r*2)|0, (r*2)|0);
+      }
     } else {
       if (s.player) { px(x-4, s.y-3, w+8, s.h+6, 'rgba(255,217,160,.35)'); }  // glow
-      px(x, s.y, w, s.h, '#9c4a3f');                            // body
-      px(x+2, s.y+2, w-4, s.h-4, '#b0584a');                    // roof
-      px(x+w/2-1, s.y, 2, s.h, '#7a3a31');                      // ridge
+      px(x-1, s.y-1, w+2, s.h+2, C.outline);                    // shell outline
+      px(x, s.y, w, s.h, '#8f4038');                            // body
+      px(x+2, s.y+2, w-4, s.h-4, '#a85447');                    // roof
+      px(x+2, s.y+2, w-4, 1, '#c06a55');                        // roof edge light
+      px(x+w/2-2, s.y+2, 4, s.h-4, '#d8c9a8');                  // ivory roof walkway
+      px(x+w/2-2, s.y+2, 1, s.h-4, '#b8a988');
+      px(x+1, s.y+1, 1, s.h-2, '#caa24e'); px(x+w-2, s.y+1, 1, s.h-2, '#caa24e'); // gold beltline
       for (let wy = s.y+6; wy < s.y+s.h-5; wy += 9) {           // windows both sides
-        px(x+2, wy, 3, 5, '#cfeefb'); px(x+w-5, wy, 3, 5, '#cfeefb');
+        px(x+1, wy-1, 5, 7, C.outline); px(x+2, wy, 3, 5, winCol);
+        px(x+w-6, wy-1, 5, 7, C.outline); px(x+w-5, wy, 3, 5, winCol);
       }
       if (s.player) {
         px(x+w/2-2, s.y-9, 4, 6, '#ffd24a');                    // a little pin
