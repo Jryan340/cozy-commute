@@ -589,7 +589,7 @@ const C = {
 
 // --- car layout ------------------------------------------------------------
 // inner walls
-const WALL_L = 30, WALL_R = 210;        // inner edges of side walls
+const WALL_L = 51, WALL_R = 189;        // inner edges of side walls (slim car = wide world)
 const CAR_TOP = 26, CAR_BOT = 354;      // inner ends of the car
 const AISLE_L = 98, AISLE_R = 142;      // walkable aisle
 
@@ -1933,8 +1933,9 @@ function lotR(i, k) {
   h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
 }
-function drawStreetscape(urban, coast, cityOnly) {
+function drawStreetscape(urban, coast, cityOnly, inset) {
   if (urban < 0.35) return;                              // deep countryside — no street out here
+  inset = inset || WALL_L - 18;                          // how deep the street strip reaches in
   const L = lightingFor(dayT);
   const dusk = Math.max(tunnelAmount, Math.min(1, (L.a - 0.15) / 0.3));
   const winCol = dusk > 0.25 ? '#ffe2a0' : '#cfeefb';    // windows glow warm come evening
@@ -1947,23 +1948,23 @@ function drawStreetscape(urban, coast, cityOnly) {
       const r1 = lotR(i, sSeed), r2 = lotR(i, sSeed + 7), r3 = lotR(i, sSeed + 13);
       const u = urban + (r1 - 0.5) * 0.3;
       if (u > 0.62) {
-        drawSidewalk(left, t);
-        drawRowhouseLot(left, t, r2, r3, winCol);
-        if (r3 > 0.72) drawStreetlamp(left, t + 6 + Math.floor(r2 * (LOT_H - 14)), dusk);
-      } else if (u > 0.44 && !cityOnly) drawCottageLot(left, t, r2, r3);
+        drawSidewalk(left, t, inset);
+        drawRowhouseLot(left, t, r2, r3, winCol, inset);
+        if (r3 > 0.72) drawStreetlamp(left, t + 6 + Math.floor(r2 * (LOT_H - 14)), dusk, inset);
+      } else if (u > 0.44 && !cityOnly) drawCottageLot(left, t, r2, r3, inset);
     }
   }
 }
-function drawSidewalk(left, t) {
-  const sx = left ? 8 : W - 12;
+function drawSidewalk(left, t, inset) {
+  const sx = left ? inset - 6 : W - inset + 2;
   px(sx, t, 4, LOT_H, '#a8a196');
   px(left ? sx + 3 : sx, t, 1, LOT_H, '#948d82');        // kerb by the grass
   for (let k = 4; k < LOT_H; k += 10) px(sx, t + k, 4, 1, '#968f84');   // paving seams
 }
-function drawRowhouseLot(left, t, r2, r3, winCol) {
+function drawRowhouseLot(left, t, r2, r3, winCol, inset) {
   const gap = 3 + Math.floor(r3 * 5);                    // alley between neighbours
   const bh = LOT_H - gap, by = t + gap;
-  const w = 9 + Math.floor(r2 * 3);                      // block reaches in from the view's edge
+  const w = Math.max(9 + Math.floor(r2 * 3), inset - 16 + Math.floor(r2 * 6));   // deeper blocks in a wider band
   const bx = left ? -3 : W + 3 - w;
   const bodies = ['#a5604a', '#c8a878', '#7b8494', '#8a7464', '#b07a56'];
   const body = bodies[Math.floor(r2 * 11) % 5];
@@ -1989,19 +1990,26 @@ function drawRowhouseLot(left, t, r2, r3, winCol) {
   }
   const dx = left ? bx + w - 4 : bx + 1;                 // front door onto the sidewalk
   px(dx, by + bh - 6, 3, 6, C.outline); px(dx + 1, by + bh - 5, 2, 4, '#5a3d26'); px(dx + 1, by + bh - 5, 2, 1, '#7a5334');
+  // a little front path from the door to the sidewalk, with a garden flower beside it
+  const ie = left ? bx + w : bx;                         // the building's street-facing edge
+  const sw0 = left ? inset - 6 : W - inset + 6;          // where the sidewalk begins
+  const setback = left ? sw0 - ie : ie - sw0;
+  if (setback > 1) px(left ? ie : sw0, by + bh - 4, setback, 2, '#c9b184');
+  if (setback > 4) drawGrassBit(left ? ie + 1 + r3 * (setback - 3) : sw0 + 1 + r3 * (setback - 3), by + 8 + r2 * (bh - 14), 3 + Math.floor(r2 * 2));
 }
-function drawStreetlamp(left, y, dusk) {
-  const x = left ? 10 : W - 11;
+function drawStreetlamp(left, y, dusk, inset) {
+  const x = left ? inset - 5 : W - inset + 4;
   px(x, y, 1, 6, '#3a3f47');                             // post
   px(x - 1, y - 2, 3, 3, C.outline);
   px(x, y - 1, 1, 1, dusk > 0.25 ? '#ffd98a' : '#e8e0c8');   // lit come evening
 }
-function drawCottageLot(left, t, r2, r3) {
-  const bx = left ? 0 : W - 12 - Math.floor(r3 * 2);
+function drawCottageLot(left, t, r2, r3, inset) {
+  const yard = Math.max(0, inset - 29);                  // wiggle room for the house in its yard
+  const bx = left ? 2 + Math.floor(r3 * yard) : W - 15 - Math.floor(r3 * yard);
   drawHouse(bx, t + LOT_H - 20, r2 * 0.5);
-  const fx = left ? 9 : W - 10;                          // picket fence along the yard
+  const fx = left ? inset - 4 : W - inset + 3;           // picket fence along the yard
   for (let k = 2; k < LOT_H - 2; k += 4) px(fx, t + k, 1, 3, '#d8cba8');
-  drawGrassBit(left ? 4 + r2 * 4 : W - 8 - r2 * 4, t + 6 + r3 * 10, 3 + Math.floor(r2 * 2));   // garden flowers
+  drawGrassBit(left ? 4 + r2 * (inset - 12) : W - 6 - r2 * (inset - 12), t + 6 + r3 * 10, 3 + Math.floor(r2 * 2));   // garden flowers
 }
 function drawHouse(bx, yy, r) {
   const w = 12 + Math.round(r*3), h = 8, y = yy + 12 - h;
@@ -2094,35 +2102,37 @@ function bridgeAmount() { let m = 0; for (const b of ROUTE.bridges) { const d = 
 function undergroundAmount() { return (ROUTE.underground==null || miles<ROUTE.underground) ? 0 : Math.min(1, (miles-ROUTE.underground)/4); }
 
 function drawSea(a) {                       // the Sound out the left window, with a real shoreline
+  const shore = WALL_L - 21;                // where the surf meets the sand
   ctx.globalAlpha = a;
   for (let y=-8; y<H+8; y+=8) {             // open water fills the outer view
     const yy = ((y + scroll*0.5) % (H+16)) - 8;
-    px(0, yy, 11, 8, (Math.floor((yy+scroll)/8)%2) ? '#4f97b4' : '#448aa6');
+    px(0, yy, shore, 8, (Math.floor((yy+scroll)/8)%2) ? '#4f97b4' : '#448aa6');
   }
   for (const b of groundBits) {             // ripple flecks
     const yy = ((b.y*1.3 + scroll*0.5) % (H+40)) - 20;
-    px(1 + b.fx * 8, yy, 2, 1, 'rgba(230,246,252,.4)');
+    px(1 + b.fx * (shore - 4), yy, 2, 1, 'rgba(230,246,252,.4)');
   }
   // gentle surf line, then a sandy beach running up to the railbed
-  px(10, 0, 1, H, '#bfe6ee');
-  for (let y=0; y<H; y+=10) px(10, ((y + scroll*0.5) % H), 1, 4, '#eaf6f9');
-  px(11, 0, 3, H, '#d9c290'); px(11, 0, 1, H, '#e8d5a8');
+  px(shore, 0, 1, H, '#bfe6ee');
+  for (let y=0; y<H; y+=10) px(shore, ((y + scroll*0.5) % H), 1, 4, '#eaf6f9');
+  px(shore+1, 0, WALL_L-17-shore, H, '#d9c290'); px(shore+1, 0, 1, H, '#e8d5a8');
   for (const b of groundBits) {             // pebbles + the odd rock on the sand
     const yy = ((b.y + scroll*0.9) % (H+20)) - 10;
-    if (b.kind === 5) drawRock(11 + b.fx * 1.5, yy, 0.6);
-    else if (b.kind === 2) px(11 + b.fx * 2, yy, 1, 1, '#b8a67e');
+    if (b.kind === 5) drawRock(shore + 1 + b.fx * 2, yy, 0.6);
+    else if (b.kind === 2) px(shore + 1 + b.fx * 3, yy, 1, 1, '#b8a67e');
   }
   for (const f of feats) {                  // sailboats + buoys drifting out on the water
     if (f.side !== 'L') continue;
     const yy = ((f.y*1.1 + scroll*0.5) % (H+60)) - 30, k = f.off % 3;
-    if (k === 0) { px(2, yy+4, 8, 3, '#efe8da'); px(5, yy-3, 1, 7, '#cfc6b6'); px(6, yy-3, 4, 4, '#e6eef4'); }
-    else if (k === 1) { px(4, yy+2, 3, 3, '#c9542e'); px(5, yy, 1, 2, '#c9542e'); }
+    const bp = 2 + (f.off % 3) * Math.max(2, (shore - 12) / 2);
+    if (k === 0) { px(bp, yy+4, 8, 3, '#efe8da'); px(bp+3, yy-3, 1, 7, '#cfc6b6'); px(bp+4, yy-3, 4, 4, '#e6eef4'); }
+    else if (k === 1) { px(bp+2, yy+2, 3, 3, '#c9542e'); px(bp+3, yy, 1, 2, '#c9542e'); }
   }
   ctx.globalAlpha = 1;
 }
 function drawBridgeWater(a) {                // the tidal river below — the deck + railbed stay above it
   ctx.globalAlpha = a;
-  for (const [bx, bw] of [[0, 14], [W-14, 14]]) {
+  for (const [bx, bw] of [[0, WALL_L-16], [WALL_R+16, W-WALL_R-16]]) {
     for (let y=-8; y<H+8; y+=8) {
       const yy = ((y + scroll*0.6) % (H+16)) - 8;
       px(bx, yy, bw, 8, (Math.floor((yy+scroll)/8)%2) ? '#5b9fb8' : '#4e93ac');
@@ -2156,7 +2166,7 @@ function drawScenery() {
     }
     if (uc < 0.5 && !(band.left && coast > 0.5)) for (const b of groundBits) {   // wildflowers keep off the railbed
       const yy = ((b.y + scroll*0.9) % (H+40)) - 20;
-      drawGrassBit(band.left ? 1 + b.fx * 10 : WALL_R + 18 + b.fx * 10, yy, b.kind);
+      drawGrassBit(band.left ? 1 + b.fx * (WALL_L - 22) : WALL_R + 18 + b.fx * (W - WALL_R - 20), yy, b.kind);
     }
   }
   // 2) lineside trees hug the outer edge; the streetscape lots carry the towns
@@ -2164,7 +2174,8 @@ function drawScenery() {
     if (f.side === 'L' && coast > 0.5) continue;                // left side gives way to the sea
     const yy = ((f.y + scroll) % (H + 60)) - 30;
     const jit = (f.off % 10) * 0.4;
-    const bxT = f.side==='L' ? -9 + jit : W - 12 - jit;
+    const bxL = -6 + jit * 6;
+    const bxT = f.side==='L' ? bxL : W - bxL - 12;
     const r = (f.off % 18) / 18;                                // stable per-feature 0..1
     const u = urban + (r - 0.5) * 0.4;                          // soft blending at region edges
     if (u <= 0.5) drawTreeish(f, bxT, yy);
@@ -2227,7 +2238,7 @@ function drawCar() {
     // staggered plank ends + the odd knot for a lived-in floor
     const seed = (y * 31) % 97;
     px(WALL_L + 12 + seed, y+1, 1, 5, 'rgba(40,24,12,.18)');
-    if (seed % 3 === 0) { const kx = WALL_L + 20 + (seed * 7) % 140; px(kx, y+3, 2, 2, shade(C.plank, -14)); px(kx, y+3, 1, 1, shade(C.plank, -26)); }
+    if (seed % 3 === 0) { const kx = WALL_L + 20 + (seed * 7) % (WALL_R - WALL_L - 28); px(kx, y+3, 2, 2, shade(C.plank, -14)); px(kx, y+3, 1, 1, shade(C.plank, -26)); }
   }
   for (let x=WALL_L+18; x<WALL_R; x+=42) px(x, 0, 1, H, 'rgba(40,24,12,.14)');
   // warm baseboard shadow where floor meets the walls
@@ -2684,7 +2695,7 @@ function drawWideView() {
       else drawTreeish(f, bx, yy);
     }
   }
-  drawStreetscape(urban, coast, true);              // rowhouse blocks line the edges of the map
+  drawStreetscape(urban, coast, true, 14);          // rowhouse blocks line the edges of the map
   if (uc > 0.55) {                                  // cross-streets slide past through the city grid
     const j0 = Math.floor((-LOT_H - scroll) / LOT_H), j1 = Math.floor((H + LOT_H - scroll) / LOT_H);
     for (let i = j0; i <= j1; i++) {
