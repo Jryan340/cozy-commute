@@ -34,7 +34,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   #act:active { transform: translateY(1px); border-bottom-width: 2px; }
-  #snd, #wide, #fp {
+  #snd, #wide, #fp, #charBtn {
     position: fixed; width: 46px; height: 46px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
     background: linear-gradient(180deg, #e6d6b2, #d2ba88); border: 2px solid #8a6a42; border-bottom-width: 4px;
@@ -44,12 +44,23 @@
   #snd { left: 18px; bottom: 64px; }
   #wide { right: 18px; top: 64px; }
   #fp   { left: 18px; top: 64px; display: none; }
-  #snd:active, #wide:active, #fp:active { transform: translateY(1px); border-bottom-width: 3px; }
+  #charBtn { right: 18px; bottom: 64px; }
+  #snd:active, #wide:active, #fp:active, #charBtn:active { transform: translateY(1px); border-bottom-width: 3px; }
   /* first-person mode hides the rest of the chrome for a clean look */
-  body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp { display: none !important; }
+  body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp, body.fp #charBtn { display: none !important; }
   /* at the station you're on the platform, not in the car — hide the in-car chrome */
-  body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp,
+  body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp, body.at-station #charBtn,
   body.at-station #hint, body.at-station #tripTab, body.at-station #wclock { display: none !important; }
+  /* the character picker panel + its swatches (mirrors the bag panel) */
+  #charGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .cchip {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 10px 4px; border-radius: 12px; cursor: pointer;
+    background: #2c2836; border: 1px solid #3a3546; color: #d9d2c4;
+    font: 600 11px ui-monospace, monospace; -webkit-tap-highlight-color: transparent;
+  }
+  .cchip img { image-rendering: pixelated; height: 54px; width: auto; }
+  .cchip.on { background: #2f5a46; border-color: #6fae8f; color: #eaf6ee; }
 
   /* ---- the in-game phone: main hub (SBB planner × Flighty polish) -------- */
   #tripTab {
@@ -399,7 +410,7 @@
     opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 5;
   }
   #scrim.show { opacity: 1; pointer-events: auto; }
-  #bag {
+  #bag, #charPick {
     position: fixed; left: 50%; bottom: 0; transform: translateX(-50%) translateY(110%);
     width: min(440px, 96vw); background: #221f2a; color: #efe8da;
     border: 1px solid rgba(255,255,255,.08); border-bottom: none;
@@ -407,7 +418,7 @@
     box-shadow: 0 -12px 40px rgba(0,0,0,.5); transition: transform .26s cubic-bezier(.2,.8,.2,1);
     z-index: 6;
   }
-  #bag.show { transform: translateX(-50%) translateY(0); }
+  #bag.show, #charPick.show { transform: translateX(-50%) translateY(0); }
   .bag-head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 12px; }
   .bag-head b { font-size: 15px; letter-spacing: .3px; }
   #bagIcon { image-rendering: pixelated; vertical-align: -5px; margin-right: 6px; }
@@ -422,12 +433,12 @@
   .chip .emo { font-size: 22px; line-height: 1; }
   .chip:active { transform: translateY(1px); }
   .chip.on { background: #2f6d5f; border-color: #54998a; color: #fff; box-shadow: 0 0 0 2px rgba(84,153,138,.35); }
-  #bagDone {
+  #bagDone, #charDone {
     width: 100%; margin-top: 14px; padding: 12px; border-radius: 12px; cursor: pointer;
     background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
     font: 600 14px ui-monospace, monospace; letter-spacing: .5px;
   }
-  #bagDone:active { transform: translateY(1px); border-bottom-width: 2px; }
+  #bagDone:active, #charDone:active { transform: translateY(1px); border-bottom-width: 2px; }
 </style>
 </head>
 <body>
@@ -457,12 +468,19 @@
   <button id="snd" aria-label="toggle train sounds">🔇</button>
   <button id="wide" aria-label="see the whole train">🗺️</button>
   <button id="fp" aria-label="first-person view">🪟</button>
+  <button id="charBtn" aria-label="choose your character">🧑</button>
 
   <div id="scrim"></div>
   <div id="bag">
     <div class="bag-head"><b><img id="bagIcon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAANCAYAAACdKY9CAAAB+ElEQVR4nE2SP2hTURyFv3tf3kvzp0lsajUOVatUUdAIKtrBpYMo6CJOOhSETh2cRBwcBNHJxcnBQUEcXAURWhBB0IJCqyJY0VIcato0aZO8v/e+n4O0eLZz+A5nOfCfZPo2U+MHZebRDdnMHkyMiciWRW3BIlwd2y9Xzp7guy3TXW0QW6OWvn6SWimv7r1aACCzWXhx67zU9/bTaPyit26IY0M+68jObXk6gRERUUqpfwsPJ89J4DeoFFyWmz6JsYiAUpDLajytmV/sMttyVQZg+v0c9X1VOr2YbhDhOgqtFYkR/EiRdRTtTohZS9DHrz/DN2BMShBZtNa4mQxWFCmK9V7En3ZAivCjsYKe6Dymz3NwHEW54JKkKd0wouOHKIShkkeSCJKmTJ4eFO37gYyUc3xcWMGIIokt1eHdjByr0/NDUqtYXO4yUPRYDQx6T7VIbC21UhYJezg2wnE98p6w1jWstX2ODFfwI8PSqo++fHdcWQErivrodmpDZT7PzvP29QdqlRy1agGloZD16HMzaFW+SRwZsq7DcjOgtZFQLeUZLBfZ8C0bocXiEMUJ1ZxGiQh3zozypbUuhZwm47iEiaXVieglwq5+DxtHeAM7ePrum9q6xpsn95lb+CknDx/i1NED/G40ef5yhmuXLuD1ORTrFxXAXyks7xZXXAU6AAAAAElFTkSuQmCC" alt="" width="20" height="22">Your bag</b><span id="bagCount">0/3 out</span></div>
     <div id="bagGrid"></div>
     <button id="bagDone">Done</button>
+  </div>
+
+  <div id="charPick">
+    <div class="bag-head"><b>🧑 Choose your traveller</b><span>tap to swap</span></div>
+    <div id="charGrid"></div>
+    <button id="charDone">Done</button>
   </div>
 
   <button id="tripTab">APP</button>
@@ -620,7 +638,7 @@ for (const row of rowYs) {
 }
 
 // seed a few NPC passengers in random-ish (deterministic) seats
-const npcSeats = [0, 3, 4, 7, 9];
+const npcSeats = [0, 3, 4, 7, 9, 8];
 const NPC_ITEMS = ['coffee', 'laptop', 'book', 'coffee', 'book'];
 npcSeats.forEach((i, k) => {
   seats[i].occupant = {
@@ -631,7 +649,7 @@ npcSeats.forEach((i, k) => {
     hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][k % 4],
     bob: Math.random() * 6.28,
     item: NPC_ITEMS[k % NPC_ITEMS.length],
-    sprite: k === 1 ? 'silver' : k === 3 ? 'brown' : null,   // hand-drawn passengers
+    sprite: ['ivy', 'silver', 'miles', 'rust', 'traveller', 'nova'][k],   // hand-drawn passengers from the roster
   };
 });
 
@@ -640,6 +658,7 @@ const player = {
   x: AISLE_L + 22, y: 250, w: 10, h: 12,
   shirt: '#e0795f', skin: '#e8b88f', hair: '#4a3220',
   speed: 64, facing: 1, walkT: 0, seat: null,
+  char: 'classic',             // which roster character you play as (see the picker)
   items: ['coffee', 'book'],   // what's out on your table (max 3); chosen from your bag
 };
 // your character — a hand-drawn sprite (background keyed out + resized to 17×30)
@@ -647,13 +666,7 @@ const playerImg = new Image(); let playerImgOK = false;
 playerImg.onload = () => { playerImgOK = true; };
 playerImg.src = 'data:image/png;base64,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';
 function drawPlayerSprite(cx, cy, facing, bob) {
-  if (!playerImgOK) return false;
-  const w = playerImg.width, h = playerImg.height;       // drawn 1:1 for crisp pixels
-  const dx = Math.round(cx - w / 2), dy = Math.round(cy + 8 - h + (bob || 0));
-  px(cx - 6, cy + 7, 12, 2, C.shadow); px(cx - 5, cy + 9, 10, 1, C.shadow);   // soft shadow
-  if (facing < 0) { ctx.save(); ctx.translate(dx + w, dy); ctx.scale(-1, 1); ctx.drawImage(playerImg, 0, 0, w, h); ctx.restore(); }
-  else ctx.drawImage(playerImg, dx, dy, w, h);
-  return true;
+  return drawCharSprite(player.char, cx, cy, bob, facing);   // your chosen roster character
 }
 // the green high-back sofa (a hand-drawn asset) used for the booth seats
 const sofaImg = new Image(); let sofaImgOK = false;
@@ -710,16 +723,53 @@ npcCharImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABMAAAAeCAYAAADO
 const npcBrownImg = new Image(); let npcBrownImgOK = false;
 npcBrownImg.onload = () => { npcBrownImgOK = true; };
 npcBrownImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAeCAYAAAAhDE4sAAAFRUlEQVR4nH2Vy29dVxWHv7X3Pvfta1+/qBPXdp6WEyeipSgKAVK1FFqlQW3UDkAtA4IyQR1AxYghzBAj/gNAFCQGPIRAKkGUNpC0kBa5bdKqColTO4nf9n2ex96LwTFW09KeyTlrS7/fWd/aWmsJ/+e5//5ThM4C880W9zVS9cClxUgmR2tUKobLly9/RCMfPpiZ2q27q1ApWDqpZ6DsMCK0E09kDZvdjJUOzF1fkI81emh2QqcaEUVnqBYNXpUkVTpxRmSFoBAUVIRrawkvvXVzR2/+93FielynBiMgkAWlmypJBrEPVEsRlVKBaiki8Uokyv6hAl+YHtedjM6dO8d7//iTTvRHOFFiHxARfFCMCEbA2fx/quBDIChYATGG+Y2E02efFzl88CAH67GOVi2tJGAk51XAGgMKiqIKxgghKIgQVClZuNP2/PlGTUxVN3WoYulm26wiiDH5GzAGrBGMEQQhcgZQrAhehZITju+O1aC5QFUpOoMzBlXdRlF8UEAw21mo5ibAjnkIivFB8QrO5LeSeI8giACSc+Z10e1QUHJcq0oz9rx6TcQARNbQSzMy7/NCA7JdaCtmW5hffRoCCBiTnzsjTExEGCNCnKaMDA5Qq5ZpdhOWV9dp91LAkPlAMXIkcczqRpM4DaSpp9PtYV2O2OsJxlpDnKRM3buL577xFPWC8PVvfZue7WNra5OgysrKMrMPHOfAAyeJ21uMDjd4+HOfIY5TgkIZMKhSLTjEZ4yNDvHj7z/Hy69cZH5pg0dOHmNkaICj0wdorq/xqz/8lTOPPcwPv3OWsU8NkyQp5YKjC7g0KHMLTcb3QjFyYA2tjVWmJ8c498yTvPPudfprFV67Ms8L51/n0QePsbHV4tjh/bz4911cunKDmalZ5HtnvsTv37jG1Wu39GfffZynT3+RW6ubWIRqpcRmp0dfpYQTYXl9i8g5+vur/OiF8/zktxd4dHa3/PrlN3G/eH+Lz1YzPXVyiva7V3nvn3XGjsxy8/3bnP/LRdbbXSQEjh7ez6fvmyGLU+YuvcHmW2/yxL4GzSwvuOzau5cHB4I+e3SMW80U7zNq9Rp7jhwijVMaI4NkQVldXqPRX+Pqa6/TarYZ6y/zr8VNfnllhasLS+LEGFLvWe+meFUKhYi02+PtC68SZxn1xgAF51i+s0wxchjnKBUjmklG4hUX5Q3tsiwCUow1aOpJMo8zhuAcBRcRtzv0gL56LW8XVbKgVCKHNQZRmxtBlyzL6LQ6BHEgeRN41XwSiGDF0I1TrBG8KiVn6fZ6dDrdnaFo0jRlfPweJg/N0FevUbQGY4SiMxSdJTKCiOKsoWAtlciSeWVkYpLpQ/uJttHM2sICp758goeeP0t9eIjF9RYbvYylVsJyO2apnbDUilltJ6x1E25v9VBj+MrXTvPMs1+lXNhBg3+/M0/20z8yd2OJW80ehV6GV0UAZy2okviQo3lltZvy89/8DQ+MjjaEt6/fPfw/v2dUi5UKxXIZNKAKq2sb9PXVKBYiEEiTlOZWk4vXl+7Sug8Gr/xnSfZM3KMjhSpZphhjuLkVM1yoUnOO4APdWFnqfHSNmQ8GqlAyjqIVSs5SEChaIRKwBIoGys5wYqr+YZ+7MxKBPeOeVi8jhJA7C/RSD4lHVUnijI3YfbLRI0dmsLaNtd3t7QErAUbLGYPVhG7iqdUta604H+Qfh/bi3BX2DZfYN+i4d8AxXreIEYYqlvF+y2QjYrIR0U3ST87oB988w+9euoBuLzYFjh+YksW1O7q42cJnAessuwb7gNt3Gf0XU4F2O3qphPwAAAAASUVORK5CYII=';
-function drawNpcSprite(cx, cy, bob, which) {
-  const img = which === 'brown' ? npcBrownImg : npcCharImg;
-  const ok  = which === 'brown' ? npcBrownImgOK : npcCharImgOK;
-  if (!ok) return false;
-  const w = img.width, h = img.height;                    // drawn 1:1 for crisp pixels
+// a fourth character (flat cap, red scarf, backpack) for the pick-your-traveller roster
+const travellerImg = new Image(); let travellerImgOK = false;
+travellerImg.onload = () => { travellerImgOK = true; };
+travellerImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAeCAYAAAAhDE4sAAAFnklEQVR4nG2VS4xcRxWGv1NV93bf7p6e9rwftnE8tsc4kMTjoAAGW4mdOAgQTyHBAiViAUsEO4TYIBFEZGXLCkEWFiZsQpBCYkAKchIyWMgi8YzfHs+MPe+ZnunH7du3bhWLNnEm4exOlc6nU7/O+Qv+b5SBAIDjD4344w+N+M55cO/uoyEfTPb0Dfmvnxhk4kA3QaAxSijkFUYrNhspNvM0Y8ulWzXOvrbEfHXx/XoD8IVDn6Fv57r/2vFRnv70EFFekaaeIBSS2BGGGgkElzoy67AOTjzaz+/PdfuV+R55dertDmj8wbr/6TMPUywE1Jtt6rEggBJopQ6jFd45nBcy5ygXDU8+NsTEeIXnXrzsX51CzHdPHfSnHhuk0WoTGkWoNR4PXkA8oe90r0NNoBWtJKOderxP2ay3eXyin7WNcW9wsLAW01XQ3LrTZPdQEQ9452nZjNw9sJIOsJDX1GPL3dWYQMHGZhujFGZutU4+7GVyehnnHf+5aQCNFkHrzlMy59EiGKOIkwytHB5HPhAmpxv89tysGKM1c8stxkaGCYxBa8vi+jIA1jo8gtaQDzrQgR05ckGJKBeRCzz/vnKFQmEYs76Vk9/8ac4/c2qQwAibzTqfP7yHA7uGacSWtt3CuozuQh9xO+Hlf/wLm2rKUR4njotXE5rNW5iwqOhTIRevzuCAZ790jJ29AxTDMkJKoDNS6yjkIrqijC9+to8zr73JxcuXWK01mJ6tdgbyk/v2UQ7a/twLPyTznmq9SS6fI0kSrM1wHor5EG00jTihEBoKUZ5iMeL0715haavF82f/LsrFMVoJd9c2WNtqECjPu7USL/zxLbqiHCIKlya0cv386s+XmFtYYX2rQa3e4PZylX9OzQCgnh4dxYuiu1TEOcdgfw8/f+40U9dn6Kl0kaaWMB/x+rlz/PrFs/T39mC04DLHN584wvziRgd0enKS3q5upmeW6K90UWskHJsY58jHP0at2SLKB4Aw0NPNN45P4LwHFEoUxajA0U/s2b60z375JN976pA/MDqE1grnPRu1JqtbDfq6ilS6InKBYWWzzkhviSvz6zz/hzfkzOtv31/anxw9yC9e+Ss3Fzf4/u6AVhyTCwJCrViPEyKjCbUQW4+2KfnDj/KzM39h9fbCfRv59t4dXK7s9f279lIqVzg49w7SjomUoJUgRpN6oZk6vHeozHJj9AirBLRWF5D1Oc6/e03MtXodM1xiaOwQSb3Kew88Tmlxkid8DZt6SiNDnN/xIHfqmsLyBdo79pMr7WBnVGABuH1zuiN2MTC4zJI061hrCXI5lFK0rEUpuDC3yfRSg2LOoERhtKHdTkmaDWzaRivV0cjaGKM16p7sIoJoxUozIdIBmQoxeKzNMM6hROFEEIEwCNDqnkNGwN04ZaOVkQe0dyjvGS7lKQV51m0eMQYTBiglZAIeYbOVsVZvkbqsA5pJI07s7+HYIxXO39jgbiL4zPJW+SAq6max2SYShxeFErBAaDRPjoXUBgZ56Va+o9H19ZivHN7Fd766nwfKmtpmlUbvIdaiAaphGa8NWWpJGls0y2M0WikuafKDoyP86OQ+AmPuD+SPv3XS95XzvLMszDc9Bo/LMrQSUAY6nomn4935XMDn+lIyayG18suX/rb9O9q/a5fPdVeo7BwjyywAS1MXKI/updQ7gHMZyVaV2p3rXJ1d2FarPphcm5uTditGtEFEUCK04yaCR5RCG4PgGPgQ5P0V+V986sBuP1jxhNX3AI91MKsNpfgufdUNUusYNMLNsWHPje2wbaAkzUgSsO0EEKzzeDztJCFuZGTO4wNNO7Ufbmg7yHlHasF6D0oQEbRSOA/tDDLncTgy/xHOdtBTRx6Wl9+c9IgAHu/hkfHdcn32jq82UjLn0ErR390FrGwD/Rfa+JmfoXnb9QAAAABJRU5ErkJggg==';
+// a fifth character (blonde pigtails, maroon pinafore)
+const ivyImg = new Image(); let ivyImgOK = false;
+ivyImg.onload = () => { ivyImgOK = true; };
+ivyImg.src = 'data:image/png;base64,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';
+// a sixth character (curly afro, mustard sweater)
+const milesImg = new Image(); let milesImgOK = false;
+milesImg.onload = () => { milesImgOK = true; };
+milesImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAAeCAYAAADKO/UvAAAFFklEQVR4nHWV24ueVxXGf2vv/Z6+w5wyh0yTmmSwJqlNsRrSGm3jULXYFgqVXoniheAf4LVXgn+Fd172wgtbFRECIh6wLZHSmprUSTKdZJqk88033/t+72GfvPjS0AG7YbPXA4uHZz2stZfwf87Pf/IS7773IaPSUTY2OgILeSZoy3Pnn+AXv3rzUL58FkTgyZOPRBvAJJoYQETI04QQI1oJ+wclg9zwzq9fF7l48TDJs098Md47KMmzgmnbkRpNkWe0XYcPYLRi2C+Y1g0iwrSpWchT/nb1hgjA9545F2/ujggREqOJMRJjpLUOESHRGohEhKX5AVopxuWUEAJHej3khfOP80nVRts56s6SpclMX4QYmWEi5bRh0C/w3iMIznu0zF4VvWXatATgyMKQLE1YHA4QEdSDG2NkbthDidB1ls46EmNQWhOIqDvjaczTlKX5IURw3nNQTrHWMT/sUfQy6taiRBCBIs9QSlBKMFqRaIPpOgdiaNuOybQhMRofIkor9icVaZJgtKKsapRSaDUzuHMOUYLzDmN9RPlI4wJaC/0iZzKt0aLorCPEmTlJYrAuoGKgqhsmVYMoTb8wqDxPWewbzq5mxAj3xxW2axAi/SJjrl+QJilHhj0kOFrnqVtPYjRf31hibWGIKlvH0bmU75xd5cffPMHp1YzNzU28ShhNaiZ1x7isWDl+kkc3HiPXiq+cmOen3zrFpTPL3Lk/xjx/ZpkbH0/Y2Z+yPNfjlafWuY5Q6MArTx/j2r0GEzNOryb8fqfk++fXObU6x/60A4FLX1pCbe9VKCMsDnNEInle8PpvfkvoGr52apkXvrzKi089ys71q/zj7SusLfQoG0sIEaMUuwfTWdu/9tx5NpZi3FiZB4nc2psC8IUjA1rrSY2i7Dy37pecXuuDCHO54a2tPf7430YezM4mcDn+8ocXWOn18QGCrWmsZ++gYVAk9DNDURQ4FMHB7/61wxtvbwO1CGzwg29LvPD4Ipe+ukQ7NvzlnSkXXn4NrTVET55lmKzgyuU/MNq+zrETBXfrMVs7DW9d7TBQ8sjyMj/67nFu3a1JBpZnL6bs/udPhBCxneBCZDjQDHXFmW8MMAk8PbfOPz/Y482/bmEgobGBj0ctkUjXRbIUjq+OQWYkMUTSHIw2aK2pakfVeNouorXCgEMrwTlP0wWKTNNYj9GG4CNJNhvCpvNopWjagHURAXyYOWoAtEBRaHyEzgaUCKkWnEAI4GJAC7SdRwRSo8hzhTbxUxJDdJrtjxw6DcwNNc5DREiNYH1AK43zES2glGBd5M6uo54otAZDckAWj7G7ZRisN1SdRStFZ2fyjRGsDVgfSY1Ca2Ghn/LB+5HgeyQoDAPD7VGFdYF1H1lcgK7zhBAREbLM4GwAAj6A1oLWhvd3PNbD0cWFT5ttHdjn5WeWY9Hrs7q2jHcRBK5dv8H62gpz8wNAqKqKW9u7vDdK5O7NEvhkZizcAeCNv2/LmY1T8cl+j85anPNcuTahUSscVTkg3LtX8ucrtw+tGnVo78RIPxOMCiQq0M81/VxRpEKqI5mJ5Ilw6dwxPpdEROh8oLGWpnNMm44QoX0Q122H9YGdD0eHSMxnwea5s+w1FR/dvP1QmYgw2tunrZuHX2WxthTZmj4s6ZCSy+/+myxJEO8hBCSGB2tjlighoAQ67z6/nJ+9+irjg5JROWW/rNibVFx47KSIwGhSsj+pGE8q1ueHh0j+BxqOey8deDgqAAAAAElFTkSuQmCC';
+// a seventh character (space buns, sage pinafore)
+const novaImg = new Image(); let novaImgOK = false;
+novaImg.onload = () => { novaImgOK = true; };
+novaImg.src = 'data:image/png;base64,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';
+// the roster: front-view sprites shared by the player (pickable) and the seated NPCs.
+// getters keep each image's live .ok flag, so we reuse the sprites already loaded above.
+const CHAR_IMG = {
+  classic:   { img: playerImg,    get ok() { return playerImgOK; } },
+  silver:    { img: npcCharImg,   get ok() { return npcCharImgOK; } },
+  rust:      { img: npcBrownImg,  get ok() { return npcBrownImgOK; } },
+  traveller: { img: travellerImg, get ok() { return travellerImgOK; } },
+  ivy:       { img: ivyImg,       get ok() { return ivyImgOK; } },
+  miles:     { img: milesImg,     get ok() { return milesImgOK; } },
+  nova:      { img: novaImg,      get ok() { return novaImgOK; } },
+};
+const CHARACTERS = [
+  { id: 'classic',   name: 'Sam' },
+  { id: 'silver',    name: 'Ash' },
+  { id: 'rust',      name: 'Rowan' },
+  { id: 'traveller', name: 'Wren' },
+  { id: 'ivy',       name: 'Ivy' },
+  { id: 'miles',     name: 'Miles' },
+  { id: 'nova',      name: 'Nova' },
+];
+// draw any roster character 1:1 at (cx,cy), optionally flipped to face left
+function drawCharSprite(id, cx, cy, bob, facing) {
+  const rec = CHAR_IMG[id]; if (!rec || !rec.ok) return false;
+  const img = rec.img, w = img.width, h = img.height;     // drawn 1:1 for crisp pixels
   const dx = Math.round(cx - w / 2), dy = Math.round(cy + 8 - h + (bob || 0));
   px(cx - 6, cy + 7, 12, 2, C.shadow); px(cx - 5, cy + 9, 10, 1, C.shadow);   // soft shadow
-  ctx.drawImage(img, dx, dy, w, h);
+  if (facing < 0) { ctx.save(); ctx.translate(dx + w, dy); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, w, h); ctx.restore(); }
+  else ctx.drawImage(img, dx, dy, w, h);
   return true;
 }
+function drawNpcSprite(cx, cy, bob, which) { return drawCharSprite(which, cx, cy, bob, 1); }
 
 // everything you can take out of your bag
 const BAG = [
@@ -890,11 +940,30 @@ function pickItem(key) {
   refreshBag();
   if (key === 'headphones') setHeadphones(player.items.includes('headphones'));   // music + duck the train
 }
-function openBag()  { bagOpen = true;  bagEl.classList.add('show');  scrimEl.classList.add('show'); refreshBag(); }
+function openBag()  { bagOpen = true;  closeCharPick(); bagEl.classList.add('show');  scrimEl.classList.add('show'); refreshBag(); }
 function closeBag() { bagOpen = false; bagEl.classList.remove('show'); scrimEl.classList.remove('show'); }
 function toggleBag(){ bagOpen ? closeBag() : openBag(); }
 document.getElementById('bagDone').addEventListener('click', closeBag);
-scrimEl.addEventListener('click', closeBag);
+scrimEl.addEventListener('click', () => { closeBag(); closeCharPick(); });
+
+// --- character picker: pick which roster character you play as ---------------
+const charEl = document.getElementById('charPick');
+const charGrid = document.getElementById('charGrid');
+let charOpen = false;
+for (const c of CHARACTERS) {
+  const b = document.createElement('button');
+  b.className = 'cchip'; b.dataset.id = c.id;
+  b.innerHTML = `<img alt=""><span>${c.name}</span>`;
+  b.querySelector('img').src = CHAR_IMG[c.id].img.src;   // reuse the already-loaded sprite
+  b.addEventListener('click', () => pickChar(c.id));
+  charGrid.appendChild(b);
+}
+function refreshCharPick() { for (const b of charGrid.children) b.classList.toggle('on', b.dataset.id === player.char); }
+function pickChar(id) { player.char = id; save.character = id; persist(); refreshCharPick(); }
+function openCharPick()  { charOpen = true;  closeBag(); charEl.classList.add('show');  scrimEl.classList.add('show'); refreshCharPick(); }
+function closeCharPick() { charOpen = false; charEl.classList.remove('show'); scrimEl.classList.remove('show'); }
+document.getElementById('charDone').addEventListener('click', closeCharPick);
+document.getElementById('charBtn').addEventListener('click', () => charOpen ? closeCharPick() : openCharPick());
 
 // --- audio: looped train-interior recording; tap 🔇 to cycle Off/Background/Prominent ---
 let actx = null, master = null, trainBus = null, lofiBus = null, loopLP = null, loopSrc = null;
@@ -1686,6 +1755,7 @@ const SAVE_KEY = 'cozycommute.v1';
 let save = { lifetimeMiles:0, trips:0, classCurrent:0, stations:{}, lastStation:'Boston South Station', lastCity:'Boston' };
 try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s); } catch (e) {}
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+if (save.character && CHAR_IMG[save.character]) player.char = save.character;   // restore your pick
 function classUnlocked() { let t = 0; for (let i = 0; i < CLASSES.length; i++) if (save.lifetimeMiles >= CLASSES[i].at) t = i; return t; }
 function currentClass() { return CLASSES[Math.min(save.classCurrent, classUnlocked())]; }
 
@@ -2297,14 +2367,15 @@ function drawStation(s, yy, side) {
   px(ax, ay + 21, 14, 2, 'rgba(30,20,10,.15)');        // its shadow on the pavers
   px(ax + 1, ay + 21, 2, 4, '#3f342a'); px(ax + 11, ay + 21, 2, 4, '#3f342a');  // posts
   // someone by the house door, a lamp, a bench, a planter, someone by the edge
-  drawChar(X(14), yy + 40, { shirt: '#c77f4e', skin: '#caa07b', hair: '#2c2118', hat: 'cap', hatc: '#4a6b52' }, {});
+  const who = (n) => ['rust', 'ivy', 'silver', 'nova', 'miles', 'traveller'][Math.abs(Math.round(s.mile) + n) % 6];
+  drawCharSprite(who(0), X(14), yy + 40, 0, 1);
   const Ld = lightingFor(dayT), dusk = Math.max(tunnelAmount, Math.min(1, (Ld.a - 0.15) / 0.3));
   const lx = X(34, 2);
   px(lx, yy + 44, 2, 12, '#3f4249'); px(lx - 1, yy + 40, 4, 4, C.outline);
   px(lx, yy + 41, 2, 2, dusk > 0.2 ? '#ffd98a' : '#e8e0c8');
   drawStationBench(X(6, 24) + 1, yy + 56);
   drawPlant(X(30, 8), yy + 64);
-  drawChar(X(34), yy + 84, { shirt: '#5b7fc7', skin: '#e8b88f', hair: '#3a2a1d' }, {});
+  drawCharSprite(who(3), X(34), yy + 84, 0, 1);
   // the name board on two posts
   const sx2 = X(4, 22);
   px(sx2 + 3, yy + 94, 2, 9, '#5a5048'); px(sx2 + 17, yy + 94, 2, 9, '#5a5048');
@@ -2646,8 +2717,8 @@ function drawStationScene() {
   drawStationBench(16, 128); drawStationBench(W - 38, 128);
   px(20, 96, 3, 34, '#5a5048'); px(17, 92, 9, 7, '#ffd98f'); px(17, 92, 9, 2, '#fff2c8');
   px(W - 23, 96, 3, 34, '#5a5048'); px(W - 26, 92, 9, 7, '#ffd98f'); px(W - 26, 92, 9, 2, '#fff2c8');
-  drawStationPerson(44, 176, { shirt:'#3f5170', skin:'#caa07b', hair:'#2c2118', hat:'cap', hatc:'#2c3f66' }, stationT + 1.7, 1, false, true);
-  drawStationPerson(W - 50, 186, { shirt:'#6f6a4a', skin:'#e2b58c', hair:'#3a2a1d', hat:'ranger' }, stationT + 3.1, -1, false, false);
+  drawCharSprite('traveller', 44, 176, 0, 1);      // fellow travellers waiting on the platform
+  drawCharSprite('miles', W - 50, 186, 0, 1);
   // --- "walk aboard" prompt below the open doors (hidden once you're close) -
   if (pr && stnY > 118) {
     ctx.globalAlpha = 0.5 + 0.5 * Math.sin(stationT * 4);
