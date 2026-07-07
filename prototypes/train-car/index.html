@@ -2190,10 +2190,11 @@ function drawScenery() {
   px(WALL_R+16, 0, 2, H, dirtCol);
   drawRailbed(uc);
   if (br > 0.01) drawBridgeBeams(br);             // girders sweep past over the deck
-  // station platforms glide past as we pull in (announcements handled in update)
+  // station platforms glide past as we pull in (announcements handled in update);
+  // when the sea owns the left side, the platform keeps to dry land on the right
   for (const s of STATIONS) {
     const d = s.mile - miles;
-    if (d < 5.5 && d > -3) drawStation(s, ((5.5 - d) / 8.5) * H);
+    if (d < 5.5 && d > -3) drawStation(s, ((5.5 - d) / 8.5) * H, (coast > 0.5 && s.side === 'L') ? 'R' : s.side);
   }
 }
 // sleeper ends + gravel ballast peeking out from under the car on both sides
@@ -2216,18 +2217,53 @@ function drawRailbed(uc) {
   }
 }
 
-function drawStation(s, yy) {
-  const left = s.side === 'L';
+// a cosy country halt: paver platform, brick station house, striped awning,
+// bench, planter, lamp, waiting folk and a parchment name board
+function drawStation(s, yy, side) {
+  const left = (side || s.side) === 'L';
   const bx = left ? 0 : WALL_R, bw = left ? WALL_L : (W - WALL_R);
-  px(bx, yy, bw, 92, '#8f867d');                       // platform concrete
-  px(bx, yy, bw, 2, '#766e66'); px(bx, yy + 90, bw, 2, '#766e66');
-  const edgeX = left ? WALL_L - 5 : WALL_R;            // tactile safety strip by the track
-  for (let k = 0; k < 92; k += 6) px(edgeX, yy + k, 5, 3, '#c9a44e');
-  const sx = left ? 5 : WALL_R + 7;                    // a name sign on a post
-  px(sx + 4, yy + 30, 2, 30, '#5a5048');
-  px(sx - 1, yy + 18, 16, 13, '#2f6d8a'); px(sx, yy + 19, 14, 11, '#3f87aa');
-  px(sx + 2, yy + 22, 10, 1, '#cfeefb'); px(sx + 2, yy + 25, 8, 1, '#cfeefb');
-  px(sx + 4, yy + 70, 6, 6, '#caa07b'); px(sx + 4, yy + 68, 6, 3, '#3a2a1d'); // a waiting passenger
+  const PH = 104;
+  const X = (o, w) => left ? o : W - o - (w || 0);     // mirror helper for the right platform
+  // paver platform with crisp outlined ends
+  px(bx, yy - 2, bw, 2, C.outline); px(bx, yy + PH, bw, 2, C.outline);
+  px(bx, yy, bw, PH, '#9a9188');
+  px(bx, yy, bw, 2, '#b0a79a'); px(bx, yy + PH - 2, bw, 2, '#7e766d');
+  for (let gy = 8; gy < PH - 2; gy += 8) px(bx, yy + gy, bw, 1, 'rgba(60,52,44,.12)');
+  for (let gx = 8; gx < bw - 2; gx += 11) px(bx + gx, yy + 2, 1, PH - 4, 'rgba(60,52,44,.08)');
+  // tactile safety strip along the train edge
+  const edgeX = left ? WALL_L - 13 : WALL_R + 8;
+  px(edgeX, yy, 5, PH, '#8a8278');
+  for (let k = 3; k < PH - 3; k += 6) px(edgeX, yy + k, 5, 3, '#c9a44e');
+  // the little brick station house
+  const hx = X(2, 20), hy = yy + 8;
+  px(hx, hy + 4, 20, 16, C.outline);
+  px(hx + 1, hy + 5, 18, 14, '#a5604a'); px(hx + 1, hy + 5, 18, 1, '#c07a5e');
+  for (let k = 0; k < 5; k++) px(hx - 1 + k, hy + 4 - k, 22 - 2 * k, 2, k < 2 ? '#8a5f42' : '#6e4c34');  // pitched roof
+  px(hx + 3, hy + 8, 4, 5, C.outline); px(hx + 4, hy + 9, 2, 3, '#ffdf9a');    // lit windows
+  px(hx + 13, hy + 8, 4, 5, C.outline); px(hx + 14, hy + 9, 2, 3, '#ffdf9a');
+  px(hx + 8, hy + 12, 4, 8, C.outline); px(hx + 9, hy + 13, 2, 6, '#5a3d26');  // door
+  // striped awning sheltering the platform, held up by two posts
+  const ax = X(23, 14), ay = yy + 10;
+  px(ax - 1, ay - 1, 16, 22, C.outline);
+  for (let k = 0; k < 14; k += 4) px(ax + k, ay, Math.min(4, 14 - k), 20, (k / 4) % 2 ? '#e8dcc0' : '#b0584a');
+  px(ax, ay + 19, 14, 1, shade('#b0584a', -24));
+  px(ax, ay + 21, 14, 2, 'rgba(30,20,10,.15)');        // its shadow on the pavers
+  px(ax + 1, ay + 21, 2, 4, '#3f342a'); px(ax + 11, ay + 21, 2, 4, '#3f342a');  // posts
+  // someone by the house door, a lamp, a bench, a planter, someone by the edge
+  drawChar(X(14), yy + 40, { shirt: '#c77f4e', skin: '#caa07b', hair: '#2c2118', hat: 'cap', hatc: '#4a6b52' }, {});
+  const Ld = lightingFor(dayT), dusk = Math.max(tunnelAmount, Math.min(1, (Ld.a - 0.15) / 0.3));
+  const lx = X(34, 2);
+  px(lx, yy + 44, 2, 12, '#3f4249'); px(lx - 1, yy + 40, 4, 4, C.outline);
+  px(lx, yy + 41, 2, 2, dusk > 0.2 ? '#ffd98a' : '#e8e0c8');
+  drawStationBench(X(6, 24) + 1, yy + 56);
+  drawPlant(X(30, 8), yy + 64);
+  drawChar(X(34), yy + 84, { shirt: '#5b7fc7', skin: '#e8b88f', hair: '#3a2a1d' }, {});
+  // the name board on two posts
+  const sx2 = X(4, 22);
+  px(sx2 + 3, yy + 94, 2, 9, '#5a5048'); px(sx2 + 17, yy + 94, 2, 9, '#5a5048');
+  px(sx2 - 1, yy + 84, 24, 12, C.outline);
+  px(sx2, yy + 85, 22, 10, '#f0e4c8'); px(sx2, yy + 85, 22, 2, '#f8f0dc'); px(sx2, yy + 93, 22, 2, '#d9c8a2');
+  px(sx2 + 3, yy + 88, 16, 2, '#4a3826'); px(sx2 + 5, yy + 91, 12, 1, '#8a7856');
 }
 
 function drawCar() {
