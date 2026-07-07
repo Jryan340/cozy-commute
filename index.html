@@ -631,7 +631,7 @@ npcSeats.forEach((i, k) => {
     hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][k % 4],
     bob: Math.random() * 6.28,
     item: NPC_ITEMS[k % NPC_ITEMS.length],
-    sprite: k === 1,                    // this passenger uses the hand-drawn sprite
+    sprite: k === 1 ? 'silver' : k === 3 ? 'brown' : null,   // hand-drawn passengers
   };
 });
 
@@ -678,22 +678,53 @@ mugImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAALCAYAAACksgdh
 const bookImg = new Image(); let bookImgOK = false;
 bookImg.onload = () => { bookImgOK = true; };
 bookImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAALCAYAAACprHcmAAABk0lEQVR4nE3RvWtTYRiG8es55805SdP25MuvxYCLIoo6FMVRQSHi5CAWFBz6B1hw66I4Vv8AR2dBFwURghWEGiw4WISiRoSaRm1CIOZ8vec8Dhrwnn9cyy38t1erS/r08WtUcxzjYjRnYqHWqHL32brIFKoqK+dPqRtbHM9gNCeLMiKbUZ7xmABmijvLixpYh/KhgGBfkdEoxXdyhv2QwfZvOt0+zrTafr9FZC3FUoZrFNycRC12nJD7BVo3L/wtt+/f0mEco2Lpfo4p/QqxmfKzF2InlkqzzvLKIqKq3Gst6Gg3IpaU/XWIEpckVWyYE2c5xWaN480DYtp3ltRXxRchyzwGQ8V3XeYLDuLG9DyDv2cvNx48wbx4/pYZJ8X3XBpOgeZ8mW9hhKIcrM8RzhY5cewIIoKcCwI9fXGBk2cOUy56+J6h199le6zUSHi3tsHDNx9FRDCXrl3m+84Xtj58olIPcBCyLGWuNMvg6w5HGxXk3x0CkK494uXGpnZ/DKnWqly90oJ0zHpnk7PXb8sU/wF4Lq5TUIgYZQAAAABJRU5ErkJggg==';
+// hand-drawn table trinkets, keyed by bag item — set out on your café table
+const ITEM_SPRITES = {};
+function loadItemSprite(key, uri) {
+  const img = new Image(); const rec = { img, ok: false };
+  img.onload = () => { rec.ok = true; };
+  img.src = uri;
+  ITEM_SPRITES[key] = rec;
+}
+loadItemSprite('water',     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAcAAAAOCAYAAADjXQYbAAABLUlEQVR4nDWPu0oDQRiFv39mdhMIahJWNBgF8QJKyDsIVr6CtmJl7YtYa5knEARBG7EUEVEIVgomRsEEDcbNzvwWq6c5nEtxDvwhqSS6u7WiSSXRf08O9zbxtq9BYboc8dYfYwSsL4u5avcoxsJiLcYAi7WYYixctXu46mSJ1mWHjcYUUWwYp4GLuwGNuRqu23/V06NtXKGEZhniHAc/Q3b2W+p8lkJhBju7jgaPGEvWvcdnKSafBfgxPN/kLPnaPETzRjzx18zfuDwTsA5mlsDYXANObIQfdhi/fBKyDOMc/vsLsREOhOBT9GeABkW9ELwHBEeIOD+7Jo4to1GgWDSkqYcQ4eqVuhyftHVtoYQRIajy8DRkoboqAtBcbjKffKizQuaV5/eK3D7e8gtgTXgrbe53ggAAAABJRU5ErkJggg==');
+loadItemSprite('tea',       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAJCAYAAADpeqZqAAABeklEQVR4nF2QT0iTcRzGP9/e31jrXRBFl7EmCEthWDBBaDlKCIXMQwf/ISKIYF52UEKJoA4duuht3jsF3bpEnTyoAyU8CF2mZtH8k6jv1hbr3Tv9drAm7Lk+n4fn4RHq9PLpuF4M2JQsD3VP8HnQlWiRO48naoypDznF30yNDXN8mCd4OYDjFBjqG1NAMpkMiUQCmU6NamvsJn3jM5Kefa7JZDuRSJhC/ghjGUBYXl5ld2tTdg7zGmuKYvw+Qyx+m/dv57Wn+wFi/JRLRa5fvQaAniq9IwOsLCzq5NQLKieK+bKyJtn4Le1+1Mm7Dx/xqh6Wdb5aBP64Lo3hG0SjjRSKJeS/OfFkQOWKn7xTwDIG0LMQQsXzaAiFyK1/ww5eOj+iORwhNZM6Y90Kp9UqF4wBVQjaZD4tMPc5S//9Dqk1AbxJv9LWtjjlsottB3DdCj5jsbGxza/vORl59vpfe50GH3bokeOQvHeX44MD9vd+8mPrqyxlczXmL6n5jBZgXfjrAAAAAElFTkSuQmCC');
+loadItemSprite('pastry',    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAGCAYAAAAYLBS/AAABBElEQVR4nGWOvUrDYBhGz/eZBtJotWArVsRB4uAgEpd2kYI4tFBvwcULyOAF1BsQl2xegLPFRRDEyamIg4PFQcSKrSD+pIE0fq+DDv6c7YHzwIG/1D3CoCLR8aaEQUWoe/8U9XP4vk9jNpGN8hyD1JC1NIfnt7TubNVut3+fmsGWuLkxpswVnoq4POtjWYo0FZZWC3TE5VEvEr2+0dzbV9buzras12pkkwc++oKxHKplQSuNEYMYRTmNGSmsMLCnyeUnRB0dhPIeG0ozJRx3HPUdPEyGZOwMACIQRy9077uMOvorb7lYZK1RFTc/iREDwII3z3XnBgCtNNHzEyetU3XR6/EJd5FdwyF/yZAAAAAASUVORK5CYII=');
+loadItemSprite('newspaper', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAGCAYAAAAYLBS/AAAA6UlEQVR4nG2PvUrDYBhGz5vvTSxWUETa+tOSUfwplHbpIrh5b16Ag5fgNRTcpJO7BTuEgukQbRMlaZPvcyhO9kzPcng48vhw7w4bTcpVjucJIPzHYa1DgxrJPEaj0TMHrSbLLMN43hZhg7WO/b060UeMRumS4d0tF2GbolghIjjnENk8/m1jDLNoRvQ0QTv9a85vhiTzmEXxg6ssO7UaRZ5j1GBUSRcLeoMB9c4p4fsU7XevCNsn7KpibMV3lqK2xPgGEcFWa44bRwTG0ArP6HUv0fH4lbfJlHVZIrK9SYBq9ELg+3wmX/wCRoZVzID+MYkAAAAASUVORK5CYII=');
+loadItemSprite('letter',    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAICAYAAAAiJnXPAAABWElEQVR4nC3Mv2sTYRjA8e9z996l+SF3t1SrNU0RElSEVvwBcZIOTooogpODju7+TToUuhTaUYQOxUHQttChJTbRxMnaIb287z2Pg06f7SOvn61Ze3mZi4tXKadTzAyJBDMDBDAEoVavMxme8P34GHf3QZ/nTx8xPBnSvX4Dl6b4siR2Dq0qXJIQvOfwYJ/FJ2usb2zjfAi0soLG7zN2d3aYv7TAQmeJPz8ntPKMX4MBk9GIy+0lWlmBDwFnJqhW5EVBnueMxz/49H6dbx82ybsd+m9ecnNlFTNDtcJMiABEhBACBnS6PUa7Xzn6/IW9rY/MEROnCd57RAQAJ2Ko6r+pqvDljDsvHjM+GnDt3ipF+wqz6TkAqoqI4RKX0mw28D4QxzGqxq2HfXr3b5PUa4SZBzUqrWg2GyQuRd69fWUXsozzskQkAsBUkSj6rwCCmTJXq3F2espflYqWjBauZgYAAAAASUVORK5CYII=');
+loadItemSprite('watch',     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAAOCAYAAAD5YeaVAAAByklEQVR4nHWRsU8TYQDFf9/Xu2u99loLpmiaaIME4tlaLYoYMRCNGw6QlMFN507wB/hPsDC4ESeFGEYnBoTaoHYQtSgNBoTUJpLKFdu79nNQSTrwlvde3m970KEFxocTamIkocaHEwoWOlbZCecwA4L+eAAzIIDcyfDc3BNQglq9BUr87SdrBrgEnP3nMx2r+B+m7qZUIuoQMCRIH1K1OXBcylWTlysbAkADeHjPVo/vR4inp1D+LoqFPKnMdbyjn3xcXcIybTX/akNotp0lHi7QO/SIaGqC6v4uVq/BueQtvJbACgV5+2kW284ik91ramzkGuGLowjXobq3w075C11nwug0ifSNMnYnQ7J7TUnLlPj8FjXHRakWp0IhNje/8uzpPPnXq/xugtSDWKZE87w2uqGj6zrNRoOenhiT2Umcw0Oi0QjSJ9ENA89ro9XqBpXdMmnNpSUM8BpczVzBc10UPtyjGj++l6nVDeSiNS2W81vsvXuO1P0Iw6JU2qbehKan2H//guX8FovWtBAAuQc31IWYw+DQTUzrNB+KRS6n09R/HbD+Js92JcjsUkEcn9J/fpDbAxVFW6H5/XiNBkjByueYKH1bB+APk6uoBPqFpFEAAAAASUVORK5CYII=');
+loadItemSprite('snacks',    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAANCAYAAACdKY9CAAABs0lEQVR4nF2SPWhTURiGn++cc28SGm5t06FaMZPooINUcBJHRWe34tDJWRBXVwedhS4OLhV0E3ehBfEHSQsVxQpt0UA1yW1y83dyz+cQG7Xv/Lzw8vAKR/Js5SH7aVMjF5G2Uu7efyRHGQBUletn51i+eU0121bVur56vqLnZiL9l/vbvnSPKwdPtDqfMHO8iogw7LbZ3PrK6+ll4c0DANwhf6eyQa1n6XQy9msfAIgjRyGOWKps8PQPNym829nUM3NFkpLFuQRVRVVp93M+733SwzUCsHT5tJ6ctizMFvAj5aDv8SMFASfQ9cpOy7O6ti1y6+pFir6p5xemKBdjQlB+ZUN+tgc4axgFJSkY9lqerjsmLktTrc7HfG/2cc4jwDAPE3MFa+gNA7NTjnq9ocYSUB1PHPiAzwMCRNaAgg8BYwRjBGsCRkws2VCxBowBY4SgoIAYQRWsgU4vR00iZnV9i93GgFLBIaJoroQwNhTyQOSgXIr5kXperNfGWvMTF2Tty1utlB1JyY49ezAitNsjPu72iE4tCnzjv5/cvrFIo5lp0eXkAVQikqQkj1++nzC/AdlryA7IaTy/AAAAAElFTkSuQmCC');
+loadItemSprite('briefcase', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAKCAYAAABv7tTEAAABaUlEQVR4nF2RvW4TQRRGz70z+2PLjiOR8FNEFFBYFIiCl6DlmXgHWl4DCToaGhAUFEigACscRMzGiXc3O56ZS+EKvvac4kif8N+WyyVHtIYZiPB+o9KtVv848ubZU16++2LZjA+nLfOJpy7ATACjLjy7DJf9jocnhzx5dCL+xeuP9vjunOuYOZ4r944nVIVDVYjZmJWO5mLAiXDrQHj+6pP5fow0654+Zroh8usqMKscyQCDCyesNyNXIfLjvKcbIx7Ae6UCFgcFVaGoCIiRM4gZ9cTjSqUsHCqC70NivQ1kMx7cP+TsbKDdjqgqBqSYuX1zSj1RmqajCxE/rRw3ZiUhGavf1xQiLKYlIiAiiMEYEkNIHM0r/gwZFfbQgM+nG4YxUXqHIACoCuftyLefW5xTBMGnbIwxEWJmNvGknBlCJGVDBJwKzkFdKuMukc3waMnbr5dkMwRo2h2yvwgwDNnnAN/bwJ3FnL+naauFc6yzLwAAAABJRU5ErkJggg==');
+loadItemSprite('espresso', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAAMCAYAAAC0qUeeAAABhklEQVR4nHWMTUtUYRiGr+f9OO+MdlAwA39CYOAsIhAmLHAhBBUxEy0UWw0UtBQKXNcvCNpUuAuj2glSG2lREFQEQtAYCS78KINmzhnnnTlPi6yVXcub67rhEP3ZpH5xRlX178Sbp0sciaoyW7v0T567elmPNoGpykm9cP7s/wVA7i0uaHl4lOD6ZK02xntCErBGiAW0f+2zsHhXAFwsuoxlTb6uf6BcHkCBXJWiUPrGUb0yS2Oupg+WlsVl7Yzpa3U2Jk7jvceI4L2n1+uTpoNs7e6T5Tk3r9fVfVx/z4vXQ7RaHZLEoYA1hhh7DAyWWHv1lo3P21SrZ3A7ezu8XFul11UURURAC1TBB8/W5h5pOkaMEXducoo7t2+x+/0HxhhQKIo+SZIwPJTy7PkKjx4v473DeZeQHkvJsg7GWELw5J0DnLUIlsrEOO9OfWIkBHGIchAjxhjKpUA3RkohkOU5J0aP86X5jfsPnwiA3JivqYqQ53/eFMVaSzyMVAsqk9PSaDT4Db2HoaooD5I7AAAAAElFTkSuQmCC');
+function drawItemSprite(key, r) {
+  const rec = ITEM_SPRITES[key];
+  if (!rec || !rec.ok) return false;
+  const w = rec.img.width, h = rec.img.height;              // drawn 1:1, bottom-centred on the slot
+  ctx.drawImage(rec.img, Math.round(r.x + r.w / 2 - w / 2), Math.round(r.y + r.h - h), w, h);
+  return true;
+}
 // a hand-drawn passenger (front view) seated as one of the NPCs
 const npcCharImg = new Image(); let npcCharImgOK = false;
 npcCharImg.onload = () => { npcCharImgOK = true; };
 npcCharImg.src = 'data:image/png;base64,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';
-function drawNpcSprite(cx, cy, bob) {
-  if (!npcCharImgOK) return false;
-  const w = npcCharImg.width, h = npcCharImg.height;      // drawn 1:1 for crisp pixels
+// a second hand-drawn passenger (brown hair, rust sweater) for another seat
+const npcBrownImg = new Image(); let npcBrownImgOK = false;
+npcBrownImg.onload = () => { npcBrownImgOK = true; };
+npcBrownImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAeCAYAAAAhDE4sAAAFRUlEQVR4nH2Vy29dVxWHv7X3Pvfta1+/qBPXdp6WEyeipSgKAVK1FFqlQW3UDkAtA4IyQR1AxYghzBAj/gNAFCQGPIRAKkGUNpC0kBa5bdKqColTO4nf9n2ex96LwTFW09KeyTlrS7/fWd/aWmsJ/+e5//5ThM4C880W9zVS9cClxUgmR2tUKobLly9/RCMfPpiZ2q27q1ApWDqpZ6DsMCK0E09kDZvdjJUOzF1fkI81emh2QqcaEUVnqBYNXpUkVTpxRmSFoBAUVIRrawkvvXVzR2/+93FielynBiMgkAWlmypJBrEPVEsRlVKBaiki8Uokyv6hAl+YHtedjM6dO8d7//iTTvRHOFFiHxARfFCMCEbA2fx/quBDIChYATGG+Y2E02efFzl88CAH67GOVi2tJGAk51XAGgMKiqIKxgghKIgQVClZuNP2/PlGTUxVN3WoYulm26wiiDH5GzAGrBGMEQQhcgZQrAhehZITju+O1aC5QFUpOoMzBlXdRlF8UEAw21mo5ibAjnkIivFB8QrO5LeSeI8giACSc+Z10e1QUHJcq0oz9rx6TcQARNbQSzMy7/NCA7JdaCtmW5hffRoCCBiTnzsjTExEGCNCnKaMDA5Qq5ZpdhOWV9dp91LAkPlAMXIkcczqRpM4DaSpp9PtYV2O2OsJxlpDnKRM3buL577xFPWC8PVvfZue7WNra5OgysrKMrMPHOfAAyeJ21uMDjd4+HOfIY5TgkIZMKhSLTjEZ4yNDvHj7z/Hy69cZH5pg0dOHmNkaICj0wdorq/xqz/8lTOPPcwPv3OWsU8NkyQp5YKjC7g0KHMLTcb3QjFyYA2tjVWmJ8c498yTvPPudfprFV67Ms8L51/n0QePsbHV4tjh/bz4911cunKDmalZ5HtnvsTv37jG1Wu39GfffZynT3+RW6ubWIRqpcRmp0dfpYQTYXl9i8g5+vur/OiF8/zktxd4dHa3/PrlN3G/eH+Lz1YzPXVyiva7V3nvn3XGjsxy8/3bnP/LRdbbXSQEjh7ez6fvmyGLU+YuvcHmW2/yxL4GzSwvuOzau5cHB4I+e3SMW80U7zNq9Rp7jhwijVMaI4NkQVldXqPRX+Pqa6/TarYZ6y/zr8VNfnllhasLS+LEGFLvWe+meFUKhYi02+PtC68SZxn1xgAF51i+s0wxchjnKBUjmklG4hUX5Q3tsiwCUow1aOpJMo8zhuAcBRcRtzv0gL56LW8XVbKgVCKHNQZRmxtBlyzL6LQ6BHEgeRN41XwSiGDF0I1TrBG8KiVn6fZ6dDrdnaFo0jRlfPweJg/N0FevUbQGY4SiMxSdJTKCiOKsoWAtlciSeWVkYpLpQ/uJttHM2sICp758goeeP0t9eIjF9RYbvYylVsJyO2apnbDUilltJ6x1E25v9VBj+MrXTvPMs1+lXNhBg3+/M0/20z8yd2OJW80ehV6GV0UAZy2okviQo3lltZvy89/8DQ+MjjaEt6/fPfw/v2dUi5UKxXIZNKAKq2sb9PXVKBYiEEiTlOZWk4vXl+7Sug8Gr/xnSfZM3KMjhSpZphhjuLkVM1yoUnOO4APdWFnqfHSNmQ8GqlAyjqIVSs5SEChaIRKwBIoGys5wYqr+YZ+7MxKBPeOeVi8jhJA7C/RSD4lHVUnijI3YfbLRI0dmsLaNtd3t7QErAUbLGYPVhG7iqdUta604H+Qfh/bi3BX2DZfYN+i4d8AxXreIEYYqlvF+y2QjYrIR0U3ST87oB988w+9euoBuLzYFjh+YksW1O7q42cJnAessuwb7gNt3Gf0XU4F2O3qphPwAAAAASUVORK5CYII=';
+function drawNpcSprite(cx, cy, bob, which) {
+  const img = which === 'brown' ? npcBrownImg : npcCharImg;
+  const ok  = which === 'brown' ? npcBrownImgOK : npcCharImgOK;
+  if (!ok) return false;
+  const w = img.width, h = img.height;                    // drawn 1:1 for crisp pixels
   const dx = Math.round(cx - w / 2), dy = Math.round(cy + 8 - h + (bob || 0));
   px(cx - 6, cy + 7, 12, 2, C.shadow); px(cx - 5, cy + 9, 10, 1, C.shadow);   // soft shadow
-  ctx.drawImage(npcCharImg, dx, dy, w, h);
+  ctx.drawImage(img, dx, dy, w, h);
   return true;
 }
 
 // everything you can take out of your bag
 const BAG = [
   { key: 'coffee',     label: 'Coffee',  emoji: '☕' },
+  { key: 'espresso',   label: 'Espresso',emoji: '☕' },
   { key: 'tea',        label: 'Tea',     emoji: '🍵' },
   { key: 'water',      label: 'Water',   emoji: '💧' },
   { key: 'book',       label: 'Book',    emoji: '📖' },
@@ -701,12 +732,20 @@ const BAG = [
   { key: 'notepad',    label: 'Notepad', emoji: '✏️' },
   { key: 'pastry',     label: 'Pastry',  emoji: '🥐' },
   { key: 'headphones', label: 'Music',   emoji: '🎧' },
+  { key: 'newspaper',  label: 'News',    emoji: '📰' },
+  { key: 'letter',     label: 'Letter',  emoji: '✉️' },
+  { key: 'watch',      label: 'Watch',   emoji: '⏱️' },
+  { key: 'snacks',     label: 'Snacks',  emoji: '👝' },
+  { key: 'briefcase',  label: 'Papers',  emoji: '💼' },
 ];
 const MAX_ITEMS = 3;
 const USE_MSG = {
-  coffee: 'Sipping coffee ☕', tea: 'A warm cup of tea 🍵', water: 'A cool sip of water 💧',
+  coffee: 'Sipping coffee ☕', espresso: 'A rich little espresso ☕', tea: 'A warm cup of tea 🍵', water: 'A cool sip of water 💧',
   book: 'Reading a while 📖', laptop: 'A little work 💻', notepad: 'Jotting a thought ✏️',
   pastry: 'A flaky bite 🥐', headphones: 'Drifting into a song 🎧',
+  newspaper: 'Catching up on the news 📰', letter: 'A letter from home ✉️',
+  watch: 'Watching the miles tick by ⏱️', snacks: 'A little nibble 👝',
+  briefcase: 'Sorting through some papers 💼',
 };
 
 // --- camera / zoom ----------------------------------------------------------
@@ -1884,12 +1923,20 @@ function drawHeadphones(r) {
   px(r.x + 2, r.y + 2, r.w - 4, 2, '#3a3f47');                 // band
   px(r.x + 1, r.y + 3, 2, 5, '#2b2f36'); px(r.x + r.w - 3, r.y + 3, 2, 5, '#2b2f36'); // ear cups
 }
+function drawSteam(r, t) {                                    // a rising wisp, e.g. off the teapot
+  px(r.x + r.w/2 - 2, r.y - 1 - ((t*9)%4),   1, 2, 'rgba(255,255,255,.5)');
+  px(r.x + r.w/2 + 1, r.y - 2 - ((t*9+2)%4), 1, 2, 'rgba(255,255,255,.4)');
+}
 function drawItemKind(key, r, t) {
-  switch (key) {
-    case 'coffee': return drawCoffee(r, t);
+  if (key === 'coffee') return drawCoffee(r, t);             // (mug sprite + steam)
+  if (key === 'book')   return drawBook(r);                  // (book sprite)
+  if (drawItemSprite(key, r)) {                              // hand-drawn trinket art
+    if (key === 'tea' || key === 'espresso') drawSteam(r, t);
+    return;
+  }
+  switch (key) {                                             // procedural fallbacks
     case 'tea': return drawTea(r, t);
     case 'water': return drawWater(r);
-    case 'book': return drawBook(r);
     case 'laptop': return drawLaptop(r, t);
     case 'notepad': return drawNotepad(r);
     case 'pastry': return drawPastry(r);
@@ -2433,7 +2480,7 @@ function drawChar(cx, cy, p, o) {
 }
 function drawPerson(cx, cy, p, t, hp) {
   const bob = Math.sin(t) * 0.6;
-  if (p.sprite && drawNpcSprite(cx, cy, bob)) return;      // hand-drawn passenger
+  if (p.sprite && drawNpcSprite(cx, cy, bob, p.sprite)) return;   // hand-drawn passenger
   drawChar(cx, cy - 10, p, { bob, hp });                   // lifted so head + shoulders clear the table
 }
 
