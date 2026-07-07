@@ -2933,71 +2933,172 @@ function drawWideView() {
   }
 }
 
-// --- first-person: seated at your desk, looking out the window --------------
-const FPW = { x: 16, y: 22, w: 208, h: 176 };   // the window rectangle
-function drawFirstPerson() {
-  px(0, 0, W, H, C.wall);                        // interior wall behind everything
-  drawFPScene(FPW.x, FPW.y, FPW.w, FPW.h);       // the moving view out the window
-  drawFPFrame();                                 // window frame + interior below
-  drawFPDesk();                                  // your tray table + things on it
-}
+// --- first-person: sitting at your booth, looking out the angled window -----
+// The world outside is rendered STRAIGHT into an offscreen canvas — fed by the
+// same systems as the top-down view (urbanAt, coastAmount, scroll, day/night,
+// tunnels, boats/buildings/houses/trees, stations passing) — then blitted into
+// the window with a per-column perspective warp so the far edge recedes.
+const FPS_W = 200, FPS_H = 190;
+const fpc = document.createElement('canvas'); fpc.width = FPS_W; fpc.height = FPS_H;
+const fctx = fpc.getContext('2d'); fctx.imageSmoothingEnabled = false;
+function fpx(x, y, w, h, c) { fctx.fillStyle = c; fctx.fillRect(x|0, y|0, w|0, h|0); }
+// window trapezoid: near (left) edge tall, far (right) edge shorter
+const FPQ = { x0: 12, t0: 34, b0: 234, x1: 198, t1: 60, b1: 206 };
 
-function drawFPScene(x, y, w, h) {
-  ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-  const urban = urbanAt(miles / ROUTE.totalMiles), uc = Math.min(1, urban), coast = coastAmount();
-  const hor = y + h * 0.46;
-  px(x, y, w, hor - y, '#bcd8ea');               // sky
-  px(x, y, w, (hor - y) * 0.45, '#a7cce4');
-  if (coast > 0.5) {                             // the Sound
-    px(x, hor, w, y + h - hor, '#5b9fb8');
-    for (let i = 1; i < 7; i++) px(x, hor + i * (y + h - hor) / 7, w, 1, 'rgba(255,255,255,.14)');
-  } else {                                       // ground
-    px(x, hor, w, y + h - hor, hexMix('#7fae5f', '#8b867d', uc * 0.7));
-  }
-  // far layer: hills or skyline, slow
-  let T = 54, off = ((scroll * 0.3) % T + T) % T;
-  for (let i = -1; i <= w / T + 1; i++) {
-    const bx = x + i * T - off, hh = 10 + ((i * 37) % 3 + 3) * 4;
-    if (urban > 0.6) { px(bx + 4, hor - hh, 20, hh, '#7b7b87'); px(bx + 28, hor - hh * .7, 16, hh * .7, '#6f6f7a'); }
-    else if (coast < 0.5) { px(bx, hor - 8, T, 8, hexMix('#6f9a54', '#8b867d', uc * .4)); px(bx + 12, hor - 12, 24, 5, hexMix('#6f9a54', '#8b867d', uc * .4)); }
-  }
-  // mid layer: trees / houses / buildings / boats, faster
-  T = 40; off = ((scroll * 0.8) % T + T) % T;
-  for (let i = -1; i <= w / T + 1; i++) {
-    const bx = x + i * T - off, r = ((i * 53) % 18) / 18, u = urban + (r - 0.5) * 0.4;
-    if (coast > 0.5) { if (i % 2 === 0) { px(bx + 8, hor + 10, 16, 4, '#efe8da'); px(bx + 15, hor - 1, 2, 11, '#cfc6b6'); px(bx + 16, hor - 1, 8, 8, '#e6eef4'); } }
-    else if (u > 0.62) { const bh = 22 + ((i * 31) % 26); px(bx + 8, hor - bh, 22, bh + 6, '#867c6f'); for (let wy = hor - bh + 4; wy < hor; wy += 6) px(bx + 11, wy, 16, 2, 'rgba(255,228,168,.45)'); }
-    else if (u > 0.3) { px(bx + 8, hor - 6, 18, 12, '#b98a63'); px(bx + 5, hor - 12, 24, 7, '#7a4a37'); }
-    else { px(bx + 13, hor - 16, 4, 16, '#6b4a2e'); px(bx + 8, hor - 26, 14, 14, '#2f7a3e'); px(bx + 10, hor - 24, 8, 6, '#3f9450'); }
-  }
-  ctx.restore();
-  // time-of-day wash + tunnel/underground darkness, over the window only
+function drawFPOutside() {
+  const w = FPS_W, h = FPS_H, hor = 84;
+  const urban = urbanAt(miles / ROUTE.totalMiles), uc = Math.min(1, urban);
+  const side = player.seat ? player.seat.side : 'L';
+  const coast = side === 'L' ? coastAmount() : 0;        // the Sound is out the left windows
   const L = lightingFor(dayT);
-  if (L.a > 0.001) { ctx.fillStyle = `rgba(${L.r},${L.g},${L.b},${L.a})`; ctx.fillRect(x, y, w, h); }
-  if (tunnelAmount > 0.001) { ctx.fillStyle = `rgba(6,6,14,${tunnelAmount * 0.92})`; ctx.fillRect(x, y, w, h); }
+  const dark = Math.min(1, Math.max(0, (L.a - 0.08) / 0.4));
+  // sky, dimming toward the wash colour as evening comes
+  const skyA = hexMix('#a7cce4', '#2a2745', dark), skyB = hexMix('#cfe8f4', '#4a3f5e', dark);
+  fpx(0, 0, w, hor * 0.55, skyA); fpx(0, hor * 0.55, w, hor * 0.45 + 1, skyB);
+  if (dark > 0.45) for (let i = 0; i < 24; i++) fpx((i * 61) % w, (i * 37) % (hor - 18), 1, 1, 'rgba(255,244,214,.7)');   // stars
+  for (let i = 0; i < 3; i++) {                          // drifting clouds
+    const cxp = ((i * 83 - scroll * 0.06 - elapsed * 2) % (w + 60) + (w + 60)) % (w + 60) - 30;
+    const cy = 12 + i * 16;
+    fctx.fillStyle = `rgba(255,255,255,${0.5 - dark * 0.35})`;
+    fctx.fillRect(cxp, cy, 30, 6); fctx.fillRect(cxp + 6, cy - 3, 18, 4);
+  }
+  if (coast > 0.5) {
+    // open water to the horizon, boats drifting by on two depths
+    fpx(0, hor, w, h - hor, '#4f97b4');
+    fpx(0, hor, w, 3, '#7fc0d3');
+    for (let i = 1; i < 8; i++) fpx(((i * 47 - scroll * (0.3 + i * 0.12)) % w + w) % w, hor + 6 + i * 12, 26, 1, 'rgba(230,246,252,.35)');
+    for (let i = 0; i < 3; i++) {
+      const bxp = ((i * 137 - scroll * 0.35) % (w + 80) + (w + 80)) % (w + 80) - 40;
+      const rec = BOAT_SPRITES[i % BOAT_SPRITES.length];
+      if (rec.ok) fctx.drawImage(rec.img, bxp, hor + 14 + i * 26 - rec.img.height, rec.img.width, rec.img.height);
+    }
+  } else {
+    // meadow (grey-tinged in town), rolling far hills + a distant treeline
+    fpx(0, hor, w, h - hor, hexMix('#6fae54', '#8b867d', uc * 0.7));
+    const hill = hexMix('#5f9c48', '#7c7a78', uc * 0.6);
+    let off = ((scroll * 0.2) % 90 + 90) % 90;
+    for (let i = -1; i <= w / 90 + 1; i++) { const bx = i * 90 - off; fpx(bx, hor - 10, 64, 10, hill); fpx(bx + 14, hor - 16, 32, 6, hill); }
+    fpx(0, hor - 2, w, 2, shade('#5f9c48', -14));
+  }
+  // mid layer: the real lineside sprites slide past — city, houses or pines
+  if (coast <= 0.5) {
+    for (let i = 0; i < 14; i++) {                        // wildflowers dotting the meadow
+      const fx2 = ((i * 53 - scroll * 0.5) % w + w) % w;
+      fpx(fx2, hor + 8 + (i * 31) % 38, 2, 2, ['#e6cf4a', '#d8708c', '#f6f2e2'][i % 3]);
+    }
+    const T = 50, off = ((scroll * 0.7) % T + T) % T;
+    const gy = 134;                                       // where the mid layer stands
+    for (let i = -1; i <= w / T + 1; i++) {
+      const bx = i * T - off;
+      const seed = Math.abs(Math.imul((Math.round((scroll * 0.7 + bx) / T)), 2654435761) >>> 8) % 97;
+      const r = (seed % 18) / 18, u = urban + (r - 0.5) * 0.4;
+      let rec = null;
+      if (u > 0.62) rec = CITY_SPRITES[seed % CITY_SPRITES.length];
+      else if (u > 0.46) rec = HOUSE_SPRITES[seed % HOUSE_SPRITES.length];
+      if (rec && rec.ok) fctx.drawImage(rec.img, bx, gy - rec.img.height, rec.img.width, rec.img.height);
+      else if (u <= 0.46) {
+        const ti = seed % 2 ? treeAImg : treeBImg, ok = seed % 2 ? treeAOK : treeBOK;
+        const sc = 1.5 + (seed % 3) * 0.25;               // pines near the line loom larger
+        if (ok) fctx.drawImage(ti, 0, 0, ti.width, ti.height, bx + 8, gy - ti.height * sc, ti.width * sc, ti.height * sc);
+      }
+    }
+  }
+  // near layer: rushing grass verge + ballast, streaking with speed
+  const ny = coast > 0.5 ? h - 34 : 148;
+  fpx(0, ny, w, h - ny, coast > 0.5 ? '#d9c290' : hexMix('#5f9c48', '#7c7a78', uc * 0.6));
+  for (let i = 0; i < 10; i++) fpx(((i * 43 - scroll * 1.5) % w + w) % w, ny + 3 + (i * 29) % (h - ny - 14), 14, 1, 'rgba(30,40,20,.25)');
+  fpx(0, h - 16, w, 16, '#8a8278');                       // ballast shoulder
+  for (let i = 0; i < 12; i++) fpx(((i * 37 - scroll * 2.2) % w + w) % w, h - 13 + (i * 17) % 10, 10, 2, i % 2 ? '#6f685f' : '#a49b8c');
+  // a station gliding past on this side (flipped off the water, like the map view)
+  for (const s of STATIONS) {
+    const d = s.mile - miles;
+    const pside = (coastAmount() > 0.5 && s.side === 'L') ? 'R' : s.side;
+    if (pside !== side || d >= 5.5 || d <= -3) continue;
+    const t = (5.5 - d) / 8.5;                            // 0 → entering right, 1 → gone left
+    const sx = Math.round(w + 90 - t * (w + 260));
+    fpx(sx - 20, ny - 4, 190, h - ny + 4, '#9a9188');     // platform slab
+    fpx(sx - 20, ny - 6, 190, 2, '#b0a79a');
+    drawFPProp(CITY_SPRITES[2], sx + 30, ny + 6);         // the shopfront depot
+    drawFPProp(PROPS.clock, sx + 78, ny + 4);
+    drawFPProp(PROPS.bench, sx + 110, ny + 6);
+    drawFPProp(PROPS.lamp, sx + 145, ny + 2);
+  }
+  // dusk wash + tunnel darkness, then the tunnel swallows everything
+  if (L.a > 0.001) { fctx.fillStyle = `rgba(${L.r},${L.g},${L.b},${L.a})`; fctx.fillRect(0, 0, w, h); }
+  if (tunnelAmount > 0.001) { fctx.fillStyle = `rgba(6,6,14,${tunnelAmount * 0.94})`; fctx.fillRect(0, 0, w, h); }
+}
+function drawFPProp(rec, cx, groundY) {
+  if (!rec || !rec.ok) return;
+  fctx.drawImage(rec.img, Math.round(cx - rec.img.width / 2), Math.round(groundY - rec.img.height), rec.img.width, rec.img.height);
 }
 
-function drawFPFrame() {
-  const { x, y, w, h } = FPW;
-  for (const [rx, ry, rw, rh] of [[x-7, y-7, w+14, 7], [x-7, y+h, w+14, 7], [x-7, y-7, 7, h+14], [x+w, y-7, 7, h+14]])
-    px(rx, ry, rw, rh, C.trim);                  // window frame
-  px(x-7, y-7, w+14, 2, C.wallHi);
-  px(x-3, y+h+7, w+6, 10, '#5d4438');            // sill / interior wall below the window
-}
-
-function drawFPDesk() {
-  const ty = H - 132;                            // tray table starts here
-  px(0, FPW.y + FPW.h + 17, W, ty - (FPW.y + FPW.h + 17), C.wall);  // wall between window and desk
-  px(0, ty, W, H - ty, '#7c5236');               // wood tray table (foreground)
-  px(0, ty, W, 4, '#9a6a44');
-  for (let yy = ty + 10; yy < H; yy += 11) px(0, yy, W, 1, '#6e4a30');   // grain
-  px(0, ty - 3, W, 3, C.shadow);                 // lip shadow above the table
+function drawFirstPerson() {
+  const q = FPQ;
+  px(0, 0, W, H, C.wall);                                 // the carriage wall
+  for (let y = 10; y < H; y += 30) px(0, y, W, 1, C.panel);
+  drawFPOutside();                                        // render the world, straight
+  // blit through the window with a per-column perspective warp
+  const cols = q.x1 - q.x0;
+  for (let i = 0; i < cols; i++) {
+    const t = i / (cols - 1);
+    const top = q.t0 + (q.t1 - q.t0) * t, bot = q.b0 + (q.b1 - q.b0) * t;
+    const sx = Math.min(FPS_W - 1, Math.floor(t * FPS_W));
+    ctx.drawImage(fpc, sx, 0, 1, FPS_H, q.x0 + i, top, 1, bot - top);
+    // glass sheen near the top, wood frame + sill hugging the slope
+    ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(q.x0 + i, top, 1, 5);
+    px(q.x0 + i, top - 7, 1, 7, C.trim); px(q.x0 + i, top - 8, 1, 1, C.outline);
+    px(q.x0 + i, top - 3, 1, 1, shade(C.trim, 16));
+    px(q.x0 + i, top, 1, 1, C.outline);
+    px(q.x0 + i, bot, 1, 6, C.trim); px(q.x0 + i, bot, 1, 1, C.outline);
+    px(q.x0 + i, bot + 6, 1, 2, '#5d4438'); px(q.x0 + i, bot + 8, 1, 1, C.outline);
+    px(q.x0 + i, bot + 9, 1, Math.max(0, (H - 114) - (bot + 9)), C.wall);   // wall below the sill
+    px(q.x0 + i, top - 1, 1, 3, '#a8433a');               // red curtain valance
+    if (((q.x0 + i) % 8) < 4) px(q.x0 + i, top + 2, 1, 2, '#8c3830');
+  }
+  // jambs: chunky near post, slimmer far post; brass lamp on the far wall
+  px(q.x0 - 9, q.t0 - 10, 9, q.b0 - q.t0 + 20, C.trim); px(q.x0 - 10, q.t0 - 11, 1, q.b0 - q.t0 + 22, C.outline);
+  px(q.x0 - 3, q.t0 - 10, 3, q.b0 - q.t0 + 20, shade(C.trim, -14)); px(q.x0, q.t0 - 8, 1, q.b0 - q.t0 + 16, C.outline);
+  px(q.x1, q.t1 - 9, 6, q.b1 - q.t1 + 18, C.trim); px(q.x1 + 6, q.t1 - 9, 1, q.b1 - q.t1 + 18, C.outline);
+  if (PROPS.lampS.ok) {
+    const li = PROPS.lampS.img;
+    ctx.drawImage(li, 0, 0, li.width, li.height, 212, 96, li.width * 2, li.height * 2);
+  }
+  // your table fills the foreground — the rustic plank top, stretched close
+  const ty = H - 110;
+  if (tableImgOK) {
+    ctx.drawImage(tableImg, 2, 2, 36, 15, -8, ty, W + 16, H - ty);
+    px(0, ty, W, 2, C.outline);
+  } else { px(0, ty, W, H - ty, '#7c5236'); px(0, ty, W, 3, '#9a6a44'); }
+  px(0, ty - 4, W, 4, C.shadow);                          // table edge shadow on the sofa
+  // your things, set out big on the table
   const items = tableItems(), n = items.length;
-  const gap = 60, startX = W/2 - (n - 1) * gap / 2;
-  items.forEach((k, i) => {
-    const cx = startX + i * gap;
-    drawItemKind(k, { x: cx - 15, y: ty + 34, w: 30, h: 30 }, elapsed);   // enlarged for the desk
-  });
+  const gap2 = Math.min(74, 180 / Math.max(1, n));
+  const startX = W / 2 - (n - 1) * gap2 / 2;
+  items.forEach((k, i) => drawFPItem(k, startX + i * gap2, ty + 66, 3));
+  // come evening, the carriage lamps warm the whole cabin
+  const Ld = lightingFor(dayT);
+  const dark2 = Math.max(tunnelAmount, Math.min(1, (Ld.a - 0.15) / 0.3));
+  ctx.fillStyle = `rgba(255,196,124,${0.05 + dark2 * 0.14})`; ctx.fillRect(0, 0, W, H);
+  if (dark2 > 0.05) {                                     // the lamp's glow pools by the window
+    const g = ctx.createRadialGradient(216, 104, 4, 216, 104, 90);
+    g.addColorStop(0, `rgba(255,214,136,${dark2 * 0.4})`); g.addColorStop(1, 'rgba(255,214,136,0)');
+    ctx.fillStyle = g; ctx.fillRect(120, 20, 120, 200);
+  }
+}
+// an item drawn large for the foreground table (sprite if we have one)
+function drawFPItem(key, cx, groundY, s) {
+  let img = null;
+  if (key === 'coffee' && mugImgOK) img = mugImg;
+  else if (key === 'book' && bookImgOK) img = bookImg;
+  else if (ITEM_SPRITES[key] && ITEM_SPRITES[key].ok) img = ITEM_SPRITES[key].img;
+  if (img) {
+    ctx.drawImage(img, 0, 0, img.width, img.height, Math.round(cx - img.width * s / 2), Math.round(groundY - img.height * s), img.width * s, img.height * s);
+    if (key === 'coffee' || key === 'espresso' || key === 'tea') {   // rising steam, scaled up
+      const t = elapsed;
+      px(cx - 4, groundY - img.height * s - 4 - ((t * 9) % 10), 2, 5, 'rgba(255,255,255,.5)');
+      px(cx + 3, groundY - img.height * s - 8 - ((t * 9 + 4) % 10), 2, 5, 'rgba(255,255,255,.38)');
+    }
+  } else drawItemKind(key, { x: cx - 15, y: groundY - 28, w: 30, h: 28 }, elapsed);
 }
 requestAnimationFrame(frame);
 </script>
