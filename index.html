@@ -638,7 +638,7 @@ for (const row of rowYs) {
 }
 
 // seed a few NPC passengers in random-ish (deterministic) seats
-const npcSeats = [0, 3, 4, 7, 9];
+const npcSeats = [0, 3, 4, 7, 9, 8];
 const NPC_ITEMS = ['coffee', 'laptop', 'book', 'coffee', 'book'];
 npcSeats.forEach((i, k) => {
   seats[i].occupant = {
@@ -649,7 +649,7 @@ npcSeats.forEach((i, k) => {
     hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][k % 4],
     bob: Math.random() * 6.28,
     item: NPC_ITEMS[k % NPC_ITEMS.length],
-    sprite: ['ivy', 'silver', null, 'rust', 'traveller'][k],   // hand-drawn passengers from the roster
+    sprite: ['ivy', 'silver', 'miles', 'rust', 'traveller', 'nova'][k],   // hand-drawn passengers from the roster
   };
 });
 
@@ -731,6 +731,14 @@ travellerImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAeCAYAAA
 const ivyImg = new Image(); let ivyImgOK = false;
 ivyImg.onload = () => { ivyImgOK = true; };
 ivyImg.src = 'data:image/png;base64,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';
+// a sixth character (curly afro, mustard sweater)
+const milesImg = new Image(); let milesImgOK = false;
+milesImg.onload = () => { milesImgOK = true; };
+milesImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAAeCAYAAADKO/UvAAAFFklEQVR4nHWV24ueVxXGf2vv/Z6+w5wyh0yTmmSwJqlNsRrSGm3jULXYFgqVXoniheAf4LVXgn+Fd172wgtbFRECIh6wLZHSmprUSTKdZJqk88033/t+72GfvPjS0AG7YbPXA4uHZz2stZfwf87Pf/IS7773IaPSUTY2OgILeSZoy3Pnn+AXv3rzUL58FkTgyZOPRBvAJJoYQETI04QQI1oJ+wclg9zwzq9fF7l48TDJs098Md47KMmzgmnbkRpNkWe0XYcPYLRi2C+Y1g0iwrSpWchT/nb1hgjA9545F2/ujggREqOJMRJjpLUOESHRGohEhKX5AVopxuWUEAJHej3khfOP80nVRts56s6SpclMX4QYmWEi5bRh0C/w3iMIznu0zF4VvWXatATgyMKQLE1YHA4QEdSDG2NkbthDidB1ls46EmNQWhOIqDvjaczTlKX5IURw3nNQTrHWMT/sUfQy6taiRBCBIs9QSlBKMFqRaIPpOgdiaNuOybQhMRofIkor9icVaZJgtKKsapRSaDUzuHMOUYLzDmN9RPlI4wJaC/0iZzKt0aLorCPEmTlJYrAuoGKgqhsmVYMoTb8wqDxPWewbzq5mxAj3xxW2axAi/SJjrl+QJilHhj0kOFrnqVtPYjRf31hibWGIKlvH0bmU75xd5cffPMHp1YzNzU28ShhNaiZ1x7isWDl+kkc3HiPXiq+cmOen3zrFpTPL3Lk/xjx/ZpkbH0/Y2Z+yPNfjlafWuY5Q6MArTx/j2r0GEzNOryb8fqfk++fXObU6x/60A4FLX1pCbe9VKCMsDnNEInle8PpvfkvoGr52apkXvrzKi089ys71q/zj7SusLfQoG0sIEaMUuwfTWdu/9tx5NpZi3FiZB4nc2psC8IUjA1rrSY2i7Dy37pecXuuDCHO54a2tPf7430YezM4mcDn+8ocXWOn18QGCrWmsZ++gYVAk9DNDURQ4FMHB7/61wxtvbwO1CGzwg29LvPD4Ipe+ukQ7NvzlnSkXXn4NrTVET55lmKzgyuU/MNq+zrETBXfrMVs7DW9d7TBQ8sjyMj/67nFu3a1JBpZnL6bs/udPhBCxneBCZDjQDHXFmW8MMAk8PbfOPz/Y482/bmEgobGBj0ctkUjXRbIUjq+OQWYkMUTSHIw2aK2pakfVeNouorXCgEMrwTlP0wWKTNNYj9GG4CNJNhvCpvNopWjagHURAXyYOWoAtEBRaHyEzgaUCKkWnEAI4GJAC7SdRwRSo8hzhTbxUxJDdJrtjxw6DcwNNc5DREiNYH1AK43zES2glGBd5M6uo54otAZDckAWj7G7ZRisN1SdRStFZ2fyjRGsDVgfSY1Ca2Ghn/LB+5HgeyQoDAPD7VGFdYF1H1lcgK7zhBAREbLM4GwAAj6A1oLWhvd3PNbD0cWFT5ttHdjn5WeWY9Hrs7q2jHcRBK5dv8H62gpz8wNAqKqKW9u7vDdK5O7NEvhkZizcAeCNv2/LmY1T8cl+j85anPNcuTahUSscVTkg3LtX8ucrtw+tGnVo78RIPxOMCiQq0M81/VxRpEKqI5mJ5Ilw6dwxPpdEROh8oLGWpnNMm44QoX0Q122H9YGdD0eHSMxnwea5s+w1FR/dvP1QmYgw2tunrZuHX2WxthTZmj4s6ZCSy+/+myxJEO8hBCSGB2tjlighoAQ67z6/nJ+9+irjg5JROWW/rNibVFx47KSIwGhSsj+pGE8q1ueHh0j+BxqOey8deDgqAAAAAElFTkSuQmCC';
+// a seventh character (space buns, sage pinafore)
+const novaImg = new Image(); let novaImgOK = false;
+novaImg.onload = () => { novaImgOK = true; };
+novaImg.src = 'data:image/png;base64,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';
 // the roster: front-view sprites shared by the player (pickable) and the seated NPCs.
 // getters keep each image's live .ok flag, so we reuse the sprites already loaded above.
 const CHAR_IMG = {
@@ -739,6 +747,8 @@ const CHAR_IMG = {
   rust:      { img: npcBrownImg,  get ok() { return npcBrownImgOK; } },
   traveller: { img: travellerImg, get ok() { return travellerImgOK; } },
   ivy:       { img: ivyImg,       get ok() { return ivyImgOK; } },
+  miles:     { img: milesImg,     get ok() { return milesImgOK; } },
+  nova:      { img: novaImg,      get ok() { return novaImgOK; } },
 };
 const CHARACTERS = [
   { id: 'classic',   name: 'Sam' },
@@ -746,6 +756,8 @@ const CHARACTERS = [
   { id: 'rust',      name: 'Rowan' },
   { id: 'traveller', name: 'Wren' },
   { id: 'ivy',       name: 'Ivy' },
+  { id: 'miles',     name: 'Miles' },
+  { id: 'nova',      name: 'Nova' },
 ];
 // draw any roster character 1:1 at (cx,cy), optionally flipped to face left
 function drawCharSprite(id, cx, cy, bob, facing) {
@@ -2355,14 +2367,15 @@ function drawStation(s, yy, side) {
   px(ax, ay + 21, 14, 2, 'rgba(30,20,10,.15)');        // its shadow on the pavers
   px(ax + 1, ay + 21, 2, 4, '#3f342a'); px(ax + 11, ay + 21, 2, 4, '#3f342a');  // posts
   // someone by the house door, a lamp, a bench, a planter, someone by the edge
-  drawChar(X(14), yy + 40, { shirt: '#c77f4e', skin: '#caa07b', hair: '#2c2118', hat: 'cap', hatc: '#4a6b52' }, {});
+  const who = (n) => ['rust', 'ivy', 'silver', 'nova', 'miles', 'traveller'][Math.abs(Math.round(s.mile) + n) % 6];
+  drawCharSprite(who(0), X(14), yy + 40, 0, 1);
   const Ld = lightingFor(dayT), dusk = Math.max(tunnelAmount, Math.min(1, (Ld.a - 0.15) / 0.3));
   const lx = X(34, 2);
   px(lx, yy + 44, 2, 12, '#3f4249'); px(lx - 1, yy + 40, 4, 4, C.outline);
   px(lx, yy + 41, 2, 2, dusk > 0.2 ? '#ffd98a' : '#e8e0c8');
   drawStationBench(X(6, 24) + 1, yy + 56);
   drawPlant(X(30, 8), yy + 64);
-  drawChar(X(34), yy + 84, { shirt: '#5b7fc7', skin: '#e8b88f', hair: '#3a2a1d' }, {});
+  drawCharSprite(who(3), X(34), yy + 84, 0, 1);
   // the name board on two posts
   const sx2 = X(4, 22);
   px(sx2 + 3, yy + 94, 2, 9, '#5a5048'); px(sx2 + 17, yy + 94, 2, 9, '#5a5048');
@@ -2704,8 +2717,8 @@ function drawStationScene() {
   drawStationBench(16, 128); drawStationBench(W - 38, 128);
   px(20, 96, 3, 34, '#5a5048'); px(17, 92, 9, 7, '#ffd98f'); px(17, 92, 9, 2, '#fff2c8');
   px(W - 23, 96, 3, 34, '#5a5048'); px(W - 26, 92, 9, 7, '#ffd98f'); px(W - 26, 92, 9, 2, '#fff2c8');
-  drawStationPerson(44, 176, { shirt:'#3f5170', skin:'#caa07b', hair:'#2c2118', hat:'cap', hatc:'#2c3f66' }, stationT + 1.7, 1, false, true);
-  drawStationPerson(W - 50, 186, { shirt:'#6f6a4a', skin:'#e2b58c', hair:'#3a2a1d', hat:'ranger' }, stationT + 3.1, -1, false, false);
+  drawCharSprite('traveller', 44, 176, 0, 1);      // fellow travellers waiting on the platform
+  drawCharSprite('miles', W - 50, 186, 0, 1);
   // --- "walk aboard" prompt below the open doors (hidden once you're close) -
   if (pr && stnY > 118) {
     ctx.globalAlpha = 0.5 + 0.5 * Math.sin(stationT * 4);
