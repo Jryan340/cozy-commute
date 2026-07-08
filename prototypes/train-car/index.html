@@ -861,11 +861,14 @@ function drawCharSprite(id, cx, cy, bob, facing) {
   return true;
 }
 function drawNpcSprite(cx, cy, bob, which) { return drawCharSprite(which, cx, cy, bob, 1); }
-// a soft sleep mask worn over the eyes (😴 lights out) — same eye line as the dozing NPCs
+// a soft sleep mask worn over the eyes (😴 lights out)
+// eye row differs per character sprite (hair/hat pushes the face down), so it's
+// hand-tuned per roster member rather than a single fraction of the height
+const MASK_EYE_ROW = { classic: 11, silver: 11, rust: 12, traveller: 11, ivy: 10, miles: 11, nova: 11 };
 function drawSleepMask(charId, cx, cy, bob) {
   const rec = CHAR_IMG[charId], h = (rec && rec.ok) ? rec.img.height : 30;
-  const ht = Math.round(cy + 8 - h + (bob || 0));        // top of the head
-  const eyeY = Math.round(ht + h * 0.28);                // eye line
+  const ht = Math.round(cy + 8 - h + (bob || 0));        // top of the sprite (crown of the head)
+  const eyeY = ht + (MASK_EYE_ROW[charId] != null ? MASK_EYE_ROW[charId] : 11);   // eye line, tuned per character
   const mask = '#6b5b8a', maskHi = '#8a78ad', strap = '#463c5c';
   px(cx - 7, eyeY + 1, 14, 1, strap);                    // strap wrapping around the head
   px(cx - 6, eyeY, 12, 4, mask);                         // padded mask front over both eyes
@@ -1858,6 +1861,7 @@ let elapsed = 0;         // seconds aboard since departure
 let trainSpeed = 0;      // current speed, miles/second of game time
 let audioSpeed = 0;      // smoothed 0..1 "how fast we're rolling" that drives the train sound
 let bobPhase = 0;        // ever-advancing phase for the seated gentle rock
+let animT = 0;           // ever-advancing seconds for ambient animations (steam/smoke/Zzz)
 let dwellTimer = 0;      // seconds left standing at the current station
 let nextStop = 1;        // index of the next station we'll pull into (0 = Boston, where we board)
 let etaSeconds = 0;
@@ -2233,6 +2237,7 @@ function lightingFor(t) {
 let last = performance.now();
 function update(dt) {
   bobPhase += dt;   // gentle carriage rock for the seated player
+  animT += dt;      // ever-advancing clock for ambient wisps (steam, smoke, Zzz) — never freezes like `elapsed`
   tickNaps(dt);   // passengers doze off and stir awake as the hours pass
   if (atStation) { updateStation(dt); updateWorldClock(); updateTrainAudio(dt, 0); if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show'); return; }
   // movement (disabled while seated or in the whole-train view)
@@ -2438,9 +2443,9 @@ function drawSeatItems(st) {
   const slots = itemSlots(st);
   if (st.occupant && st.occupant.player) {
     // headphones are worn (drawn on the head), not set on the table — pack the rest into slots
-    tableItems().forEach((k, i) => { if (slots[i]) drawItemKind(k, slots[i], elapsed); });
+    tableItems().forEach((k, i) => { if (slots[i]) drawItemKind(k, slots[i], animT); });
   } else if (st.occupant && st.occupant.npc && st.occupant.item && st.occupant.item !== 'headphones' && !st.occupant.asleep) {   // asleep → they've put their things away
-    drawItemKind(st.occupant.item, slots[1], elapsed + st.cy);
+    drawItemKind(st.occupant.item, slots[1], animT + st.cy);
   }
 }
 
@@ -2960,9 +2965,9 @@ function drawLamps() {
 function drawZzz(cx, cy, phase) {
   for (let i = 0; i < 3; i++) {
     const p = ((phase + i * 0.9) % 3) / 3;                       // 0..1 rise, staggered
-    const zx = Math.round(cx + 3 + i * 3 + Math.sin(phase + i) * 1.5);
-    const zy = Math.round(cy - 2 - p * 12);                      // higher + fainter as it rises
-    const col = `rgba(226,232,246,${(1 - p) * 0.85})`;
+    const zx = Math.round(cx + 3 + i * 3 + Math.sin(phase * 1.6 + i) * 2.5);   // wider, quicker sway
+    const zy = Math.round(cy - 2 - p * 16);                      // rises higher before fading
+    const col = `rgba(226,232,246,${(1 - p) * 0.9})`;
     px(zx, zy, 3, 1, col);                                       // top bar
     px(zx + 1, zy + 1, 1, 1, col);                               // diagonal
     px(zx, zy + 2, 3, 1, col);                                   // bottom bar
@@ -3058,7 +3063,7 @@ function drawSeatedPlayer(st) {
   else if (hp) drawWornHeadphones(player.char, cx, cy, bob);          // headphones sit on your head
   if (lightsOff) {
     drawSleepMask(player.char, cx, cy, bob);                          // 😴 the mask goes on over your eyes
-    drawZzz(cx + 4, cy - (drawn ? 22 : 20), elapsed * 1.4);           // and a drift of Zzz above
+    drawZzz(cx + 4, cy - (drawn ? 22 : 20), animT * 1.4);            // and a drift of Zzz above
   }
 }
 function drawPlayer() {
@@ -3398,11 +3403,11 @@ function drawWideView() {
       px(x+4, s.y+16, w-8, 1, '#6b7883'); px(x+4, s.y+26, w-8, 1, '#6b7883');
       px(x+w/2-3, s.y+9, 6, 4, '#2b2f36'); px(x+w/2-2, s.y+10, 4, 2, '#caa24e'); // brass stack
       // puffs of smoke drifting off the stack
-      for (let k = 0; k < 3; k++) {
-        const ph = (elapsed * 0.5 + k / 3) % 1;
-        const sy = s.y + 8 - ph * 26, sxo = Math.sin((elapsed + k * 2.1) * 1.7) * (2 + ph * 4);
-        ctx.fillStyle = `rgba(230,228,222,${0.30 * (1 - ph)})`;
-        const r = 2 + ph * 4; ctx.fillRect((cx + sxo - r)|0, (sy - r)|0, (r*2)|0, (r*2)|0);
+      for (let k = 0; k < 4; k++) {
+        const ph = (animT * 0.6 + k / 4) % 1;
+        const sy = s.y + 8 - ph * 30, sxo = Math.sin((animT + k * 2.1) * 1.7) * (2 + ph * 6);
+        ctx.fillStyle = `rgba(230,228,222,${0.42 * (1 - ph)})`;
+        const r = 2 + ph * 5; ctx.fillRect((cx + sxo - r)|0, (sy - r)|0, (r*2)|0, (r*2)|0);
       }
     } else {
       if (s.player) { px(x-4, s.y-3, w+8, s.h+6, 'rgba(255,217,160,.35)'); }  // glow
@@ -3449,7 +3454,7 @@ function drawFPOutside() {
   fpx(0, 0, w, hor * 0.55, skyA); fpx(0, hor * 0.55, w, hor * 0.45 + 1, skyB);
   if (dark > 0.45) for (let i = 0; i < 24; i++) fpx((i * 61) % w, (i * 37) % (hor - 18), 1, 1, 'rgba(255,244,214,.7)');   // stars
   for (let i = 0; i < 3; i++) {                          // drifting clouds
-    const cxp = ((i * 83 - scroll * 0.06 - elapsed * 2) % (w + 60) + (w + 60)) % (w + 60) - 30;
+    const cxp = ((i * 83 - scroll * 0.06 - animT * 2) % (w + 60) + (w + 60)) % (w + 60) - 30;
     const cy = 12 + i * 16;
     fctx.fillStyle = `rgba(255,255,255,${0.5 - dark * 0.35})`;
     fctx.fillRect(cxp, cy, 30, 6); fctx.fillRect(cxp + 6, cy - 3, 18, 4);
@@ -3586,11 +3591,11 @@ function drawFPItem(key, cx, groundY, s) {
   if (img) {
     ctx.drawImage(img, 0, 0, img.width, img.height, Math.round(cx - img.width * s / 2), Math.round(groundY - img.height * s), img.width * s, img.height * s);
     if (key === 'coffee' || key === 'espresso' || key === 'tea') {   // rising steam, scaled up
-      const t = elapsed;
+      const t = animT;
       px(cx - 4, groundY - img.height * s - 4 - ((t * 9) % 10), 2, 5, 'rgba(255,255,255,.5)');
       px(cx + 3, groundY - img.height * s - 8 - ((t * 9 + 4) % 10), 2, 5, 'rgba(255,255,255,.38)');
     }
-  } else drawItemKind(key, { x: cx - 15, y: groundY - 28, w: 30, h: 28 }, elapsed);
+  } else drawItemKind(key, { x: cx - 15, y: groundY - 28, w: 30, h: 28 }, animT);
 }
 requestAnimationFrame(frame);
 </script>
