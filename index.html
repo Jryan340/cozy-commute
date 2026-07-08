@@ -225,12 +225,15 @@
   .st-dot { position: relative; z-index: 1; flex: 0 0 11px; width: 11px; height: 11px; border-radius: 50%;
     border: 2px solid #565062; background: #2a2735; box-sizing: border-box; }
   .st-name { flex: 1; font-size: 13px; color: #cfc8ba; }
+  .st-meta { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+  .st-time { font-size: 12px; font-weight: 700; color: #cfc8ba; letter-spacing: .3px; }
   .st-mi { font-size: 10px; opacity: .42; letter-spacing: .3px; }
   .st-row.passed .st-dot { background: #ffd9a0; border-color: #ffd9a0; }
   .st-row.passed::before { background: #ffd9a0; }
-  .st-row.passed .st-name { color: rgba(239,232,218,.5); }
+  .st-row.passed .st-name, .st-row.passed .st-time { color: rgba(239,232,218,.5); }
   .st-row.next .st-dot { border-color: #7fd3bd; box-shadow: 0 0 0 3px rgba(127,211,189,.22); }
   .st-row.next .st-name { color: #fff; font-weight: 700; }
+  .st-row.next .st-time { color: #7fd3bd; }
   .st-row.next .st-mi { color: #7fd3bd; opacity: 1; }
 
   .trip-primary { display: flex; gap: 10px; margin-bottom: 14px; }
@@ -1319,12 +1322,16 @@ let tripOpen = false, arrived = false;
 let stRows = null, lastScrolled = -1;
 function buildStopList() {
   const list = document.getElementById('tlList'); list.innerHTML = '';
-  stRows = STATIONS.map(s => {
+  stRows = STATIONS.map((s, i) => {
     const row = document.createElement('div'); row.className = 'st-row';
-    row.innerHTML = `<div class="st-dot"></div><div class="st-name">${s.name}</div><div class="st-mi">${s.mile} mi</div>`;
+    row.innerHTML = `<div class="st-dot"></div><div class="st-name">${s.name}</div>` +
+      `<div class="st-meta"><span class="st-time"></span><span class="st-mi">${s.mile} mi</span></div>`;
+    row._time = row.querySelector('.st-time');
     list.appendChild(row); return row;
   });
 }
+// clock time each stop is reached (the origin shows the departure time)
+function stopArrivalClock(i) { const tt = timetable[i]; return tt ? fmtETClock(departTs + tt.arr * 1000) : ''; }
 function fmtClock(s) { return Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0'); }
 function updateTripCard() {
   const ticket   = boarding && !boarded && !arrived;   // choosing / buying a ticket, not yet aboard
@@ -1342,6 +1349,7 @@ function updateTripCard() {
     const isNext = (i === nextStop) && !arrived;
     row.classList.toggle('passed', passed && !isNext);
     row.classList.toggle('next', isNext);
+    if (row._time) row._time.textContent = stopArrivalClock(i);   // live arrival time per stop
   });
   if (lastScrolled !== nextStop) {            // keep the upcoming stop in view
     lastScrolled = nextStop;
