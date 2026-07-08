@@ -250,6 +250,7 @@
     background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
     font: 700 14px ui-monospace, monospace; letter-spacing: .5px; }
   #nowAction:active { transform: translateY(1px); border-bottom-width: 2px; }
+  #nowAction.leave { background: #6b4a4a; border-color: #8a5f5f; }   /* muted "get off" variant */
 
   /* ---- Passport ---------------------------------------------------------- */
   .pp-hero { text-align: center; margin-bottom: 16px; }
@@ -1398,8 +1399,9 @@ function updateTripCard() {
   status.classList.toggle('boarding', atPlatform && !arrived);
   // after arrival, step off onto the destination platform (no teleporting back)
   const act = document.getElementById('nowAction');
-  if (arrived) { act.hidden = false; act.textContent = 'Step onto the platform →'; act.dataset.mode = 'platform'; }
-  else         { act.hidden = true;  act.dataset.mode = ''; }
+  if (arrived)      { act.hidden = false; act.textContent = 'Step onto the platform →'; act.dataset.mode = 'platform'; act.classList.remove('leave'); }
+  else if (boarded) { act.hidden = false; act.textContent = 'End ride · get off';       act.dataset.mode = 'leave';    act.classList.add('leave'); }
+  else              { act.hidden = true;  act.dataset.mode = '';                          act.classList.remove('leave'); }
 }
 function openTrip()  {
   tripOpen = true; lastScrolled = -1;
@@ -1413,7 +1415,9 @@ tripScrim.addEventListener('click', closeTrip);
 document.getElementById('phGrip').addEventListener('click', closeTrip);
 document.getElementById('nowPlan').addEventListener('click', () => setTab('search'));
 document.getElementById('nowAction').addEventListener('click', () => {
-  if (document.getElementById('nowAction').dataset.mode === 'platform') closeTrip();  // reveal the destination platform
+  const mode = document.getElementById('nowAction').dataset.mode;
+  if (mode === 'platform') closeTrip();       // reveal the destination platform
+  else if (mode === 'leave') leaveRide();     // abandon the ride, back to the station
 });
 
 // --- phone hub tabs: Plan / Ride / Passport --------------------------------
@@ -1601,6 +1605,7 @@ function creditTrip() {
   STATIONS.forEach(s => { save.stations[s.name] = 1; });
   save.lastStation = STATIONS[STATIONS.length - 1].name;   // you're now at the destination
   save.lastCity = ROUTE.to;
+  save.ride = null;                 // the ride is finished — nothing to resume
   persist();
   const after = classUnlocked();
   if (after > before) setTimeout(() => toast('✦ Unlocked ' + CLASSES[after].name + '!'), 1400);
@@ -1616,6 +1621,7 @@ let departTs  = 0;       // wall-clock (epoch ms) this train departs — clock-d
 // showing the trip to buy — you don't hold the ticket until you press Buy.
 function showBoarding() {
   boarding = true; purchased = false; boarded = false;
+  if (save.ride) { save.ride = null; persist(); }   // pulling up a fresh fare drops any old in-progress ride
   departTs = effectiveDepartTs();   // the departure you picked, else the next one
   timetable = buildTimetable();
   document.getElementById('bdFrom').textContent = ROUTE.fromCode;
@@ -1659,6 +1665,7 @@ function board() {
   departTs = effectiveDepartTs();
   timetable = buildTimetable();
   boarding = false; purchased = false; boarded = true; atStation = false;
+  save.ride = { routeId: ROUTE.id, departTs }; persist();   // remember the ride so a refresh lands you back aboard
   hideStation();
   closeTrip();                      // put the phone away — you're in the car now
   const wait = Math.round((departTs - Date.now()) / 1000);
@@ -2122,6 +2129,45 @@ function loadRoute(r) {
 }
 loadRoute(ROUTES[1]);   // a route is loaded so ROUTE is defined, but we don't board yet
 showStation();          // open at the station concourse — your last stop, not a ticket
+
+// Resume an in-progress ride across a refresh. Position is a pure function of
+// the wall clock (see update()), so all we restore is which train you boarded
+// and when it left — the clock puts you exactly where the train now is.
+function resumeRide() {
+  const rd = save.ride;
+  if (!rd || !rd.departTs) return;
+  const r = ROUTES.find(x => x.id === rd.routeId);
+  if (!r) { save.ride = null; persist(); return; }
+  loadRoute(r);
+  departTs = chosenDepartTs = rd.departTs;
+  timetable = buildTimetable();
+  const finalArr = timetable[timetable.length - 1].arr;
+  const e = (Date.now() - departTs) / 1000;
+  if (e >= finalArr) {                 // the train reached the end while you were away
+    boarded = true; arrived = true; miles = ROUTE.totalMiles;
+    creditTrip();                      // credit once (clears save.ride) — you're now at the destination
+    showStation();                     // re-render the concourse for ROUTE.to
+    return;
+  }
+  boarded = true; arrived = false;     // still rolling (or waiting to depart) — put you back aboard
+  hideStation();
+  const seat = seats.find(s => !s.occupant);   // settle into a free window seat
+  if (seat) { seat.occupant = { player: true }; player.seat = seat;
+              player.x = seat.sitX - player.w / 2; player.y = seat.sitY - player.h / 2; }
+}
+// Abandon the current ride and step back onto the concourse of where you started
+// — no miles, no trip credit (you never arrived). This is the "restart" hatch.
+function leaveRide() {
+  if (!boarded && !save.ride) return;
+  if (player.seat) { player.seat.occupant = null; player.seat = null; }
+  boarded = false; arrived = false; boarding = false; purchased = false;
+  elapsed = 0; miles = 0; scroll = 0; trainSpeed = 0;
+  save.ride = null; persist();
+  closeTrip();
+  showStation();                       // back at your last completed city
+  toast('You step off the train.');
+}
+resumeRide();          // …unless a ride was under way when you left or refreshed
 
 // --- living-window state ----------------------------------------------------
 let dayT = 0;            // 0..1 position in a looping day/night cycle
