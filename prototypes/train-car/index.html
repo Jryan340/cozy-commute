@@ -454,6 +454,13 @@
   #bag.show, #charPick.show, #hpMenu.show { transform: translateX(-50%) translateY(0); }
   #hpGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   #hpColors { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  #hpNow { display: flex; align-items: center; gap: 8px; margin: -2px 4px 12px; height: 18px;
+    color: #7fd3bd; font: 700 12px ui-monospace, monospace; }
+  #hpNow.hide { display: none; }
+  #hpNow .np-ico { flex: 0 0 auto; opacity: .85; }
+  #hpNow .np-view { flex: 1; overflow: hidden; white-space: nowrap; }
+  #hpNow .np-scroll { display: inline-block; padding-left: 100%; animation: np-scroll 12s linear infinite; }
+  @keyframes np-scroll { from { transform: translateX(0); } to { transform: translateX(-100%); } }
   .hp-sub { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: #6f6980; font-weight: 700; margin: 14px 4px 8px; }
   .hp-swatch img { image-rendering: pixelated; width: 30px; height: auto; }
   .hp-swatch span { font-size: 9px; }
@@ -525,6 +532,7 @@
 
   <div id="hpMenu">
     <div class="bag-head"><b>🎧 Headphones</b><span>music &amp; colour</span></div>
+    <div id="hpNow" class="hide"><span class="np-ico">♪</span><span class="np-view"><span id="hpNowText" class="np-scroll"></span></span></div>
     <div id="hpGrid"></div>
     <div class="hp-sub">Colour</div>
     <div id="hpColors"></div>
@@ -789,6 +797,7 @@ loadItemSprite('snacks',    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAA
 loadItemSprite('briefcase', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAKCAYAAABv7tTEAAABaUlEQVR4nF2RvW4TQRRGz70z+2PLjiOR8FNEFFBYFIiCl6DlmXgHWl4DCToaGhAUFEigACscRMzGiXc3O56ZS+EKvvac4kif8N+WyyVHtIYZiPB+o9KtVv848ubZU16++2LZjA+nLfOJpy7ATACjLjy7DJf9jocnhzx5dCL+xeuP9vjunOuYOZ4r944nVIVDVYjZmJWO5mLAiXDrQHj+6pP5fow0654+Zroh8usqMKscyQCDCyesNyNXIfLjvKcbIx7Ae6UCFgcFVaGoCIiRM4gZ9cTjSqUsHCqC70NivQ1kMx7cP+TsbKDdjqgqBqSYuX1zSj1RmqajCxE/rRw3ZiUhGavf1xQiLKYlIiAiiMEYEkNIHM0r/gwZFfbQgM+nG4YxUXqHIACoCuftyLefW5xTBMGnbIwxEWJmNvGknBlCJGVDBJwKzkFdKuMukc3waMnbr5dkMwRo2h2yvwgwDNnnAN/bwJ3FnL+naauFc6yzLwAAAABJRU5ErkJggg==');
 loadItemSprite('espresso', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAAMCAYAAAC0qUeeAAABhklEQVR4nHWMTUtUYRiGr+f9OO+MdlAwA39CYOAsIhAmLHAhBBUxEy0UWw0UtBQKXNcvCNpUuAuj2glSG2lREFQEQtAYCS78KINmzhnnnTlPi6yVXcub67rhEP3ZpH5xRlX178Sbp0sciaoyW7v0T567elmPNoGpykm9cP7s/wVA7i0uaHl4lOD6ZK02xntCErBGiAW0f+2zsHhXAFwsuoxlTb6uf6BcHkCBXJWiUPrGUb0yS2Oupg+WlsVl7Yzpa3U2Jk7jvceI4L2n1+uTpoNs7e6T5Tk3r9fVfVx/z4vXQ7RaHZLEoYA1hhh7DAyWWHv1lo3P21SrZ3A7ezu8XFul11UURURAC1TBB8/W5h5pOkaMEXducoo7t2+x+/0HxhhQKIo+SZIwPJTy7PkKjx4v473DeZeQHkvJsg7GWELw5J0DnLUIlsrEOO9OfWIkBHGIchAjxhjKpUA3RkohkOU5J0aP86X5jfsPnwiA3JivqYqQ53/eFMVaSzyMVAsqk9PSaDT4Db2HoaooD5I7AAAAAElFTkSuQmCC');
 loadItemSprite('sleepmask', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAKCAYAAAC5Sw6hAAAB30lEQVR4nI2RPWgTcRyGn/9dctVUS7WNIU1SoQcJlEJFWg1aF8Uh2E1E3ZxcHJzE1VVc6+DmVARBEDvWTaUiRTpYLxIKRjAxn9q7Jmnu7v9ziwah+EwvvB/Lq/iL+fnzosMAlOJARDDMCFtbbwfBgcifWxatNSL6v4aUMjAMg413a3/Ci/mCZFK2HNz+l0zKlsV8QQBU1p4TRZ+bVy8RT2YIggCtBQWYpoEgmEqBUoShRkRQShG1LGrfy6w+X0eUhZqbXZAb16/Q3Bun7Wr8vstozEJE2Ov4gOB6PSwryohlEgQ+0ajF/r5PIn6UqWP7rD57haH7HptOj0/Fr3hum0q1xrVCjgsLaSrVOp7rsrSQxs4codH8SWevS7PVotfr8rlYZtPpEvY9jO2SoyLBD5KJ43jeLqOxGJWaR/tXFwCtIixfPkVu5gRaQyRiEo2YBL7P9PQUZr+KU3KUATAx0iB/+iQ9XyESsvryI2uvHbJ2krBTZ+XJC75VXSBEiyYMND4WZ+bTTBxqDN9/784tMceylMpt6o022ZkkqbE2Dx6uKID7d29LvTtBcadKMhHHnh5H737h0eOnamgI4GJ+ViaTOZydBoct4f2HN0P+2cUl6fUVuZlJWpUi6xvbA/83yWHWeb+HlEoAAAAASUVORK5CYII=');
+loadItemSprite('laptop',    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAKCAYAAAC5Sw6hAAABWUlEQVR4nI2RzWoUQRSFv3OrulsGYWICE+PPoGThQiK6cJNX8AV8Z5duQhaGMQtHAxmHiY3prq6bRf9kF71QFNzifPfWOWKo108XvnxzQkoJiQfL3SmKivXqnLOLlQDi+Hj66TNHx2+pb7bIbBKJnur4SEEy2rbFY8nZxYoJtFwc+JPD51ytL8kpMWgRIucOADMDCTlgxm77m3L2mOVi37//ulYEkKBt/mIhEGOkS2n6wnxvH4Cb7QYLEeEgUZQV3nWTDXHYFsmATNcNG4RAahrK6tEEdc94zliMeC/q7xFkYbKqpwKenViUXF+te3EISIai9YMBSVgo7kH1btPrs08T3Dsk9SeEoZ/x7MiM7Jm2bah3m97PD+/e+/HJR/YOX44rPZw9DjJSarmt/9DUO759/UJEYLM5P39cIokpsn/AJIFENZuDQK9ePPOirBgD/99ynCFA2uaWOxkemnRwhFGcAAAAAElFTkSuQmCC');   // hand-drawn slate laptop
 function drawItemSprite(key, r) {
   const rec = ITEM_SPRITES[key];
   if (!rec || !rec.ok) return false;
@@ -1197,19 +1206,24 @@ document.getElementById('hpch').addEventListener('click', () => hpMenuOpen ? clo
 // (so you can play your own music on your computer), or a station whose tracks
 // play back-to-back on an endless loop.
 const HP_STATIONS = [
-  { id: 'lofi',      name: 'Lofi',       icon: '🎵', tracks: ['lofi1.mp3', 'lofi2.mp3'] },
-  { id: 'classical', name: 'Classical',  icon: '🎻', tracks: ['classical1.mp3', 'classical2.mp3', 'classical3.mp3'] },
+  { id: 'lofi',      name: 'Lofi',       icon: '🎵', tracks: [
+    { u: 'lofi1.mp3', t: 'Goodnight',         a: 'FASSounds' },
+    { u: 'lofi2.mp3', t: 'The Mountain',      a: 'Lo-Fi' } ] },
+  { id: 'classical', name: 'Classical',  icon: '🎻', tracks: [
+    { u: 'classical1.mp3', t: 'Royal English',    a: 'Alex Morgan' },
+    { u: 'classical2.mp3', t: 'Piano',            a: 'Tunetank' },
+    { u: 'classical3.mp3', t: 'Orchestral Strings', a: 'Viacheslav Starostin' } ] },
   { id: 'none',      name: 'Your music', icon: '🎧', tracks: [] },
 ];
 let hpChannel = 'lofi';                    // set from the save once it's loaded
-let musicSrc = null, musicGen = 0, curTrackIdx = 0;
+let musicSrc = null, musicGen = 0, curTrackIdx = 0, nowPlaying = null;
 function stationById(id) { return HP_STATIONS.find(s => s.id === id) || HP_STATIONS[0]; }
 // fetch + decode a station's track the first time it's needed (they're big, so lazily)
 async function ensureBuffer(st, i) {
   st.buffers = st.buffers || [];
   if (st.buffers[i] === undefined) {
     st.buffers[i] = null;                  // mark in-flight so we don't double-fetch
-    try { const ab = await fetch(st.tracks[i]).then(r => r.arrayBuffer()); st.buffers[i] = await actx.decodeAudioData(ab); }
+    try { const ab = await fetch(st.tracks[i].u).then(r => r.arrayBuffer()); st.buffers[i] = await actx.decodeAudioData(ab); }
     catch (e) { st.buffers[i] = null; }
   }
   return st.buffers[i];
@@ -1218,6 +1232,7 @@ function stopMusic() {
   musicGen++;                              // invalidate any pending track-advance
   if (musicSrc && actx) { try { musicSrc.onended = null; musicSrc.stop(actx.currentTime + 0.25); } catch (e) {} musicSrc = null; }
   if (lofiBus && actx) lofiBus.gain.setTargetAtTime(0.0001, actx.currentTime, 0.35);
+  nowPlaying = null; updateNowPlaying();
 }
 // play a station's tracks one after another, looping the playlist forever
 async function playStation(id, advancing) {
@@ -1233,6 +1248,7 @@ async function playStation(id, advancing) {
   musicSrc = actx.createBufferSource(); musicSrc.buffer = buf; musicSrc.connect(lofiBus);
   musicSrc.onended = () => { if (gen === musicGen) { curTrackIdx = (i + 1) % st.tracks.length; playStation(id, true); } };
   musicSrc.start();
+  nowPlaying = st.tracks[i]; updateNowPlaying();          // show the song + artist scrolling
   lofiBus.gain.cancelScheduledValues(actx.currentTime);
   lofiBus.gain.setTargetAtTime(0.8, actx.currentTime, 0.6);
 }
@@ -1291,7 +1307,15 @@ function refreshHpMenu() {
   for (const b of hpGridEl.children)   b.classList.toggle('on', b.dataset.id === hpChannel);
   for (const b of hpColorsEl.children) b.classList.toggle('on', b.dataset.color === hpColor);
 }
-function openHpMenu()  { hpMenuOpen = true; closeBag(); closeCharPick(); hpMenuEl.classList.add('show'); scrimEl.classList.add('show'); refreshHpMenu(); }
+// the scrolling "now playing" line — song · artist, only while a track is on
+function updateNowPlaying() {
+  const el = document.getElementById('hpNow'); if (!el) return;
+  if (nowPlaying && headphonesOn) {
+    document.getElementById('hpNowText').textContent = nowPlaying.t + '  ·  ' + nowPlaying.a;
+    el.classList.remove('hide');
+  } else el.classList.add('hide');
+}
+function openHpMenu()  { hpMenuOpen = true; closeBag(); closeCharPick(); hpMenuEl.classList.add('show'); scrimEl.classList.add('show'); refreshHpMenu(); updateNowPlaying(); }
 function closeHpMenu() { hpMenuOpen = false; hpMenuEl.classList.remove('show'); scrimEl.classList.remove('show'); }
 document.getElementById('hpDone').addEventListener('click', closeHpMenu);
 
