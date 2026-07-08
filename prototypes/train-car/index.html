@@ -1039,10 +1039,11 @@ document.getElementById('charDone').addEventListener('click', closeCharPick);
 document.getElementById('charBtn').addEventListener('click', () => charOpen ? closeCharPick() : openCharPick());
 
 // --- audio: looped train-interior recording; tap 🔇 to cycle Off/Background/Prominent ---
-let actx = null, master = null, trainBus = null, lofiBus = null, loopLP = null, loopSrc = null;
-let soundBuf = null, noiseBuf = null, headphonesOn = false;
+let actx = null, master = null, trainBus = null, lofiBus = null, ambientBus = null, loopLP = null, loopSrc = null;
+let soundBuf = null, noiseBuf = null, ambientBuf = null, headphonesOn = false;
 const sndBtn = document.getElementById('snd');
 const SND_URL = 'trainsound.mp3';
+const AMB_URL = 'train-ambience.mp3';   // interior "train inside" bed, for when we're stopped
 const SOUND_LEVELS = [
   { name: 'Off',        icon: '🔇', gain: 0.0001, lp: 20000 },
   { name: 'Background', icon: '🔈', gain: 0.33,   lp: 2600  },  // quieter + softer, recedes
@@ -1065,10 +1066,24 @@ async function buildAudio() {
   noiseBuf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
   const nd = noiseBuf.getChannelData(0);
   for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
-  // fetch + decode the recording once
-  const res = await fetch(SND_URL);
-  const ab = await res.arrayBuffer();
+  // the ambient interior bed (a "train inside" recording) — always looping, its
+  // bus fades up only while we're stationary so it fills the quiet at a stop
+  ambientBus = actx.createGain(); ambientBus.gain.value = 0.0001; ambientBus.connect(master);
+  // fetch + decode the recordings once
+  const [ab, amb] = await Promise.all([
+    fetch(SND_URL).then(r => r.arrayBuffer()),
+    fetch(AMB_URL).then(r => r.arrayBuffer()).catch(() => null),
+  ]);
   soundBuf = await actx.decodeAudioData(ab);
+  if (amb) {
+    try {
+      ambientBuf = await actx.decodeAudioData(amb);
+      const src = actx.createBufferSource();
+      src.buffer = ambientBuf; src.loop = true;
+      src.loopStart = 0.1; src.loopEnd = Math.max(0.2, ambientBuf.duration - 0.1);   // trim edges so the loop doesn't click
+      src.connect(ambientBus); src.start(0, src.loopStart);
+    } catch (e) {}
+  }
 }
 
 function startLoop() {
@@ -1104,6 +1119,11 @@ function updateTrainAudio(dt, speedNorm) {
     loopLP.frequency.value += (target - loopLP.frequency.value) * Math.min(1, dt * 4);
     if (trainBus) trainBus.gain.setTargetAtTime(effectiveGain() * audioSpeed, actx.currentTime, 0.12);
     if (loopSrc) loopSrc.playbackRate.setTargetAtTime(0.7 + 0.5 * audioSpeed, actx.currentTime, 0.15);
+  }
+  // the ambient interior bed is the mirror of the clack: full while stopped, gone while rolling
+  if (actx && ambientBus) {
+    const amb = effectiveGain() * (1 - audioSpeed) * 0.6;   // scales with the sound level, sits under the clack
+    ambientBus.gain.setTargetAtTime(amb, actx.currentTime, 0.35);
   }
 }
 async function cycleSound() {
