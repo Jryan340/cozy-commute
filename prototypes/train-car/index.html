@@ -2171,6 +2171,17 @@ function drawProp(rec, cx, groundY) {
   ctx.drawImage(rec.img, Math.round(cx - w / 2), Math.round(groundY - h), w, h);
   return true;
 }
+// draw a prop turned a quarter-turn (dir +1 = clockwise), centred on (cx,cy)
+function drawPropRot(rec, cx, cy, dir) {
+  if (!rec.ok) return false;
+  const w = rec.img.width, h = rec.img.height;
+  ctx.save();
+  ctx.translate(Math.round(cx), Math.round(cy));
+  ctx.rotate((dir || 1) * Math.PI / 2);
+  ctx.drawImage(rec.img, -Math.round(w / 2), -Math.round(h / 2), w, h);
+  ctx.restore();
+  return true;
+}
 // edge-anchored building: sits flush to the near screen edge, standing up from groundY
 function drawEdgeSprite(list, idx, left, groundY) {
   const rec = list[idx % list.length]; if (!rec.ok) return false;
@@ -2492,15 +2503,16 @@ function drawStation(s, yy, side) {
   if (alt) { drawProp(PROPS.vending, X(30), yy + 33); drawProp(PROPS.clock, X(29), yy + 62); }
   else     { drawProp(PROPS.bin, X(29), yy + 31); drawProp(PROPS.lamp, X(29), yy + 58); drawProp(PROPS.cart, X(26), yy + 74); }
   drawCharSprite(who(0), X(16), yy + 56, 0, 1);          // the stationmaster under the canopy
-  // the name board on two posts, up at the platform entrance (clear of the bench)
+  // the name board on two posts, right at the top of the platform
   const sx2 = X(4, 22);
-  px(sx2 + 3, yy + 16, 2, 9, '#5a5048'); px(sx2 + 17, yy + 16, 2, 9, '#5a5048');
-  px(sx2 - 1, yy + 6, 24, 12, C.outline);
-  px(sx2, yy + 7, 22, 10, '#f0e4c8'); px(sx2, yy + 7, 22, 2, '#f8f0dc'); px(sx2, yy + 15, 22, 2, '#d9c8a2');
-  px(sx2 + 3, yy + 10, 16, 2, '#4a3826'); px(sx2 + 5, yy + 13, 12, 1, '#8a7856');
-  // a bench with someone waiting beside it, down toward the far end of the platform
-  if (!drawProp(PROPS.bench, X(14), yy + 82)) drawStationBench(X(6, 24) + 1, yy + 70);
-  drawCharSprite(who(3), X(41), yy + 90, 0, -1);         // a traveller waiting by the edge
+  px(sx2 + 3, yy + 12, 2, 9, '#5a5048'); px(sx2 + 17, yy + 12, 2, 9, '#5a5048');
+  px(sx2 - 1, yy + 2, 24, 12, C.outline);
+  px(sx2, yy + 3, 22, 10, '#f0e4c8'); px(sx2, yy + 3, 22, 2, '#f8f0dc'); px(sx2, yy + 11, 22, 2, '#d9c8a2');
+  px(sx2 + 3, yy + 6, 16, 2, '#4a3826'); px(sx2 + 5, yy + 9, 12, 1, '#8a7856');
+  // a bench turned to run along the platform, someone waiting beside it
+  const benchCx = left ? 19 : W - 19, benchCy = yy + 88;
+  if (!drawPropRot(PROPS.bench, benchCx, benchCy, left ? -1 : 1)) drawStationBench(X(6, 24) + 1, yy + 80);
+  drawCharSprite(who(3), left ? 33 : W - 33, yy + 92, 0, left ? 1 : -1);   // a traveller waiting by the edge
 }
 
 function drawCar() {
