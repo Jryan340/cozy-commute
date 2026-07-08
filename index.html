@@ -1996,18 +1996,6 @@ function lightingFor(t) {
     a: a.a + (b.a - a.a) * f,
   };
 }
-// smoothly enters/exits a tunnel based on how far we've scrolled
-function tunnelAt(s) {
-  const period = 1150, len = 150, edge = 38;
-  const p = ((s % period) + period) % period;
-  const start = period - len;
-  if (p < start) return 0;
-  const into = p - start;
-  if (into < edge) return into / edge;
-  if (into > len - edge) return (len - into) / edge;
-  return 1;
-}
-
 // --- update ----------------------------------------------------------------
 let last = performance.now();
 function update(dt) {
@@ -2077,7 +2065,7 @@ function update(dt) {
   }
   // real-clock time of day; in ?fast mode, race a whole day/night cycle across the ride so it's previewable
   dayT = FAST_MODE ? (0.42 + (boarded && !arrived ? miles / ROUTE.totalMiles : 0) * 0.9) % 1 : etDayFraction();
-  tunnelAmount = Math.max(tunnelAt(scroll), undergroundAmount());   // dark underground into Penn
+  tunnelAmount = undergroundAmount();   // the only darkening underground is the real dive into NY Penn (no phantom tunnels)
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
 
   // the sound sits at its level's tone, muffling further in a tunnel — smoothed
