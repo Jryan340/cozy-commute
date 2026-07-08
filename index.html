@@ -1424,10 +1424,13 @@ function renderTicket() {
   document.getElementById('bdHead').textContent = purchased ? 'BOARDING PASS' : 'TICKET';
   document.getElementById('bdStamp').hidden = !purchased;
   const go = document.getElementById('bdGo');
-  if (!purchased)      { go.textContent = 'Buy ticket →';        go.disabled = false; }
-  else if (atOrigin)   { go.textContent = 'Board this train →';  go.disabled = false; }
-  else                 { go.textContent = 'Board at ' + ROUTE.from; go.disabled = true; }
+  if (!purchased)               { go.textContent = 'Buy ticket →';        go.disabled = false; }
+  else if (!atOrigin)           { go.textContent = 'Board at ' + ROUTE.from; go.disabled = true; }
+  else if (Date.now() < boardOpensAt()) { go.textContent = 'Boarding opens ' + fmtETClock(boardOpensAt()); go.disabled = true; }
+  else                          { go.textContent = 'Board this train →';  go.disabled = false; }
 }
+// boarding opens an hour before departure — no getting on the train before then
+function boardOpensAt() { return departTs - BOARD_LEAD_MIN * 60000; }
 function buyTicket() {
   purchased = true;
   renderTicket();
@@ -1436,6 +1439,7 @@ function buyTicket() {
 function board() {
   if (!purchased) return;           // can't board without a ticket
   if (save.lastCity !== ROUTE.from) { toast('Be in ' + ROUTE.from + ' by departure to board'); return; }
+  if (Date.now() < boardOpensAt()) { toast('Boarding opens an hour before departure'); return; }
   departTs = effectiveDepartTs();
   timetable = buildTimetable();
   boarding = false; purchased = false; boarded = true; atStation = false;
@@ -1532,13 +1536,17 @@ function updateWorldClock() {
     // keep the pass's departure + countdown live against the wall clock
     departTs = effectiveDepartTs();
     document.getElementById('bdDepart').textContent = fmtETClock(departTs);
+    if (purchased) renderTicket();   // let the Board button open the moment the hour-before mark passes
     const st = document.getElementById('bdStatus');
-    if (save.lastCity === ROUTE.from) {
-      st.classList.remove('away');
-      st.innerHTML = 'Boarding open · departs ' + fmtETClock(departTs) + ' <b>(in ' + fmtMMSS((departTs - now) / 1000) + ')</b>';
-    } else {
+    if (save.lastCity !== ROUTE.from) {
       st.classList.add('away');
       st.innerHTML = 'Be in <b>' + ROUTE.from + '</b> by ' + fmtETClock(departTs) + ' to board this ticket';
+    } else if (now < boardOpensAt()) {
+      st.classList.remove('away');
+      st.innerHTML = 'Boarding opens ' + fmtETClock(boardOpensAt()) + ' <b>(in ' + fmtMMSS((boardOpensAt() - now) / 1000) + ')</b>';
+    } else {
+      st.classList.remove('away');
+      st.innerHTML = 'Boarding open · departs ' + fmtETClock(departTs) + ' <b>(in ' + fmtMMSS((departTs - now) / 1000) + ')</b>';
     }
   }
 }
@@ -1627,7 +1635,7 @@ const SCROLL_PER_MILE = 44;   // scenery px per mile (so motion matches speed)
 // a server. Rides run at REAL TIME: the journey takes as long as it really
 // would (distance ÷ average speed), so it's a proper sit-back-and-watch ride.
 let DEPART_INTERVAL_MIN = 30;  // a train leaves every half hour, on the clock (:00 and :30)
-let BOARD_LEAD_MIN      = 30;  // you may board up to this many minutes before departure
+let BOARD_LEAD_MIN      = 60;  // boarding opens this many minutes before departure (1 hour)
 let AVG_MPH             = 60;  // real-time cruising average incl. stops (≈ 1 mile / minute)
 let SCHED_DWELL         = 60;  // world-seconds paused at each intermediate stop
 let FAST_MODE           = false;
@@ -1675,7 +1683,7 @@ function nextValidDepart(validFn, fromMs) {
   }
   return fromMs + 24 * 3600 * 1000;
 }
-const BOARD_HORIZON_MS = 90 * 60 * 1000;         // a route only shows on a platform board if it leaves within this
+const BOARD_HORIZON_MS = BOARD_LEAD_MIN * 60 * 1000;   // the platform board lists a route once boarding is open (1h out)
 function scheduleFn(r) { return r && r.depart === 'overnight' ? overnightValidMin : regularValidMin; }
 function nextDepartFor(r, fromMs) {
   fromMs = fromMs || Date.now();
@@ -2171,6 +2179,17 @@ function drawProp(rec, cx, groundY) {
   ctx.drawImage(rec.img, Math.round(cx - w / 2), Math.round(groundY - h), w, h);
   return true;
 }
+// draw a prop turned a quarter-turn (dir +1 = clockwise), centred on (cx,cy)
+function drawPropRot(rec, cx, cy, dir) {
+  if (!rec.ok) return false;
+  const w = rec.img.width, h = rec.img.height;
+  ctx.save();
+  ctx.translate(Math.round(cx), Math.round(cy));
+  ctx.rotate((dir || 1) * Math.PI / 2);
+  ctx.drawImage(rec.img, -Math.round(w / 2), -Math.round(h / 2), w, h);
+  ctx.restore();
+  return true;
+}
 // edge-anchored building: sits flush to the near screen edge, standing up from groundY
 function drawEdgeSprite(list, idx, left, groundY) {
   const rec = list[idx % list.length]; if (!rec.ok) return false;
@@ -2481,22 +2500,27 @@ function drawStation(s, yy, side) {
   const edgeX = left ? WALL_L - 13 : WALL_R + 8;
   px(edgeX, yy, 5, PH, '#8a8278');
   for (let k = 3; k < PH - 3; k += 6) px(edgeX, yy + k, 5, 3, '#c9a44e');
-  // the station building — the hand-drawn shopfront, awning and all
-  drawEdgeSprite(CITY_SPRITES, 2, left, yy + 34);
+  // a low canopy roof hugging the back edge — reads as a platform shelter, not a house
+  const canW = 8, canX = left ? 0 : W - canW;
+  px(canX, yy + 20, canW, 66, C.outline);
+  px(left ? canX : canX + 1, yy + 21, canW - 1, 64, '#6e5f49');
+  px(left ? canX : canX + 1, yy + 21, canW - 1, 2, '#87765a');           // roof ridge highlight
+  px(left ? canW - 2 : canX, yy + 21, 2, 64, shade('#6e5f49', -14));     // shaded eave over the platform
   const who = (n) => ['rust', 'ivy', 'silver', 'nova', 'miles', 'traveller'][Math.abs(Math.round(s.mile) + n) % 6];
   const alt = Math.abs(Math.round(s.mile)) % 2 === 0;    // furniture varies station to station
-  if (alt) { drawProp(PROPS.vending, X(38), yy + 33); drawProp(PROPS.clock, X(37), yy + 62); }
-  else     { drawProp(PROPS.bin, X(37), yy + 31); drawProp(PROPS.lamp, X(37), yy + 58); drawProp(PROPS.cart, X(32), yy + 74); }
-  drawCharSprite(who(0), X(12), yy + 56, 0, 1);          // the stationmaster by the door
-  // the name board on two posts, up at the platform entrance (clear of the bench)
+  if (alt) { drawProp(PROPS.vending, X(30), yy + 33); drawProp(PROPS.clock, X(29), yy + 62); }
+  else     { drawProp(PROPS.bin, X(29), yy + 31); drawProp(PROPS.lamp, X(29), yy + 58); drawProp(PROPS.cart, X(26), yy + 74); }
+  drawCharSprite(who(0), X(16), yy + 56, 0, 1);          // the stationmaster under the canopy
+  // the name board on two posts, right at the top of the platform
   const sx2 = X(4, 22);
-  px(sx2 + 3, yy + 16, 2, 9, '#5a5048'); px(sx2 + 17, yy + 16, 2, 9, '#5a5048');
-  px(sx2 - 1, yy + 6, 24, 12, C.outline);
-  px(sx2, yy + 7, 22, 10, '#f0e4c8'); px(sx2, yy + 7, 22, 2, '#f8f0dc'); px(sx2, yy + 15, 22, 2, '#d9c8a2');
-  px(sx2 + 3, yy + 10, 16, 2, '#4a3826'); px(sx2 + 5, yy + 13, 12, 1, '#8a7856');
-  // a bench with someone waiting beside it, down toward the far end of the platform
-  if (!drawProp(PROPS.bench, X(14), yy + 82)) drawStationBench(X(6, 24) + 1, yy + 70);
-  drawCharSprite(who(3), X(41), yy + 90, 0, -1);         // a traveller waiting by the edge
+  px(sx2 + 3, yy + 12, 2, 9, '#5a5048'); px(sx2 + 17, yy + 12, 2, 9, '#5a5048');
+  px(sx2 - 1, yy + 2, 24, 12, C.outline);
+  px(sx2, yy + 3, 22, 10, '#f0e4c8'); px(sx2, yy + 3, 22, 2, '#f8f0dc'); px(sx2, yy + 11, 22, 2, '#d9c8a2');
+  px(sx2 + 3, yy + 6, 16, 2, '#4a3826'); px(sx2 + 5, yy + 9, 12, 1, '#8a7856');
+  // a bench turned to run along the platform, someone waiting beside it
+  const benchCx = left ? 19 : W - 19, benchCy = yy + 88;
+  if (!drawPropRot(PROPS.bench, benchCx, benchCy, left ? -1 : 1)) drawStationBench(X(6, 24) + 1, yy + 80);
+  drawCharSprite(who(3), left ? 33 : W - 33, yy + 92, 0, left ? 1 : -1);   // a traveller waiting by the edge
 }
 
 function drawCar() {
@@ -2971,7 +2995,9 @@ function drawWideView() {
   const cx = W/2;
   const urban = urbanAt(miles / ROUTE.totalMiles);
   const uc = Math.min(1, urban);
-  const gA = hexMix(C.fieldA, '#9a958c', uc*0.85), gB = hexMix(C.fieldB, '#8b867d', uc*0.85);
+  const gA = hexMix(C.fieldA, '#9a958c', uc*0.85);
+  const gm = gA.match(/\d+/g).map(Number);             // a whisper-faint scroll stripe: gA darkened a touch
+  const gB = `rgb(${Math.max(0,gm[0]-6)},${Math.max(0,gm[1]-6)},${Math.max(0,gm[2]-6)})`;
   const coast = coastAmount();
   // 1) ground, scrolling past — same region tint as the window view
   for (let y = -16; y < H+16; y += 16) {
