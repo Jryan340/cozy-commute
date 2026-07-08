@@ -890,18 +890,20 @@ loadHp('gold', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAYAAABr5z
 loadHp('teal', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAYAAABr5z2BAAABIElEQVR4nI2SsU4CURBFz759LCLYS2P8AdgCAiK6LHQQSATiVxqiH2FUbP0BY2UvxS6898aCiAW7gVvOnDs3mRmPHHXmdyKeAsATx+viycviMout+VQqF5c4YwBQWrP6+uR98bjH7xXa93PZrH74Xr6hiycAmDThvH1FoXLG8mGRGbpNnk2lMRpKXr8xGkprNs3uh4NYmpNxrvlPzclYwkG8z9VvuwfNOzb6ZxVALY7EbtbH+rHpmlocCYCuR12pdrqYdI3SBfl4fslfElDv3Uj1OmKTptSMEeWXTnGAp338UulguhcUQXngK3S5jBbrMEmCUgqRI9YggkkSxDnEOrQzBhUE2wHWHvZbiwoCcG73aIT9XvZpchQOYgn7PQH4BWdMc3wxrg0vAAAAAElFTkSuQmCC');
 loadHp('pink', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAYAAABr5z2BAAABMUlEQVR4nI2SPUvDUBSGn6S5iZEWcRJxKrpU0i9iCw0dqouCVLCLLh26FPxFQv+HqzrVXcQugpP4sYgutY25x8Fahya073Q453nPC+degwR1g4YYk1qAXv/aiONim91aQ7ZW1wh1BIAyUzy8v9K7mV0y0zgLduVjNOTy8R7XtgEYjsfsZbdZcVzO+1exodPkth9I0rztB9KtNeLnrYIvnWo90fynTrUurYI/yzW94lzzlM3/sybASbkiGcdd1E/GdjktVwTAauZLUt3Y5CsMOfQKcnF3m3wk4Chfkp31LMNwzKc3EmvZUgxenjAMkyXLnpuuUhaDt2e0jsgoBzPSGg0IgsgCZ5BfToBvrTFHUYRrKdK2SyR6rj/UGlcp0rYz/Wjs5zxpFWOeJkEHOU+OJ/wPIKdv1Mvpp2gAAAAASUVORK5CYII=');
 let hpColor = 'dark';   // remembered from the save
+const HP_CUP_ROW = 9;   // cup-centre row within the headphone sprites (band 0-2, cups 7-11)
 function drawWornHeadphones(charId, cx, cy, bob) {
   const rec0 = CHAR_IMG[charId], hh = (rec0 && rec0.ok) ? rec0.img.height : 30;
   const htop = Math.round(cy + 8 - hh + (bob || 0));
+  // the cups go over the EARS, not perched on the crown — ears sit on the eye
+  // line, so anchor to the same per-character row the sleep mask uses
+  const earY = htop + (MASK_EYE_ROW[charId] != null ? MASK_EYE_ROW[charId] : 11);
   const hpr = HP_IMG[hpColor] || HP_IMG.dark;
-  if (hpr && hpr.ok) { ctx.drawImage(hpr.img, Math.round(cx - hpr.img.width / 2), htop - 1, hpr.img.width, hpr.img.height); return; }
-  const rec = CHAR_IMG[charId], h = (rec && rec.ok) ? rec.img.height : 30;
-  const ht = Math.round(cy + 8 - h + (bob || 0));        // top of the sprite = top of the head
+  if (hpr && hpr.ok) { ctx.drawImage(hpr.img, Math.round(cx - hpr.img.width / 2), earY - HP_CUP_ROW, hpr.img.width, hpr.img.height); return; }
   const cup = '#2b2f36', cupHi = '#4a5058', band = '#3a3f47', bandHi = '#565c66';   // same palette as the table headphones
-  px(cx - 6, ht, 12, 2, band); px(cx - 6, ht, 12, 1, bandHi);        // headband arcs over the top, with a highlight
-  px(cx - 7, ht + 1, 1, 3, band); px(cx + 6, ht + 1, 1, 3, band);    // band shoulders down to the cups
-  px(cx - 8, ht + 3, 3, 6, cup);  px(cx - 8, ht + 4, 1, 4, cupHi);   // left ear cup + inner sheen
-  px(cx + 5, ht + 3, 3, 6, cup);  px(cx + 7, ht + 4, 1, 4, cupHi);   // right ear cup
+  px(cx - 6, earY - 8, 12, 2, band); px(cx - 6, earY - 8, 12, 1, bandHi);   // headband arcs over the top, with a highlight
+  px(cx - 7, earY - 7, 1, 3, band); px(cx + 6, earY - 7, 1, 3, band);       // band shoulders down to the cups
+  px(cx - 8, earY - 3, 3, 6, cup);  px(cx - 8, earY - 2, 1, 4, cupHi);      // left ear cup + inner sheen
+  px(cx + 5, earY - 3, 3, 6, cup);  px(cx + 7, earY - 2, 1, 4, cupHi);      // right ear cup
 }
 
 // everything you can take out of your bag
