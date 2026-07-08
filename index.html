@@ -842,8 +842,14 @@ function drawCharSprite(id, cx, cy, bob, facing) {
   return true;
 }
 function drawNpcSprite(cx, cy, bob, which) { return drawCharSprite(which, cx, cy, bob, 1); }
-// a pair of headphones sitting over a roster sprite's head (drawn on top of the sprite)
+// a pair of headphones sitting over a roster sprite's head — hand-drawn asset,
+// with a procedural pair as a fallback until it loads
+const hpImg = new Image(); let hpImgOK = false; hpImg.onload = () => { hpImgOK = true; };
+hpImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAYAAABr5z2BAAABDklEQVR4nI2Rv0vDUBSFv5e8PN2kq0jJIkTahpD2tbVQ/dvVwV+Lk+CWoaXWDsVNEvOugxqEJMSzvXu+w7ncp2jR5flUEPl+KMXV7YNq4hqHy5mVo16PsnQA+L7H+37Pzf1jja8NLuZTyfMPsizDGANAnueEYYgxh1zfNW/y0zyReZpImz9PE1nOJs2+jQeysGlr+FcLm4qNB3VuPIg6wxU7PKtYD8AmI9EH5r95dBBgk5EAqHQYyUk/pCgKNusVT88v7UcCxsNIjvshn0XB63qF1jpgs92ilEIHQWe78jVvux3OOQJj8JxzlSnSfQYRqTjnHF5ZlmitMcYg4jriIOIqviqPo1OZNH1Ni/7yX1DKa32jm7n+AAAAAElFTkSuQmCC';
 function drawWornHeadphones(charId, cx, cy, bob) {
+  const rec0 = CHAR_IMG[charId], hh = (rec0 && rec0.ok) ? rec0.img.height : 30;
+  const htop = Math.round(cy + 8 - hh + (bob || 0));
+  if (hpImgOK) { ctx.drawImage(hpImg, Math.round(cx - hpImg.width / 2), htop - 1, hpImg.width, hpImg.height); return; }
   const rec = CHAR_IMG[charId], h = (rec && rec.ok) ? rec.img.height : 30;
   const ht = Math.round(cy + 8 - h + (bob || 0));        // top of the sprite = top of the head
   const cup = '#2b2f36', cupHi = '#4a5058', band = '#3a3f47', bandHi = '#565c66';   // same palette as the table headphones
@@ -1774,7 +1780,14 @@ let etaSeconds = 0;
 const CRUISE = 0.78;          // cruising speed (mi/s) — legacy, kept for etas/effects
 const BRAKE_DIST = 2.2;       // start slowing this many miles out from a stop
 const DWELL = 2.5;            // seconds standing at each station
-const SCROLL_PER_MILE = 44;   // scenery px per mile (so motion matches speed)
+// A real train covers ~1 mile/minute, which would crawl the scenery past at ~1px/s.
+// LOOK_SPEED exaggerates the sense of speed (not 1:1 realistic): the scenery — and
+// the platforms gliding by, scaled with it — sweep past like a train actually moving.
+const LOOK_SPEED = 20;
+const SCROLL_PER_MILE = 44 * LOOK_SPEED;   // scenery px per mile
+// how a passing station is projected onto the screen (a window of track ahead→behind),
+// scaled by LOOK_SPEED so platforms sweep by at the same rate as the rest of the scenery
+const STN_AHEAD = 5.5 / LOOK_SPEED, STN_SPAN = 8.5 / LOOK_SPEED, STN_BEHIND = 3 / LOOK_SPEED;
 
 // --- persistent-universe schedule ------------------------------------------
 // The world runs on the real Eastern-Time clock. Trains leave on a fixed
@@ -2599,8 +2612,8 @@ function drawScenery() {
   const stnSpans = [];
   for (const s of STATIONS) {
     const d = s.mile - miles;
-    if (d < 5.5 && d > -3) {
-      const yy = ((5.5 - d) / 8.5) * H;
+    if (d < STN_AHEAD && d > -STN_BEHIND) {
+      const yy = ((STN_AHEAD - d) / STN_SPAN) * H;
       stnSpans.push([yy - 22, yy + 122, (coast > 0.5 && s.side === 'L') ? 'R' : s.side]);   // keep buildings well clear of the platform
     }
   }
@@ -2632,7 +2645,7 @@ function drawScenery() {
   // when the sea owns the left side, the platform keeps to dry land on the right
   for (const s of STATIONS) {
     const d = s.mile - miles;
-    if (d < 5.5 && d > -3) drawStation(s, ((5.5 - d) / 8.5) * H, (coast > 0.5 && s.side === 'L') ? 'R' : s.side);
+    if (d < STN_AHEAD && d > -STN_BEHIND) drawStation(s, ((STN_AHEAD - d) / STN_SPAN) * H, (coast > 0.5 && s.side === 'L') ? 'R' : s.side);
   }
 }
 // sleeper ends + gravel ballast peeking out from under the car on both sides
@@ -3353,8 +3366,8 @@ function drawFPOutside() {
   for (const s of STATIONS) {
     const d = s.mile - miles;
     const pside = (coastAmount() > 0.5 && s.side === 'L') ? 'R' : s.side;
-    if (pside !== side || d >= 5.5 || d <= -3) continue;
-    const t = (5.5 - d) / 8.5;                            // 0 → entering right, 1 → gone left
+    if (pside !== side || d >= STN_AHEAD || d <= -STN_BEHIND) continue;
+    const t = (STN_AHEAD - d) / STN_SPAN;                 // 0 → entering right, 1 → gone left
     const sx = Math.round(w + 90 - t * (w + 260));
     fpx(sx - 20, ny - 4, 190, h - ny + 4, '#9a9188');     // platform slab
     fpx(sx - 20, ny - 6, 190, 2, '#b0a79a');
