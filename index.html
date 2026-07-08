@@ -1291,8 +1291,7 @@ function renderSearch() {
   const head = document.createElement('div'); head.className = 'sb-sec';
   head.textContent = routes.length ? ((fromV || toV) ? 'Connections' : 'Departures from ' + save.lastCity) : 'No direct service found';
   res.appendChild(head);
-  const deps = upcomingDepartures(3);
-  for (const r of routes) res.appendChild(connectionCard(r, deps));
+  for (const r of routes) res.appendChild(connectionCard(r, departuresFor(r, 3)));
 }
 sbFromEl.addEventListener('focus', () => { sbFocus = 'from'; });
 sbToEl.addEventListener('focus', () => { sbFocus = 'to'; });
@@ -1306,7 +1305,7 @@ document.getElementById('sbSwap').addEventListener('click', () => {
 let chosenDepartTs = 0;
 // the departure we're actually holding: your pick if it hasn't left yet, else the next train
 function effectiveDepartTs() {
-  return (chosenDepartTs && chosenDepartTs > Date.now() - 1000) ? chosenDepartTs : nextDepartTs();
+  return (chosenDepartTs && chosenDepartTs > Date.now() - 1000) ? chosenDepartTs : nextDepartFor(ROUTE);
 }
 function bookRideAt(r, ts) {
   loadRoute(r);
@@ -1314,7 +1313,7 @@ function bookRideAt(r, ts) {
   resetJourney();               // reset + pull up the fare inside the app
   toast(`Fare · ${r.from} → ${r.to} · departs ${fmtETClock(ts)}`);
 }
-function bookRoute(r) { bookRideAt(r, nextDepartTs()); }
+function bookRoute(r) { bookRideAt(r, nextDepartFor(r)); }
 
 function renderPassport() {
   const unlocked = classUnlocked(), cur = Math.min(save.classCurrent, unlocked);
@@ -1424,8 +1423,9 @@ let PLAT_MAXY = 196;   // how far down you can roam — grows when the departure
 const DOOR_CX = W / 2;
 let stnX = DOOR_CX, stnY = 150, stnFacing = -1, stnWalkT = 0, stnMoving = false, stnTarget = null, stnBoardLock = false;
 // which routes leave from a given city (their origin), for the departures board
-function departuresFrom(city) {
-  return ROUTES.filter(r => r.from === city);
+function departuresFrom(city) {   // routes leaving this city SOON (so the board is what you can actually catch)
+  const now = Date.now();
+  return ROUTES.filter(r => r.from === city && (FAST_MODE || nextDepartFor(r, now) - now <= BOARD_HORIZON_MS));
 }
 function onwardRoutes() { return departuresFrom(save.lastCity).filter(r => save.lifetimeMiles >= r.minMiles); }
 let selectedDepId = null;                     // the train currently at the platform (roll-sign + walk-on target)
@@ -1440,9 +1440,8 @@ function renderStation() {
   document.getElementById('stnCity').innerHTML = save.lastCity + ' · <b id="stnClock">' + fmtETClock(Date.now()) + '</b>';
   const board = document.getElementById('stnDeps'); board.innerHTML = '';
   const deps = departuresFrom(save.lastCity);
-  const t = fmtETClock(nextDepartTs());
   if (!deps.length) {
-    board.innerHTML = `<div class="stn-empty">No scheduled departures from here right now.<br>Plan a trip to ride from another city.</div>`;
+    board.innerHTML = `<div class="stn-empty">No trains from here right now.<br>Regular trains run 5am–11pm; catch the overnight from New York.</div>`;
     return;
   }
   // the train drawn at the platform = the first unlocked departure (unless you last tapped another)
@@ -1453,7 +1452,7 @@ function renderStation() {
     const atPlat = r.id === selectedDepId;
     const row = document.createElement('div'); row.className = 'stn-dep' + (atPlat ? ' sel' : '');
     row.innerHTML =
-      `<span class="t">${t}</span>
+      `<span class="t">${fmtETClock(nextDepartFor(r))}</span>
        <span class="d">${r.to}<small>${locked ? '🔒 ' + r.minMiles + ' mi to unlock' : r.stations.length + ' stops · ' + fmtDur(routeMinutes(r))}</small></span>
        <span class="p">${i + 3}</span><span class="go">${locked ? '🔒' : '›'}</span>`;
     if (!locked) row.onclick = () => takeTicket(r.id);
@@ -1619,21 +1618,41 @@ function fmtETClock(ts) {
   return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York',
     hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(ts));
 }
-// ms from now until the next scheduled departure (ceil to the interval)
-function msToNextDeparture() {
-  const t = etNow();
-  const into = ((t.m % DEPART_INTERVAL_MIN) * 60 + t.s) * 1000 + t.ms;
-  let rem = DEPART_INTERVAL_MIN * 60 * 1000 - into;
-  if (rem <= 0) rem += DEPART_INTERVAL_MIN * 60 * 1000;
-  return rem;
+// ET clock parts for an arbitrary epoch ms (for scheduling into the future)
+function etAt(ms) {
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour12: false,
+    hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(ms));
+  const o = {}; for (const x of p) o[x.type] = x.value;
+  return { h: parseInt(o.hour, 10) % 24, m: parseInt(o.minute, 10), s: parseInt(o.second, 10) };
 }
-function nextDepartTs() { return Date.now() + msToNextDeparture(); }
-// the next N scheduled departures (epoch ms) — the SBB-style options list
-function upcomingDepartures(n) {
-  const first = nextDepartTs(), step = DEPART_INTERVAL_MIN * 60 * 1000, out = [];
-  for (let i = 0; i < n; i++) out.push(first + i * step);
+function etMinuteOfDay(ms) { const t = etAt(ms); return t.h * 60 + t.m + t.s / 60; }
+// Regular trains: first at 5:00, last at 23:00. Half-hourly during the peaks
+// (6:30–10:00 and 15:00–20:00), hourly the rest of the day; nothing overnight.
+function isPeakMin(m) { return (m >= 390 && m < 600) || (m >= 900 && m < 1200); }
+function regularValidMin(m) { return m >= 300 && m <= 1380 && (m % (isPeakMin(m) ? 30 : 60) === 0); }
+// The overnight service runs evening through the small hours, hourly (20:00–05:00).
+function overnightValidMin(m) { return (m >= 1200 || m <= 300) && (m % 60 === 0); }
+// next epoch ms after fromMs whose ET minute-of-day satisfies validFn
+function nextValidDepart(validFn, fromMs) {
+  const base = etMinuteOfDay(fromMs), start = Math.ceil(base + 1e-6);
+  for (let abs = start; abs <= start + 2 * 1440; abs++) {
+    if (validFn(((abs % 1440) + 1440) % 1440)) return fromMs + (abs - base) * 60000;
+  }
+  return fromMs + 24 * 3600 * 1000;
+}
+const BOARD_HORIZON_MS = 90 * 60 * 1000;         // a route only shows on a platform board if it leaves within this
+function scheduleFn(r) { return r && r.depart === 'overnight' ? overnightValidMin : regularValidMin; }
+function nextDepartFor(r, fromMs) {
+  fromMs = fromMs || Date.now();
+  if (FAST_MODE) { const step = DEPART_INTERVAL_MIN * 60000; return Math.ceil((fromMs + 1) / step) * step; }
+  return nextValidDepart(scheduleFn(r), fromMs);
+}
+function departuresFor(r, n) {                    // the next n departures for this route
+  const out = []; let from = Date.now() - 1;
+  for (let i = 0; i < n; i++) { const t = nextDepartFor(r, from); out.push(t); from = t; }
   return out;
 }
+function nextDepartTs() { return nextDepartFor(null, Date.now()); }   // next regular departure (generic)
 
 // speed profile at an arbitrary milepost (RI sprint / shoreline crawl) — used
 // to shape the timetable so the ride still *feels* like the real corridor.
