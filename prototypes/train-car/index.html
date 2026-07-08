@@ -692,18 +692,24 @@ npcSeats.forEach((i, k) => {
     zzz: Math.random() * 6.28,      // phase for the drifting Zzz above a sleeper
   };
 });
-// passengers drift between dozing and waking; deeper into the night they mostly sleep
+// passengers only really doze once it's dark — by day they stay awake
 function tickNaps(dt) {
   const night = Math.min(1, Math.max(0, (lightingFor(dayT).a - 0.15) / 0.35));   // 0 by day, 1 deep night
   for (const st of seats) {
     const o = st.occupant;
     if (!o || !o.npc) continue;
+    if (o.asleep && night < 0.25) { o.asleep = false; o.napT = 8 + Math.random() * 12; }   // daybreak wakes everyone
     o.napT -= dt;
     if (o.napT <= 0) {
-      o.asleep = !o.asleep;
-      // sleep spells run longer at night; waking spells run longer by day
-      o.napT = o.asleep ? (6 + Math.random() * 10) * (0.6 + night * 1.6)
-                        : (8 + Math.random() * 14) * (1.4 - night);
+      if (o.asleep) {
+        o.asleep = false;                                  // stir awake for a good while
+        o.napT = 12 + Math.random() * 18;
+      } else if (night > 0.3 && Math.random() < night * 0.9) {
+        o.asleep = true;                                   // doze off — long spells, and only after dark
+        o.napT = (14 + Math.random() * 22) * (0.6 + night);
+      } else {
+        o.napT = 5 + Math.random() * 9;                    // still awake; reconsider a bit later
+      }
     }
     if (o.asleep) o.zzz += dt;
   }
@@ -2216,7 +2222,7 @@ function drawSeatItems(st) {
   if (st.occupant && st.occupant.player) {
     // headphones are worn (drawn on the head), not set on the table — pack the rest into slots
     tableItems().forEach((k, i) => { if (slots[i]) drawItemKind(k, slots[i], elapsed); });
-  } else if (st.occupant && st.occupant.npc && st.occupant.item && st.occupant.item !== 'headphones') {
+  } else if (st.occupant && st.occupant.npc && st.occupant.item && st.occupant.item !== 'headphones' && !st.occupant.asleep) {   // asleep → they've put their things away
     drawItemKind(st.occupant.item, slots[1], elapsed + st.cy);
   }
 }
@@ -2813,10 +2819,17 @@ function drawChar(cx, cy, p, o) {
   else if (o.facing) px(cx + (o.facing > 0 ? 3 : -4), y - 4, 1, 1, 'rgba(0,0,0,.35)');
 }
 function drawPerson(cx, cy, p, t, hp) {
-  const bob = Math.sin(t) * 0.6;
+  const bob = p.asleep ? 2 : Math.sin(t) * 0.6;                     // asleep: slumped + still, not bobbing
   const drawn = p.sprite && drawNpcSprite(cx, cy, bob, p.sprite);   // hand-drawn passenger
   if (!drawn) drawChar(cx, cy - 10, p, { bob, hp });                // lifted so head + shoulders clear the table
-  if (p.asleep) drawZzz(cx + 4, cy - (drawn ? 22 : 20), p.zzz || 0);   // dozing: a drift of Zzz
+  if (p.asleep) {
+    const rec = drawn && CHAR_IMG[p.sprite];
+    const h = rec && rec.ok ? rec.img.height : 20;
+    const headTop = cy + 8 - h + bob;                               // top of the drawn sprite
+    const eyeY = Math.round(headTop + h * 0.28);                    // ~a quarter down = the eyes
+    px(cx - 4, eyeY, 3, 1, 'rgba(24,18,12,.7)'); px(cx + 1, eyeY, 3, 1, 'rgba(24,18,12,.7)');   // closed eyes
+    drawZzz(cx + 4, Math.round(headTop) - 2, p.zzz || 0);          // a drift of Zzz above the head
+  }
 }
 
 // the seated player, drawn inside the seat loop so the table sits in front of them
