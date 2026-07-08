@@ -225,12 +225,15 @@
   .st-dot { position: relative; z-index: 1; flex: 0 0 11px; width: 11px; height: 11px; border-radius: 50%;
     border: 2px solid #565062; background: #2a2735; box-sizing: border-box; }
   .st-name { flex: 1; font-size: 13px; color: #cfc8ba; }
+  .st-meta { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+  .st-time { font-size: 12px; font-weight: 700; color: #cfc8ba; letter-spacing: .3px; }
   .st-mi { font-size: 10px; opacity: .42; letter-spacing: .3px; }
   .st-row.passed .st-dot { background: #ffd9a0; border-color: #ffd9a0; }
   .st-row.passed::before { background: #ffd9a0; }
-  .st-row.passed .st-name { color: rgba(239,232,218,.5); }
+  .st-row.passed .st-name, .st-row.passed .st-time { color: rgba(239,232,218,.5); }
   .st-row.next .st-dot { border-color: #7fd3bd; box-shadow: 0 0 0 3px rgba(127,211,189,.22); }
   .st-row.next .st-name { color: #fff; font-weight: 700; }
+  .st-row.next .st-time { color: #7fd3bd; }
   .st-row.next .st-mi { color: #7fd3bd; opacity: 1; }
 
   .trip-primary { display: flex; gap: 10px; margin-bottom: 14px; }
@@ -450,6 +453,10 @@
   }
   #bag.show, #charPick.show, #hpMenu.show { transform: translateX(-50%) translateY(0); }
   #hpGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  #hpColors { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .hp-sub { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: #6f6980; font-weight: 700; margin: 14px 4px 8px; }
+  .hp-swatch img { image-rendering: pixelated; width: 30px; height: auto; }
+  .hp-swatch span { font-size: 9px; }
   .bag-head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 12px; }
   .bag-head b { font-size: 15px; letter-spacing: .3px; }
   #bagIcon { image-rendering: pixelated; vertical-align: -5px; margin-right: 6px; }
@@ -517,8 +524,10 @@
   </div>
 
   <div id="hpMenu">
-    <div class="bag-head"><b>🎧 Choose a channel</b><span>music while you ride</span></div>
+    <div class="bag-head"><b>🎧 Headphones</b><span>music &amp; colour</span></div>
     <div id="hpGrid"></div>
+    <div class="hp-sub">Colour</div>
+    <div id="hpColors"></div>
     <button id="hpDone">Done</button>
   </div>
 
@@ -842,14 +851,27 @@ function drawCharSprite(id, cx, cy, bob, facing) {
   return true;
 }
 function drawNpcSprite(cx, cy, bob, which) { return drawCharSprite(which, cx, cy, bob, 1); }
-// a pair of headphones sitting over a roster sprite's head — hand-drawn asset,
-// with a procedural pair as a fallback until it loads
-const hpImg = new Image(); let hpImgOK = false; hpImg.onload = () => { hpImgOK = true; };
-hpImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAYAAABr5z2BAAABDklEQVR4nI2Rv0vDUBSFv5e8PN2kq0jJIkTahpD2tbVQ/dvVwV+Lk+CWoaXWDsVNEvOugxqEJMSzvXu+w7ncp2jR5flUEPl+KMXV7YNq4hqHy5mVo16PsnQA+L7H+37Pzf1jja8NLuZTyfMPsizDGANAnueEYYgxh1zfNW/y0zyReZpImz9PE1nOJs2+jQeysGlr+FcLm4qNB3VuPIg6wxU7PKtYD8AmI9EH5r95dBBgk5EAqHQYyUk/pCgKNusVT88v7UcCxsNIjvshn0XB63qF1jpgs92ilEIHQWe78jVvux3OOQJj8JxzlSnSfQYRqTjnHF5ZlmitMcYg4jriIOIqviqPo1OZNH1Ni/7yX1DKa32jm7n+AAAAAElFTkSuQmCC';
+// worn headphones — a hand-drawn asset in a colour you pick (procedural fallback until it loads)
+const HP_COLORS = [
+  { id: 'dark',  name: 'Charcoal' },
+  { id: 'brown', name: 'Copper' },
+  { id: 'gold',  name: 'Gold' },
+  { id: 'teal',  name: 'Teal' },
+  { id: 'pink',  name: 'Rose' },
+];
+const HP_IMG = {};
+function loadHp(id, uri) { const img = new Image(); const rec = { img, ok: false }; img.onload = () => { rec.ok = true; }; img.src = uri; HP_IMG[id] = rec; }
+loadHp('dark', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAYAAABr5z2BAAABDklEQVR4nI2Rv0vDUBSFv5e8PN2kq0jJIkTahpD2tbVQ/dvVwV+Lk+CWoaXWDsVNEvOugxqEJMSzvXu+w7ncp2jR5flUEPl+KMXV7YNq4hqHy5mVo16PsnQA+L7H+37Pzf1jja8NLuZTyfMPsizDGANAnueEYYgxh1zfNW/y0zyReZpImz9PE1nOJs2+jQeysGlr+FcLm4qNB3VuPIg6wxU7PKtYD8AmI9EH5r95dBBgk5EAqHQYyUk/pCgKNusVT88v7UcCxsNIjvshn0XB63qF1jpgs92ilEIHQWe78jVvux3OOQJj8JxzlSnSfQYRqTjnHF5ZlmitMcYg4jriIOIqviqPo1OZNH1Ni/7yX1DKa32jm7n+AAAAAElFTkSuQmCC');
+loadHp('brown', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAYAAABr5z2BAAABMklEQVR4nI2SzUoCcRTFfzPjd1FguC01MTESKwRBhPQFohaBi9y5cuOq6AmCXqVVL1BvEEIUtGoTbSJxkUWT8z8t+iBwBj3Lc889B869FgE4ahRlWRYAkji7urP8dL7kUaOojdQ8H8YAELVtbp5ffU0miJPmugbvLhf3z8xFHABGrsfuWopkPMLp5a1vKADHjaK6tbyC5t1aXseNov+8XcmqVy8ELv+iVy+oXclO6g42fcgA/NfaAJ1qTsm4M+s+yZhDp5oTQKi1lVEzs8Sb6/FSzui8/xBcEtDazmonnWTkjhmW0wolwg7XjwMcy2Y+Yk9NjzkW/achnjEsREPYnhECDMJoeg2SkIQBxkbYrmdIhB0Wo2HGZrqBa/Sn//S+H4290rLaldWZr7BfWtHhzym/AJn2cr6anAFnAAAAAElFTkSuQmCC');
+loadHp('gold', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAYAAABr5z2BAAABRUlEQVR4nI2RPUtCcRTGf/d2vYrCNcxBamsQDUki0KUt2iIoIYwWlyxIhLByrFEIaTEI+g71FYJaarOpqbVCjF6IfLv/01I2eC/2jM/5PeccztFwUW0nLbouACilUTi+0Zw4R/O0lJK56RCtjg2Azxzh+u6FrertAD9gnO2l5anZpnb+QNAyAXh771BYmSQy5mXjyHmT/uRKfkbc6pX8jJyWUs71cjYh1e1Z1/CvqtuzUs4mBrnCcnxo+I+d6rM6wEEuKZEx73/zREImh7mkABjFTFzWFyb4+Ory2IzJycW9+5GAYiYuq/PjfHx2abzGxBgNeLisP6NrGpbfM3R6wGdwVW/QU4qQZWJ0bYVSgAYiw88gIigRlIKerdC/WjaW3yAcNGl31dAGrY6NFfAQDpq0Oj98fjEq+2sOr3HR5lJUdn9e+Q1AMXm4Rit/iAAAAABJRU5ErkJggg==');
+loadHp('teal', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAYAAABr5z2BAAABIElEQVR4nI2SsU4CURBFz759LCLYS2P8AdgCAiK6LHQQSATiVxqiH2FUbP0BY2UvxS6898aCiAW7gVvOnDs3mRmPHHXmdyKeAsATx+viycviMout+VQqF5c4YwBQWrP6+uR98bjH7xXa93PZrH74Xr6hiycAmDThvH1FoXLG8mGRGbpNnk2lMRpKXr8xGkprNs3uh4NYmpNxrvlPzclYwkG8z9VvuwfNOzb6ZxVALY7EbtbH+rHpmlocCYCuR12pdrqYdI3SBfl4fslfElDv3Uj1OmKTptSMEeWXTnGAp338UulguhcUQXngK3S5jBbrMEmCUgqRI9YggkkSxDnEOrQzBhUE2wHWHvZbiwoCcG73aIT9XvZpchQOYgn7PQH4BWdMc3wxrg0vAAAAAElFTkSuQmCC');
+loadHp('pink', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAYAAABr5z2BAAABMUlEQVR4nI2SPUvDUBSGn6S5iZEWcRJxKrpU0i9iCw0dqouCVLCLLh26FPxFQv+HqzrVXcQugpP4sYgutY25x8Fahya073Q453nPC+degwR1g4YYk1qAXv/aiONim91aQ7ZW1wh1BIAyUzy8v9K7mV0y0zgLduVjNOTy8R7XtgEYjsfsZbdZcVzO+1exodPkth9I0rztB9KtNeLnrYIvnWo90fynTrUurYI/yzW94lzzlM3/sybASbkiGcdd1E/GdjktVwTAauZLUt3Y5CsMOfQKcnF3m3wk4Chfkp31LMNwzKc3EmvZUgxenjAMkyXLnpuuUhaDt2e0jsgoBzPSGg0IgsgCZ5BfToBvrTFHUYRrKdK2SyR6rj/UGlcp0rYz/Wjs5zxpFWOeJkEHOU+OJ/wPIKdv1Mvpp2gAAAAASUVORK5CYII=');
+let hpColor = 'dark';   // remembered from the save
 function drawWornHeadphones(charId, cx, cy, bob) {
   const rec0 = CHAR_IMG[charId], hh = (rec0 && rec0.ok) ? rec0.img.height : 30;
   const htop = Math.round(cy + 8 - hh + (bob || 0));
-  if (hpImgOK) { ctx.drawImage(hpImg, Math.round(cx - hpImg.width / 2), htop - 1, hpImg.width, hpImg.height); return; }
+  const hpr = HP_IMG[hpColor] || HP_IMG.dark;
+  if (hpr && hpr.ok) { ctx.drawImage(hpr.img, Math.round(cx - hpr.img.width / 2), htop - 1, hpr.img.width, hpr.img.height); return; }
   const rec = CHAR_IMG[charId], h = (rec && rec.ok) ? rec.img.height : 30;
   const ht = Math.round(cy + 8 - h + (bob || 0));        // top of the sprite = top of the head
   const cup = '#2b2f36', cupHi = '#4a5058', band = '#3a3f47', bandHi = '#565c66';   // same palette as the table headphones
@@ -1247,6 +1269,7 @@ function updateHpBtn() {
 // --- channel menu (a little bottom-sheet of stations) ----------------------
 const hpMenuEl = document.getElementById('hpMenu');
 const hpGridEl = document.getElementById('hpGrid');
+const hpColorsEl = document.getElementById('hpColors');
 let hpMenuOpen = false;
 for (const st of HP_STATIONS) {
   const b = document.createElement('button');
@@ -1255,7 +1278,19 @@ for (const st of HP_STATIONS) {
   b.addEventListener('click', () => selectChannel(st.id));
   hpGridEl.appendChild(b);
 }
-function refreshHpMenu() { for (const b of hpGridEl.children) b.classList.toggle('on', b.dataset.id === hpChannel); }
+for (const c of HP_COLORS) {                              // headphone colour swatches
+  const b = document.createElement('button');
+  b.className = 'chip hp-swatch'; b.dataset.color = c.id;
+  b.innerHTML = `<img alt=""><span>${c.name}</span>`;
+  b.querySelector('img').src = HP_IMG[c.id].img.src;
+  b.addEventListener('click', () => setHpColor(c.id));
+  hpColorsEl.appendChild(b);
+}
+function setHpColor(id) { hpColor = id; save.hpColor = id; persist(); refreshHpMenu(); }
+function refreshHpMenu() {
+  for (const b of hpGridEl.children)   b.classList.toggle('on', b.dataset.id === hpChannel);
+  for (const b of hpColorsEl.children) b.classList.toggle('on', b.dataset.color === hpColor);
+}
 function openHpMenu()  { hpMenuOpen = true; closeBag(); closeCharPick(); hpMenuEl.classList.add('show'); scrimEl.classList.add('show'); refreshHpMenu(); }
 function closeHpMenu() { hpMenuOpen = false; hpMenuEl.classList.remove('show'); scrimEl.classList.remove('show'); }
 document.getElementById('hpDone').addEventListener('click', closeHpMenu);
@@ -1287,12 +1322,16 @@ let tripOpen = false, arrived = false;
 let stRows = null, lastScrolled = -1;
 function buildStopList() {
   const list = document.getElementById('tlList'); list.innerHTML = '';
-  stRows = STATIONS.map(s => {
+  stRows = STATIONS.map((s, i) => {
     const row = document.createElement('div'); row.className = 'st-row';
-    row.innerHTML = `<div class="st-dot"></div><div class="st-name">${s.name}</div><div class="st-mi">${s.mile} mi</div>`;
+    row.innerHTML = `<div class="st-dot"></div><div class="st-name">${s.name}</div>` +
+      `<div class="st-meta"><span class="st-time"></span><span class="st-mi">${s.mile} mi</span></div>`;
+    row._time = row.querySelector('.st-time');
     list.appendChild(row); return row;
   });
 }
+// clock time each stop is reached (the origin shows the departure time)
+function stopArrivalClock(i) { const tt = timetable[i]; return tt ? fmtETClock(departTs + tt.arr * 1000) : ''; }
 function fmtClock(s) { return Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0'); }
 function updateTripCard() {
   const ticket   = boarding && !boarded && !arrived;   // choosing / buying a ticket, not yet aboard
@@ -1310,6 +1349,7 @@ function updateTripCard() {
     const isNext = (i === nextStop) && !arrived;
     row.classList.toggle('passed', passed && !isNext);
     row.classList.toggle('next', isNext);
+    if (row._time) row._time.textContent = stopArrivalClock(i);   // live arrival time per stop
   });
   if (lastScrolled !== nextStop) {            // keep the upcoming stop in view
     lastScrolled = nextStop;
@@ -2037,6 +2077,7 @@ const SAVE_KEY = 'cozycommute.v1';
 let save = { lifetimeMiles:0, trips:0, classCurrent:0, stations:{}, lastStation:'Boston South Station', lastCity:'Boston' };
 try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s); } catch (e) {}
 if (HP_STATIONS.some(s => s.id === save.hpChannel)) hpChannel = save.hpChannel;   // remember the last-picked channel
+if (HP_COLORS.some(c => c.id === save.hpColor)) hpColor = save.hpColor;           // and the headphone colour
 updateHpBtn();   // reflect the saved channel on the (hidden until headphones-on) button
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
 if (save.character && CHAR_IMG[save.character]) player.char = save.character;   // restore your pick
