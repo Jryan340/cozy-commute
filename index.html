@@ -34,7 +34,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   #act:active { transform: translateY(1px); border-bottom-width: 2px; }
-  #snd, #wide, #fp, #charBtn {
+  #snd, #wide, #fp, #charBtn, #info {
     position: fixed; width: 46px; height: 46px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
     background: linear-gradient(180deg, #e6d6b2, #d2ba88); border: 2px solid #8a6a42; border-bottom-width: 4px;
@@ -45,11 +45,15 @@
   #wide { right: 18px; top: 64px; }
   #fp   { left: 18px; top: 64px; display: none; }
   #charBtn { right: 18px; bottom: 64px; }
-  #snd:active, #wide:active, #fp:active, #charBtn:active { transform: translateY(1px); border-bottom-width: 3px; }
+  #info { right: 18px; top: 118px; }
+  #snd:active, #wide:active, #fp:active, #charBtn:active, #info:active { transform: translateY(1px); border-bottom-width: 3px; }
+  /* the how-to-play hint stays tucked away behind the ℹ️ button until you ask for it */
+  #hint { display: none; }
+  #hint.on { display: block; }
   /* first-person mode hides the rest of the chrome for a clean look */
-  body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp, body.fp #charBtn { display: none !important; }
+  body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp, body.fp #charBtn, body.fp #info { display: none !important; }
   /* at the station you're on the platform, not in the car — hide the in-car chrome */
-  body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp, body.at-station #charBtn,
+  body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp, body.at-station #charBtn, body.at-station #info,
   body.at-station #hint, body.at-station #tripTab, body.at-station #wclock { display: none !important; }
   /* the character picker panel + its swatches (mirrors the bag panel) */
   #charGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -388,7 +392,7 @@
   #hud b { color: #ffd9a0; font-weight: 700; }
   #hud .sep { opacity: .3; }
   #hint {
-    position: fixed; bottom: 46px; left: 50%; transform: translateX(-50%);
+    position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%); z-index: 6;
     font-size: 12px; text-align: center; line-height: 1.6; color: #4a3826;
     background: linear-gradient(180deg, #f0e4c8, #e0cea4); padding: 7px 15px; border-radius: 11px;
     border: 2px solid #8a6a42; box-shadow: 0 3px 0 #6f5334; max-width: calc(100vw - 24px);
@@ -469,6 +473,7 @@
   <button id="wide" aria-label="see the whole train">🗺️</button>
   <button id="fp" aria-label="first-person view">🪟</button>
   <button id="charBtn" aria-label="choose your character">🧑</button>
+  <button id="info" aria-label="how to play">ℹ️</button>
 
   <div id="scrim"></div>
   <div id="bag">
@@ -935,6 +940,8 @@ const actBtn = document.getElementById('act');
 const hintEl = document.getElementById('hint');
 actBtn.addEventListener('click', () => { target = null; autoSit = false; toggleSit(); });
 if (isTouch) actBtn.style.display = 'block';
+// the ℹ️ button reveals the how-to-play hint, so it stays out of the way otherwise
+document.getElementById('info').addEventListener('click', () => hintEl.classList.toggle('on'));
 
 // --- inventory ("your bag") -------------------------------------------------
 const bagEl = document.getElementById('bag');
@@ -2394,7 +2401,7 @@ function drawScenery() {
     const d = s.mile - miles;
     if (d < 5.5 && d > -3) {
       const yy = ((5.5 - d) / 8.5) * H;
-      stnSpans.push([yy - 8, yy + 114, (coast > 0.5 && s.side === 'L') ? 'R' : s.side]);
+      stnSpans.push([yy - 22, yy + 122, (coast > 0.5 && s.side === 'L') ? 'R' : s.side]);   // keep buildings well clear of the platform
     }
   }
   const gA = hexMix(C.fieldA, '#9a958c', uc*0.85), gB = hexMix(C.fieldB, '#8b867d', uc*0.85);
@@ -2481,14 +2488,15 @@ function drawStation(s, yy, side) {
   if (alt) { drawProp(PROPS.vending, X(38), yy + 33); drawProp(PROPS.clock, X(37), yy + 62); }
   else     { drawProp(PROPS.bin, X(37), yy + 31); drawProp(PROPS.lamp, X(37), yy + 58); drawProp(PROPS.cart, X(32), yy + 74); }
   drawCharSprite(who(0), X(12), yy + 56, 0, 1);          // the stationmaster by the door
-  if (!drawProp(PROPS.bench, X(15), yy + 84)) drawStationBench(X(6, 24) + 1, yy + 72);
-  drawCharSprite(who(3), X(36), yy + 92, 0, 1);          // a traveller waiting by the edge
-  // the name board on two posts
+  // the name board on two posts, up at the platform entrance (clear of the bench)
   const sx2 = X(4, 22);
-  px(sx2 + 3, yy + 94, 2, 9, '#5a5048'); px(sx2 + 17, yy + 94, 2, 9, '#5a5048');
-  px(sx2 - 1, yy + 84, 24, 12, C.outline);
-  px(sx2, yy + 85, 22, 10, '#f0e4c8'); px(sx2, yy + 85, 22, 2, '#f8f0dc'); px(sx2, yy + 93, 22, 2, '#d9c8a2');
-  px(sx2 + 3, yy + 88, 16, 2, '#4a3826'); px(sx2 + 5, yy + 91, 12, 1, '#8a7856');
+  px(sx2 + 3, yy + 16, 2, 9, '#5a5048'); px(sx2 + 17, yy + 16, 2, 9, '#5a5048');
+  px(sx2 - 1, yy + 6, 24, 12, C.outline);
+  px(sx2, yy + 7, 22, 10, '#f0e4c8'); px(sx2, yy + 7, 22, 2, '#f8f0dc'); px(sx2, yy + 15, 22, 2, '#d9c8a2');
+  px(sx2 + 3, yy + 10, 16, 2, '#4a3826'); px(sx2 + 5, yy + 13, 12, 1, '#8a7856');
+  // a bench with someone waiting beside it, down toward the far end of the platform
+  if (!drawProp(PROPS.bench, X(14), yy + 82)) drawStationBench(X(6, 24) + 1, yy + 70);
+  drawCharSprite(who(3), X(41), yy + 90, 0, -1);         // a traveller waiting by the edge
 }
 
 function drawCar() {
@@ -2575,10 +2583,12 @@ function drawPlant(bx, by) {
   px(bx+1, by-5, 2, 2, '#2b5c30'); px(bx+5, by-4, 2, 2, '#2b5c30');
   px(bx+3, by-7, 1, 4, '#6fbf63');                               // bright centre leaf
 }
-// a booth's sconce is lit unless you've flicked the whole cabin dark (sleep mask)
-// or the passenger sitting there has dozed off and turned their own light out
+// a booth's sconce is lit unless the passenger sitting there has dozed off and
+// turned their own light out — or it's your seat and you've put your sleep mask on
 function lampLit(st) {
-  return !lightsOff && !(st.occupant && st.occupant.npc && st.occupant.asleep);
+  if (st.occupant && st.occupant.npc && st.occupant.asleep) return false;   // a dozing passenger's own lamp
+  if (lightsOff && st === player.seat) return false;                        // you flicked your own light off
+  return true;
 }
 // warm sconce lamps on the wall above each booth (glow pools live in applyAmbient,
 // screen-space, so the lamplight cuts through dusk + tunnel darkness)
@@ -2932,13 +2942,8 @@ function applyAmbient() {
   }
   if (!wideView) {   // carriage lamps warm the interior — a gentle glow always, deeper as it darkens
     const dark = Math.max(tunnelAmount, Math.min(1, (L.a - 0.15) / 0.3));
-    if (lightsOff) {                                             // sleep mask on: the cabin sinks into a cosy dark
-      ctx.fillStyle = 'rgba(10,12,26,0.62)';
-      ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
-    } else {
-      ctx.fillStyle = `rgba(255,196,124,${0.045 + dark*0.10})`;
-      ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
-    }
+    ctx.fillStyle = `rgba(255,196,124,${0.045 + dark*0.10})`;
+    ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
     // pools of sconce lamplight, drawn over the dusk so they genuinely glow (lit lamps only)
     const a = 0.08 + dark * 0.30;
     for (const st of seats) {
@@ -2948,6 +2953,14 @@ function applyAmbient() {
       const rad = 30*cam.s;
       const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, rad);
       g.addColorStop(0, `rgba(255,214,136,${a})`); g.addColorStop(0.45, `rgba(255,196,116,${a*0.45})`); g.addColorStop(1, 'rgba(255,196,116,0)');
+      ctx.fillStyle = g; ctx.fillRect(sx-rad, sy-rad, rad*2, rad*2);
+    }
+    // your sleep mask darkens just your own booth — a soft pool of shadow over your seat
+    if (lightsOff && player.seat) {
+      const sx = (player.seat.cx - cam.fx)*cam.s + W/2, sy = (player.seat.cy - cam.fy)*cam.s + H/2;
+      const rad = 40*cam.s;
+      const g = ctx.createRadialGradient(sx, sy, 4, sx, sy, rad);
+      g.addColorStop(0, 'rgba(10,12,26,0.60)'); g.addColorStop(0.7, 'rgba(10,12,26,0.34)'); g.addColorStop(1, 'rgba(10,12,26,0)');
       ctx.fillStyle = g; ctx.fillRect(sx-rad, sy-rad, rad*2, rad*2);
     }
   }
@@ -2992,15 +3005,20 @@ function drawWideView() {
     }
   }
   drawStreetscape(urban, coast, true, 14);          // rowhouse blocks line the edges of the map
-  if (uc > 0.55) {                                  // cross-streets slide past through the city grid
+  if (uc > 0.55) {                                  // short side-streets between the blocks, meeting the rail corridor
     const j0 = Math.floor((-LOT_H - scroll) / LOT_H), j1 = Math.floor((H + LOT_H - scroll) / LOT_H);
     for (let i = j0; i <= j1; i++) {
       if (lotR(i, 31) < 0.62) continue;
       const y = i * LOT_H + scroll + 14;
-      const x0 = coast > 0.5 ? cx + 21 : 12;
-      px(x0, y, W - 12 - x0, 7, '#8f8a80');
-      px(x0, y, W - 12 - x0, 1, '#a7a196'); px(x0, y + 6, W - 12 - x0, 1, '#6f6a60');   // kerbs
-      for (let x = x0 + 4; x < W - 16; x += 8) px(x, y + 3, 4, 1, '#c9c2b2');           // centreline dashes
+      const stubs = [];
+      if (!(coast > 0.5)) stubs.push([8, 42]);      // left built-up strip (unless the sea owns the left)
+      stubs.push([W - 42, W - 8]);                  // right built-up strip
+      for (const [xa, xb] of stubs) {
+        const w = xb - xa;
+        px(xa, y, w, 7, '#8f8a80');
+        px(xa, y, w, 1, '#a7a196'); px(xa, y + 6, w, 1, '#6f6a60');                     // kerbs
+        for (let x = xa + 3; x < xb - 3; x += 8) px(x, y + 3, 3, 1, '#c9c2b2');         // centreline dashes
+      }
     }
   }
   // 2) the track: gravel ballast, wooden sleepers, two steel rails
