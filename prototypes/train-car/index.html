@@ -1424,10 +1424,13 @@ function renderTicket() {
   document.getElementById('bdHead').textContent = purchased ? 'BOARDING PASS' : 'TICKET';
   document.getElementById('bdStamp').hidden = !purchased;
   const go = document.getElementById('bdGo');
-  if (!purchased)      { go.textContent = 'Buy ticket →';        go.disabled = false; }
-  else if (atOrigin)   { go.textContent = 'Board this train →';  go.disabled = false; }
-  else                 { go.textContent = 'Board at ' + ROUTE.from; go.disabled = true; }
+  if (!purchased)               { go.textContent = 'Buy ticket →';        go.disabled = false; }
+  else if (!atOrigin)           { go.textContent = 'Board at ' + ROUTE.from; go.disabled = true; }
+  else if (Date.now() < boardOpensAt()) { go.textContent = 'Boarding opens ' + fmtETClock(boardOpensAt()); go.disabled = true; }
+  else                          { go.textContent = 'Board this train →';  go.disabled = false; }
 }
+// boarding opens an hour before departure — no getting on the train before then
+function boardOpensAt() { return departTs - BOARD_LEAD_MIN * 60000; }
 function buyTicket() {
   purchased = true;
   renderTicket();
@@ -1436,6 +1439,7 @@ function buyTicket() {
 function board() {
   if (!purchased) return;           // can't board without a ticket
   if (save.lastCity !== ROUTE.from) { toast('Be in ' + ROUTE.from + ' by departure to board'); return; }
+  if (Date.now() < boardOpensAt()) { toast('Boarding opens an hour before departure'); return; }
   departTs = effectiveDepartTs();
   timetable = buildTimetable();
   boarding = false; purchased = false; boarded = true; atStation = false;
@@ -1532,13 +1536,17 @@ function updateWorldClock() {
     // keep the pass's departure + countdown live against the wall clock
     departTs = effectiveDepartTs();
     document.getElementById('bdDepart').textContent = fmtETClock(departTs);
+    if (purchased) renderTicket();   // let the Board button open the moment the hour-before mark passes
     const st = document.getElementById('bdStatus');
-    if (save.lastCity === ROUTE.from) {
-      st.classList.remove('away');
-      st.innerHTML = 'Boarding open · departs ' + fmtETClock(departTs) + ' <b>(in ' + fmtMMSS((departTs - now) / 1000) + ')</b>';
-    } else {
+    if (save.lastCity !== ROUTE.from) {
       st.classList.add('away');
       st.innerHTML = 'Be in <b>' + ROUTE.from + '</b> by ' + fmtETClock(departTs) + ' to board this ticket';
+    } else if (now < boardOpensAt()) {
+      st.classList.remove('away');
+      st.innerHTML = 'Boarding opens ' + fmtETClock(boardOpensAt()) + ' <b>(in ' + fmtMMSS((boardOpensAt() - now) / 1000) + ')</b>';
+    } else {
+      st.classList.remove('away');
+      st.innerHTML = 'Boarding open · departs ' + fmtETClock(departTs) + ' <b>(in ' + fmtMMSS((departTs - now) / 1000) + ')</b>';
     }
   }
 }
@@ -1627,7 +1635,7 @@ const SCROLL_PER_MILE = 44;   // scenery px per mile (so motion matches speed)
 // a server. Rides run at REAL TIME: the journey takes as long as it really
 // would (distance ÷ average speed), so it's a proper sit-back-and-watch ride.
 let DEPART_INTERVAL_MIN = 30;  // a train leaves every half hour, on the clock (:00 and :30)
-let BOARD_LEAD_MIN      = 30;  // you may board up to this many minutes before departure
+let BOARD_LEAD_MIN      = 60;  // boarding opens this many minutes before departure (1 hour)
 let AVG_MPH             = 60;  // real-time cruising average incl. stops (≈ 1 mile / minute)
 let SCHED_DWELL         = 60;  // world-seconds paused at each intermediate stop
 let FAST_MODE           = false;
@@ -1675,7 +1683,7 @@ function nextValidDepart(validFn, fromMs) {
   }
   return fromMs + 24 * 3600 * 1000;
 }
-const BOARD_HORIZON_MS = 90 * 60 * 1000;         // a route only shows on a platform board if it leaves within this
+const BOARD_HORIZON_MS = BOARD_LEAD_MIN * 60 * 1000;   // the platform board lists a route once boarding is open (1h out)
 function scheduleFn(r) { return r && r.depart === 'overnight' ? overnightValidMin : regularValidMin; }
 function nextDepartFor(r, fromMs) {
   fromMs = fromMs || Date.now();
