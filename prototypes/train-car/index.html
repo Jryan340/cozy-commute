@@ -861,11 +861,14 @@ function drawCharSprite(id, cx, cy, bob, facing) {
   return true;
 }
 function drawNpcSprite(cx, cy, bob, which) { return drawCharSprite(which, cx, cy, bob, 1); }
-// a soft sleep mask worn over the eyes (😴 lights out) — same eye line as the dozing NPCs
+// a soft sleep mask worn over the eyes (😴 lights out)
+// eye row differs per character sprite (hair/hat pushes the face down), so it's
+// hand-tuned per roster member rather than a single fraction of the height
+const MASK_EYE_ROW = { classic: 11, silver: 11, rust: 12, traveller: 11, ivy: 10, miles: 11, nova: 11 };
 function drawSleepMask(charId, cx, cy, bob) {
   const rec = CHAR_IMG[charId], h = (rec && rec.ok) ? rec.img.height : 30;
-  const ht = Math.round(cy + 8 - h + (bob || 0));        // top of the head
-  const eyeY = Math.round(ht + h * 0.28);                // eye line
+  const ht = Math.round(cy + 8 - h + (bob || 0));        // top of the sprite (crown of the head)
+  const eyeY = ht + (MASK_EYE_ROW[charId] != null ? MASK_EYE_ROW[charId] : 11);   // eye line, tuned per character
   const mask = '#6b5b8a', maskHi = '#8a78ad', strap = '#463c5c';
   px(cx - 7, eyeY + 1, 14, 1, strap);                    // strap wrapping around the head
   px(cx - 6, eyeY, 12, 4, mask);                         // padded mask front over both eyes
