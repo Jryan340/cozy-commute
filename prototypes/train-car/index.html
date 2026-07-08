@@ -34,7 +34,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   #act:active { transform: translateY(1px); border-bottom-width: 2px; }
-  #snd, #wide, #fp, #charBtn, #info {
+  #snd, #wide, #fp, #charBtn, #info, #hpch {
     position: fixed; width: 46px; height: 46px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
     background: linear-gradient(180deg, #e6d6b2, #d2ba88); border: 2px solid #8a6a42; border-bottom-width: 4px;
@@ -46,14 +46,15 @@
   #fp   { left: 18px; top: 64px; display: none; }
   #charBtn { right: 18px; bottom: 64px; }
   #info { right: 18px; top: 118px; }
-  #snd:active, #wide:active, #fp:active, #charBtn:active, #info:active { transform: translateY(1px); border-bottom-width: 3px; }
+  #hpch { left: 18px; bottom: 118px; display: none; }   /* music channel — shown only with headphones on */
+  #snd:active, #wide:active, #fp:active, #charBtn:active, #info:active, #hpch:active { transform: translateY(1px); border-bottom-width: 3px; }
   /* the how-to-play hint stays tucked away behind the ℹ️ button until you ask for it */
   #hint { display: none; }
   #hint.on { display: block; }
   /* first-person mode hides the rest of the chrome for a clean look */
-  body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp, body.fp #charBtn, body.fp #info { display: none !important; }
+  body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp, body.fp #charBtn, body.fp #info, body.fp #hpch { display: none !important; }
   /* at the station you're on the platform, not in the car — hide the in-car chrome */
-  body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp, body.at-station #charBtn, body.at-station #info,
+  body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp, body.at-station #charBtn, body.at-station #info, body.at-station #hpch,
   body.at-station #hint, body.at-station #tripTab, body.at-station #wclock { display: none !important; }
   /* the character picker panel + its swatches (mirrors the bag panel) */
   #charGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -499,6 +500,7 @@
   <button id="fp" aria-label="first-person view">🪟</button>
   <button id="charBtn" aria-label="choose your character">🧑</button>
   <button id="info" aria-label="how to play">ℹ️</button>
+  <button id="hpch" aria-label="music channel">🎵</button>
 
   <div id="scrim"></div>
   <div id="bag">
@@ -1142,81 +1144,54 @@ async function cycleSound() {
   }
 }
 sndBtn.addEventListener('click', cycleSound);
+document.getElementById('hpch').addEventListener('click', cycleChannel);
 
 // --- lofi music (plays when you put on headphones) --------------------------
-let lofiOn = false, lofiTimer = null, lofiNextBar = 0, lofiBarIdx = 0, lofiCrackle = null, lofiStartAt = 0;
-const BPM = 72, BEAT = 60 / BPM, BAR = BEAT * 4;
-const DRUM_INTRO = 60;   // chords + crackle only for the first minute, then the beat comes in
-const LOFI_CHORDS = [                         // Dm7 · G7 · Cmaj7 · Am7 (cosy ii–V–I–vi)
-  [146.83, 174.61, 220.00, 261.63],
-  [196.00, 246.94, 293.66, 174.61],
-  [130.81, 164.81, 196.00, 246.94],
-  [220.00, 261.63, 329.63, 196.00],
+// --- headphone channels ----------------------------------------------------
+// Put the headphones on and pick a channel: "Your music" just ducks the train
+// (so you can play your own music on your computer), or a station whose tracks
+// play back-to-back on an endless loop.
+const HP_STATIONS = [
+  { id: 'lofi',      name: 'Lofi',       icon: '🎵', tracks: ['lofi1.mp3', 'lofi2.mp3'] },
+  { id: 'classical', name: 'Classical',  icon: '🎻', tracks: ['classical1.mp3', 'classical2.mp3', 'classical3.mp3'] },
+  { id: 'none',      name: 'Your music', icon: '🎧', tracks: [] },
 ];
-function lofiPad(t, f, dur) {
-  const o = actx.createOscillator(); o.type = 'triangle'; o.frequency.value = f;
-  const o2 = actx.createOscillator(); o2.type = 'sine'; o2.frequency.value = f; o2.detune.value = -8;  // tape warble
-  const g = actx.createGain();
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.085, t + 0.45);
-  g.gain.setValueAtTime(0.085, t + dur - 0.6);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1700;
-  o.connect(g); o2.connect(g); g.connect(lp).connect(lofiBus);
-  o.start(t); o2.start(t); o.stop(t + dur); o2.stop(t + dur);
+let hpChannel = 'lofi';                    // set from the save once it's loaded
+let musicSrc = null, musicGen = 0, curTrackIdx = 0;
+function stationById(id) { return HP_STATIONS.find(s => s.id === id) || HP_STATIONS[0]; }
+// fetch + decode a station's track the first time it's needed (they're big, so lazily)
+async function ensureBuffer(st, i) {
+  st.buffers = st.buffers || [];
+  if (st.buffers[i] === undefined) {
+    st.buffers[i] = null;                  // mark in-flight so we don't double-fetch
+    try { const ab = await fetch(st.tracks[i]).then(r => r.arrayBuffer()); st.buffers[i] = await actx.decodeAudioData(ab); }
+    catch (e) { st.buffers[i] = null; }
+  }
+  return st.buffers[i];
 }
-function lofiKick(t, vol) {
-  const o = actx.createOscillator(); o.type = 'sine';
-  o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.12);
-  const g = actx.createGain();
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5 * vol, t + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
-  o.connect(g).connect(lofiBus); o.start(t); o.stop(t + 0.24);
+function stopMusic() {
+  musicGen++;                              // invalidate any pending track-advance
+  if (musicSrc && actx) { try { musicSrc.onended = null; musicSrc.stop(actx.currentTime + 0.25); } catch (e) {} musicSrc = null; }
+  if (lofiBus && actx) lofiBus.gain.setTargetAtTime(0.0001, actx.currentTime, 0.35);
 }
-function lofiNoise(t, rate, hz, type, peak, dur) {
-  const n = actx.createBufferSource(); n.buffer = noiseBuf; n.playbackRate.value = rate;
-  const f = actx.createBiquadFilter(); f.type = type; f.frequency.value = hz; f.Q.value = 0.7;
-  const g = actx.createGain();
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.005);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  n.connect(f).connect(g).connect(lofiBus); n.start(t, Math.random(), dur + 0.02);
-}
-function lofiScheduleBar(t, idx) {
-  for (const f of LOFI_CHORDS[idx % 4]) lofiPad(t, f, BAR * 0.96);
-  // the beat drops in after the first minute, fading up over a few seconds
-  const dv = Math.max(0, Math.min(1, (t - lofiStartAt - DRUM_INTRO) / 4));
-  if (dv <= 0) return;
-  lofiKick(t, dv); lofiKick(t + 2 * BEAT, dv);
-  for (let i = 0; i < 4; i++) lofiNoise(t + (i + 0.5) * BEAT, 1.7, 8000, 'highpass', 0.05 * dv, 0.05);  // hats
-  lofiNoise(t + BEAT, 1.0, 1800, 'bandpass', 0.11 * dv, 0.12);                                          // snare
-  lofiNoise(t + 3 * BEAT, 1.0, 1800, 'bandpass', 0.11 * dv, 0.12);
-}
-function lofiTick() {
-  if (!lofiOn || !actx) return;
-  while (lofiNextBar < actx.currentTime + 0.5) { lofiScheduleBar(lofiNextBar, lofiBarIdx); lofiNextBar += BAR; lofiBarIdx++; }
-}
-function startLofi() {
-  if (lofiOn) return;
-  lofiOn = true;
-  lofiCrackle = actx.createBufferSource(); lofiCrackle.buffer = noiseBuf; lofiCrackle.loop = true;  // vinyl crackle
-  const hp = actx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 4500;
-  const cg = actx.createGain(); cg.gain.value = 0.02;
-  lofiCrackle.connect(hp).connect(cg).connect(lofiBus); lofiCrackle.start();
+// play a station's tracks one after another, looping the playlist forever
+async function playStation(id, advancing) {
+  if (!actx) return;
+  const st = stationById(id);
+  if (!advancing) { stopMusic(); curTrackIdx = 0; }
+  if (!headphonesOn || !st.tracks.length) return;          // "Your music" → silence (train still ducked)
+  const gen = advancing ? musicGen : ++musicGen;
+  const i = curTrackIdx % st.tracks.length;
+  const buf = await ensureBuffer(st, i);
+  if (gen !== musicGen || !headphonesOn) return;           // switched channel while it loaded
+  if (!buf) { curTrackIdx++; if (curTrackIdx < st.tracks.length * 4) return playStation(id, true); return; }   // skip a bad track
+  musicSrc = actx.createBufferSource(); musicSrc.buffer = buf; musicSrc.connect(lofiBus);
+  musicSrc.onended = () => { if (gen === musicGen) { curTrackIdx = (i + 1) % st.tracks.length; playStation(id, true); } };
+  musicSrc.start();
   lofiBus.gain.cancelScheduledValues(actx.currentTime);
   lofiBus.gain.setTargetAtTime(0.8, actx.currentTime, 0.6);
-  lofiStartAt = actx.currentTime;
-  lofiNextBar = actx.currentTime + 0.15; lofiBarIdx = 0;
-  lofiTimer = setInterval(lofiTick, 80);
 }
-function stopLofi() {
-  if (!lofiOn) return;
-  lofiOn = false;
-  lofiBus.gain.setTargetAtTime(0.0001, actx.currentTime, 0.4);
-  clearInterval(lofiTimer); lofiTimer = null;
-  if (lofiCrackle) { try { lofiCrackle.stop(actx.currentTime + 0.5); } catch (e) {} lofiCrackle = null; }
-}
-
-// put on / take off the headphones: duck the train, play lofi
+// put on / take off the headphones: duck the train, play the chosen channel
 async function setHeadphones(on) {
   headphonesOn = on;
   try {
@@ -1224,14 +1199,29 @@ async function setHeadphones(on) {
       if (!actx) await buildAudio();
       if (actx.state === 'suspended') { try { await actx.resume(); } catch (e) {} }
       if (!loopSrc && soundBuf) startLoop();
-      startLofi();
-      toast('Headphones on · lofi ♪');
+      const st = stationById(hpChannel);
+      playStation(hpChannel);
+      toast(st.id === 'none' ? 'Headphones on · your own music 🎧' : 'Headphones on · ' + st.name + ' ' + st.icon);
     } else {
-      stopLofi();
+      stopMusic();
       toast('Headphones off');
     }
     applyMaster();
+    updateHpBtn();
   } catch (e) {}
+}
+// the ⏭ channel button hops to the next station
+function cycleChannel() {
+  const i = HP_STATIONS.findIndex(s => s.id === hpChannel);
+  const st = HP_STATIONS[(i + 1) % HP_STATIONS.length];
+  hpChannel = st.id; save.hpChannel = hpChannel; persist();
+  updateHpBtn();
+  if (headphonesOn) { playStation(hpChannel); toast(st.id === 'none' ? 'Channel · your own music 🎧' : 'Channel · ' + st.name + ' ' + st.icon); }
+}
+function updateHpBtn() {
+  const b = document.getElementById('hpch'); if (!b) return;
+  b.textContent = stationById(hpChannel).icon;
+  b.style.display = headphonesOn ? 'flex' : 'none';
 }
 
 // --- whole-train overview toggle -------------------------------------------
@@ -2003,6 +1993,8 @@ const CLASSES = [
 const SAVE_KEY = 'cozycommute.v1';
 let save = { lifetimeMiles:0, trips:0, classCurrent:0, stations:{}, lastStation:'Boston South Station', lastCity:'Boston' };
 try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s); } catch (e) {}
+if (HP_STATIONS.some(s => s.id === save.hpChannel)) hpChannel = save.hpChannel;   // remember the last-picked channel
+updateHpBtn();   // reflect the saved channel on the (hidden until headphones-on) button
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
 if (save.character && CHAR_IMG[save.character]) player.char = save.character;   // restore your pick
 function classUnlocked() { let t = 0; for (let i = 0; i < CLASSES.length; i++) if (save.lifetimeMiles >= CLASSES[i].at) t = i; return t; }
