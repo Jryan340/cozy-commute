@@ -2526,12 +2526,14 @@ function drawPropRot(rec, cx, cy, dir) {
   ctx.restore();
   return true;
 }
-// edge-anchored building: sits flush to the near screen edge, standing up from groundY
-function drawEdgeSprite(list, idx, left, groundY) {
+// edge-anchored building: sits flush to the near screen edge (or `depth` px in
+// from it, for the back row on wide desktop verges), standing up from groundY
+function drawEdgeSprite(list, idx, left, groundY, depth) {
   const rec = list[idx % list.length]; if (!rec.ok) return false;
   const w = rec.img.width, h = rec.img.height;
-  const bx = left ? -2 : W - w + 2;
-  px(left ? 0 : W - w + 2, groundY, w - 2, 2, 'rgba(15,12,8,.28)');   // base shadow on the street
+  depth = depth || 0;
+  const bx = left ? -2 + depth : W - w + 2 - depth;
+  px(Math.max(0, bx + 2), groundY, w - 2, 2, 'rgba(15,12,8,.28)');   // base shadow on the street
   ctx.drawImage(rec.img, bx, Math.round(groundY - h), w, h);
   return true;
 }
@@ -2562,24 +2564,30 @@ function drawStreetscape(urban, coast, wide, inset, spans) {
     const hits = (top, bot) => spans.some(sp => sp[2] === side && bot > sp[0] && top < sp[1]);
     const i0 = Math.floor((-LOT_H * 1.5 - scroll) / LOT_H), i1 = Math.floor((H + LOT_H * 1.5 - scroll) / LOT_H);
     // 1) tall blocks, packed by height within each 6-lot block; record every lot
-    //    a building sits on so nothing else gets placed on top of it
-    const built = new Set();
+    //    a building sits on so nothing else gets placed on top of it. Deep
+    //    (desktop) verges pack a SECOND row of blocks behind the pavement —
+    //    the slim mobile strip is a crop of the same city, not a thinner one.
+    const built = new Set(), built2 = new Set();
     const c0 = Math.floor(i0 / CHUNK) - 1, c1 = Math.floor(i1 / CHUNK) + 1;
-    for (let c = c0; c <= c1; c++) {
-      let slot = 0;
-      while (slot < CHUNK) {
-        const li = c * CHUNK + slot;
-        const idx = Math.floor(lotR(li, sSeed + 7) * 97) % CITY_SPRITES.length;
-        const rec = CITY_SPRITES[idx];
-        const hgt = rec.ok ? rec.img.height : LOT_H;
-        const span = Math.min(CHUNK, Math.max(1, Math.ceil((hgt + 4) / LOT_H)));
-        if (slot + span > CHUNK) break;                  // the rest of the block stays open
-        const bot = (li + span) * LOT_H + scroll - 1;
-        const u = urban + (lotR(li, sSeed) - 0.5) * 0.3;
-        if (u > 0.62 && !hits(bot - hgt, bot)) { drawEdgeSprite(CITY_SPRITES, idx, left, bot); for (let k = 0; k < span; k++) built.add(li + k); }
-        slot += span + (lotR(li, sSeed + 13) > 0.7 ? 1 : 0);   // the odd alley between towers
+    const packRow = (seedOff, depth, mark) => {
+      for (let c = c0; c <= c1; c++) {
+        let slot = 0;
+        while (slot < CHUNK) {
+          const li = c * CHUNK + slot;
+          const idx = Math.floor(lotR(li, sSeed + 7 + seedOff) * 97) % CITY_SPRITES.length;
+          const rec = CITY_SPRITES[idx];
+          const hgt = rec.ok ? rec.img.height : LOT_H;
+          const span = Math.min(CHUNK, Math.max(1, Math.ceil((hgt + 4) / LOT_H)));
+          if (slot + span > CHUNK) break;                // the rest of the block stays open
+          const bot = (li + span) * LOT_H + scroll - 1;
+          const u = urban + (lotR(li, sSeed + seedOff) - 0.5) * 0.3;
+          if (u > 0.62 && !hits(bot - hgt, bot)) { drawEdgeSprite(CITY_SPRITES, idx, left, bot, depth); for (let k = 0; k < span; k++) mark.add(li + k); }
+          slot += span + (lotR(li, sSeed + 13 + seedOff) > 0.7 ? 1 : 0);   // the odd alley between towers
+        }
       }
-    }
+    };
+    if (inset > 70) packRow(41, 56, built2);             // back row first, across the street
+    packRow(0, 0, built);                                // front row, flush to the screen edge
     // 2) one thing per lot: sidewalk+lamp (city), a cottage (suburb) or a single
     //    tree/bush (country) — never two, so scenery can't overlap
     for (let i = i0; i <= i1; i++) {
@@ -2590,49 +2598,62 @@ function drawStreetscape(urban, coast, wide, inset, spans) {
       if (u > 0.62) {
         drawSidewalk(left, t, inset);
         if (r3 > 0.72) drawStreetlamp(left, t + 6 + Math.floor(r2 * (LOT_H - 14)), dusk, inset);
-        else if (r3 < 0.30 && inset > 70) {              // street trees soften the wide urban verge
+        else if (r3 < 0.30 && inset > 70 && !built2.has(i)) {   // street trees fill the back row's gaps
           const deep = 54 + Math.floor(r2 * (inset - 72));
           drawTreeish({ kind: r2 < 0.5 ? 'tree' : 'bush', off: Math.floor(r2 * 18) }, left ? deep : W - 10 - deep, t + LOT_H - 18);
         }
       } else if (u > 0.44) {
-        if (!hits(t, t + LOT_H)) drawCottageLot(left, t, r2, r3, inset);
+        if (!hits(t, t + LOT_H)) {
+          drawCottageLot(left, t, r2, r3, inset);
+          if (inset > 70 && r3 > 0.35) {                 // a deeper yard: a tree or bush behind the house
+            const deep = 52 + Math.floor(r2 * Math.max(0, inset - 92));
+            drawTreeish({ kind: r3 > 0.75 ? 'bush' : 'tree', off: Math.floor(r2 * 18) }, left ? deep : W - 12 - deep, t + LOT_H - 22);
+          }
+        }
       } else {
         if (r2 < 0.30) continue;                         // some country lots stay open meadow
         const gy = t + LOT_H - 6 - Math.floor(r3 * 6);   // ground line, nudged within the lot
         if (hits(gy - 22, gy + 2)) continue;             // keep clear of platforms
         const verge = inset - 10;                        // usable depth between the edge and the railbed
-        const r4 = lotR(i, sSeed + 29);
-        if (r2 > 0.74 && drawFarmLot(left, gy, r3, r4, verge)) continue;   // a farmstead claims the lot
-        const f = { kind: r2 < 0.56 ? 'tree' : (r2 < 0.68 ? 'pole' : 'bush'), off: Math.floor(r3 * 18) };
-        const deep = Math.floor(r4 * Math.max(0, verge - 16));             // wander into the wider verge
-        drawTreeish(f, left ? -2 + Math.floor(r3 * 6) + deep : W - 10 - Math.floor(r3 * 6) - deep, gy - 12);
+        // pack the lot from the screen edge inward: deep (desktop) verges fit
+        // two or three things — a farmstead, a tree, a bale — so the wider
+        // countryside actually fills in; slim strips stop after one item
+        let depth = Math.floor(r3 * 8);
+        for (let b = 0; b < 3 && depth < Math.max(verge - 10, 14); b++) {
+          const ra = lotR(i, sSeed + 29 + b * 17), rb = lotR(i, sSeed + 43 + b * 17);
+          if (b > 0 && ra < 0.35) break;                 // trailing space can stay open meadow
+          const gyb = gy - Math.floor(rb * 6);
+          let used = 0;
+          if (ra > 0.60) used = drawFarmAt(left, gyb, rb, depth, verge);
+          if (!used) {
+            const f = { kind: rb < 0.56 ? 'tree' : (rb < 0.72 ? 'pole' : 'bush'), off: Math.floor(ra * 18) };
+            drawTreeish(f, left ? depth : W - 12 - depth, gyb - 12);
+            used = 14;
+          }
+          depth += used + 6 + Math.floor(rb * 12);
+        }
       }
     }
   }
 }
-// a little farmstead feature on a country lot — hand-drawn barns, windmills,
-// tractors, hay bales, corn rows, fences and cabins from the asset set.
-// Wide (desktop) verges fit the big pieces; slim strips fall through to the
-// smaller props, and a lot with nothing that fits returns false → a tree.
+// a farmstead piece placed `depth` px in from the screen edge — hand-drawn
+// barns, windmills, tractors, hay bales, corn rows, fences and cabins.
+// Falls through to whatever still fits the remaining depth (slim mobile
+// strips get the small props); returns the width used, or 0 → plant a tree.
 const FARM_KIND = ['barn', 'aframe', 'corn', 'windmill', 'fence', 'tractor', 'hay'];
-function drawFarmLot(left, gy, r3, r4, verge) {
+function drawFarmAt(left, gy, r4, depth, verge) {
   let k = Math.floor(r4 * FARM_KIND.length) % FARM_KIND.length;
   for (let tries = 0; tries < FARM_KIND.length; tries++, k = (k + 1) % FARM_KIND.length) {
     const rec = FARM[FARM_KIND[k]];
     if (!rec.ok) continue;
     const w = rec.img.width, h = rec.img.height;
-    if (w > Math.max(verge, 26)) continue;             // too deep for this strip — try a smaller prop
-    const deep = Math.floor(r3 * Math.max(0, verge - w - 4));
-    const bx = left ? 2 + deep : W - 2 - deep - w;
+    if (depth + w > Math.max(verge, 28)) continue;     // too deep for the space left — try smaller
+    const bx = left ? 2 + depth : W - 2 - depth - w;
     px(bx + 2, gy, w - 4, 2, 'rgba(18,26,12,.22)');    // ground shadow
     ctx.drawImage(rec.img, bx, gy - h, w, h);
-    if (FARM_KIND[k] === 'corn' && verge > w * 2 + 8) {   // corn comes as a little field, two rows deep
-      const bx2 = left ? bx + w + 2 : bx - w - 2;
-      ctx.drawImage(rec.img, bx2, gy - h, w, h);
-    }
-    return true;
+    return w;
   }
-  return false;
+  return 0;
 }
 function drawSidewalk(left, t, inset) {
   // in the wider desktop world the pavement hugs the building fronts rather
