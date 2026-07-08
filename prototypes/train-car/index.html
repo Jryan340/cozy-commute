@@ -650,8 +650,27 @@ npcSeats.forEach((i, k) => {
     bob: Math.random() * 6.28,
     item: NPC_ITEMS[k % NPC_ITEMS.length],
     sprite: ['ivy', 'silver', 'miles', 'rust', 'traveller', 'nova'][k],   // hand-drawn passengers from the roster
+    asleep: false,
+    napT: 8 + Math.random() * 18,   // seconds until this passenger next dozes off / stirs awake
+    zzz: Math.random() * 6.28,      // phase for the drifting Zzz above a sleeper
   };
 });
+// passengers drift between dozing and waking; deeper into the night they mostly sleep
+function tickNaps(dt) {
+  const night = Math.min(1, Math.max(0, (lightingFor(dayT).a - 0.15) / 0.35));   // 0 by day, 1 deep night
+  for (const st of seats) {
+    const o = st.occupant;
+    if (!o || !o.npc) continue;
+    o.napT -= dt;
+    if (o.napT <= 0) {
+      o.asleep = !o.asleep;
+      // sleep spells run longer at night; waking spells run longer by day
+      o.napT = o.asleep ? (6 + Math.random() * 10) * (0.6 + night * 1.6)
+                        : (8 + Math.random() * 14) * (1.4 - night);
+    }
+    if (o.asleep) o.zzz += dt;
+  }
+}
 
 // --- player ----------------------------------------------------------------
 const player = {
@@ -708,6 +727,7 @@ loadItemSprite('watch',     'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAA
 loadItemSprite('snacks',    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAANCAYAAACdKY9CAAABs0lEQVR4nF2SPWhTURiGn++cc28SGm5t06FaMZPooINUcBJHRWe34tDJWRBXVwedhS4OLhV0E3ehBfEHSQsVxQpt0UA1yW1y83dyz+cQG7Xv/Lzw8vAKR/Js5SH7aVMjF5G2Uu7efyRHGQBUletn51i+eU0121bVur56vqLnZiL9l/vbvnSPKwdPtDqfMHO8iogw7LbZ3PrK6+ll4c0DANwhf6eyQa1n6XQy9msfAIgjRyGOWKps8PQPNym829nUM3NFkpLFuQRVRVVp93M+733SwzUCsHT5tJ6ctizMFvAj5aDv8SMFASfQ9cpOy7O6ti1y6+pFir6p5xemKBdjQlB+ZUN+tgc4axgFJSkY9lqerjsmLktTrc7HfG/2cc4jwDAPE3MFa+gNA7NTjnq9ocYSUB1PHPiAzwMCRNaAgg8BYwRjBGsCRkws2VCxBowBY4SgoIAYQRWsgU4vR00iZnV9i93GgFLBIaJoroQwNhTyQOSgXIr5kXperNfGWvMTF2Tty1utlB1JyY49ezAitNsjPu72iE4tCnzjv5/cvrFIo5lp0eXkAVQikqQkj1++nzC/AdlryA7IaTy/AAAAAElFTkSuQmCC');
 loadItemSprite('briefcase', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAKCAYAAABv7tTEAAABaUlEQVR4nF2RvW4TQRRGz70z+2PLjiOR8FNEFFBYFIiCl6DlmXgHWl4DCToaGhAUFEigACscRMzGiXc3O56ZS+EKvvac4kif8N+WyyVHtIYZiPB+o9KtVv848ubZU16++2LZjA+nLfOJpy7ATACjLjy7DJf9jocnhzx5dCL+xeuP9vjunOuYOZ4r944nVIVDVYjZmJWO5mLAiXDrQHj+6pP5fow0654+Zroh8usqMKscyQCDCyesNyNXIfLjvKcbIx7Ae6UCFgcFVaGoCIiRM4gZ9cTjSqUsHCqC70NivQ1kMx7cP+TsbKDdjqgqBqSYuX1zSj1RmqajCxE/rRw3ZiUhGavf1xQiLKYlIiAiiMEYEkNIHM0r/gwZFfbQgM+nG4YxUXqHIACoCuftyLefW5xTBMGnbIwxEWJmNvGknBlCJGVDBJwKzkFdKuMukc3waMnbr5dkMwRo2h2yvwgwDNnnAN/bwJ3FnL+naauFc6yzLwAAAABJRU5ErkJggg==');
 loadItemSprite('espresso', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAAMCAYAAAC0qUeeAAABhklEQVR4nHWMTUtUYRiGr+f9OO+MdlAwA39CYOAsIhAmLHAhBBUxEy0UWw0UtBQKXNcvCNpUuAuj2glSG2lREFQEQtAYCS78KINmzhnnnTlPi6yVXcub67rhEP3ZpH5xRlX178Sbp0sciaoyW7v0T567elmPNoGpykm9cP7s/wVA7i0uaHl4lOD6ZK02xntCErBGiAW0f+2zsHhXAFwsuoxlTb6uf6BcHkCBXJWiUPrGUb0yS2Oupg+WlsVl7Yzpa3U2Jk7jvceI4L2n1+uTpoNs7e6T5Tk3r9fVfVx/z4vXQ7RaHZLEoYA1hhh7DAyWWHv1lo3P21SrZ3A7ezu8XFul11UURURAC1TBB8/W5h5pOkaMEXducoo7t2+x+/0HxhhQKIo+SZIwPJTy7PkKjx4v473DeZeQHkvJsg7GWELw5J0DnLUIlsrEOO9OfWIkBHGIchAjxhjKpUA3RkohkOU5J0aP86X5jfsPnwiA3JivqYqQ53/eFMVaSzyMVAsqk9PSaDT4Db2HoaooD5I7AAAAAElFTkSuQmCC');
+loadItemSprite('sleepmask', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAKCAYAAAC5Sw6hAAAB30lEQVR4nI2RPWgTcRyGn/9dctVUS7WNIU1SoQcJlEJFWg1aF8Uh2E1E3ZxcHJzE1VVc6+DmVARBEDvWTaUiRTpYLxIKRjAxn9q7Jmnu7v9ziwah+EwvvB/Lq/iL+fnzosMAlOJARDDMCFtbbwfBgcifWxatNSL6v4aUMjAMg413a3/Ci/mCZFK2HNz+l0zKlsV8QQBU1p4TRZ+bVy8RT2YIggCtBQWYpoEgmEqBUoShRkRQShG1LGrfy6w+X0eUhZqbXZAb16/Q3Bun7Wr8vstozEJE2Ov4gOB6PSwryohlEgQ+0ajF/r5PIn6UqWP7rD57haH7HptOj0/Fr3hum0q1xrVCjgsLaSrVOp7rsrSQxs4codH8SWevS7PVotfr8rlYZtPpEvY9jO2SoyLBD5KJ43jeLqOxGJWaR/tXFwCtIixfPkVu5gRaQyRiEo2YBL7P9PQUZr+KU3KUATAx0iB/+iQ9XyESsvryI2uvHbJ2krBTZ+XJC75VXSBEiyYMND4WZ+bTTBxqDN9/784tMceylMpt6o022ZkkqbE2Dx6uKID7d29LvTtBcadKMhHHnh5H737h0eOnamgI4GJ+ViaTOZydBoct4f2HN0P+2cUl6fUVuZlJWpUi6xvbA/83yWHWeb+HlEoAAAAASUVORK5CYII=');
 function drawItemSprite(key, r) {
   const rec = ITEM_SPRITES[key];
   if (!rec || !rec.ok) return false;
@@ -787,6 +807,7 @@ const BAG = [
   { key: 'watch',      label: 'Watch',   emoji: '⏱️' },
   { key: 'snacks',     label: 'Snacks',  emoji: '👝' },
   { key: 'briefcase',  label: 'Papers',  emoji: '💼' },
+  { key: 'sleepmask',  label: 'Sleep',   emoji: '😴' },
 ];
 const MAX_ITEMS = 3;
 const USE_MSG = {
@@ -796,10 +817,12 @@ const USE_MSG = {
   newspaper: 'Catching up on the news 📰', letter: 'A letter from home ✉️',
   watch: 'Watching the miles tick by ⏱️', snacks: 'A little nibble 👝',
   briefcase: 'Sorting through some papers 💼',
+  sleepmask: 'Lights out — resting your eyes 😴',
 };
 
 // --- camera / zoom ----------------------------------------------------------
 let zoomed = false;                       // double-tap to zoom into your seat
+let lightsOff = false;                     // 😴 sleep mask on: the cabin lamps are off
 let wideView = false;                     // 🗺️ pull all the way out to see the whole train
 let fpView = false;                       // 🪟 first-person: your desk + the window
 const cam = { s: 1, fx: W/2, fy: H/2 };   // scale + focus point (world coords)
@@ -926,7 +949,7 @@ for (const it of BAG) {
   b.addEventListener('click', () => pickItem(it.key));
   bagGrid.appendChild(b);
 }
-function tableItems() { return player.items.filter(k => k !== 'headphones'); }   // headphones are worn, not on the table
+function tableItems() { return player.items.filter(k => k !== 'headphones' && k !== 'sleepmask'); }   // headphones + mask are worn, not on the table
 function refreshBag() {
   bagCount.textContent = `${tableItems().length}/${MAX_ITEMS} out`;
   for (const b of bagGrid.children) b.classList.toggle('on', player.items.includes(b.dataset.key));
@@ -934,11 +957,16 @@ function refreshBag() {
 function pickItem(key) {
   const i = player.items.indexOf(key);
   if (i >= 0) player.items.splice(i, 1);
-  else if (key !== 'headphones' && tableItems().length >= MAX_ITEMS) {   // headphones don't use a table slot
+  else if (key !== 'headphones' && key !== 'sleepmask' && tableItems().length >= MAX_ITEMS) {   // worn things don't use a table slot
     toast("Table's full — set something down first."); return;
   } else player.items.push(key);
   refreshBag();
   if (key === 'headphones') setHeadphones(player.items.includes('headphones'));   // music + duck the train
+  if (key === 'sleepmask')  setLightsOff(player.items.includes('sleepmask'));      // 😴 flick the cabin lights off
+}
+function setLightsOff(on) {
+  lightsOff = on;
+  toast(on ? 'Lights off — sweet dreams 😴' : 'Lights on ☀️');
 }
 function openBag()  { bagOpen = true;  closeCharPick(); bagEl.classList.add('show');  scrimEl.classList.add('show'); refreshBag(); }
 function closeBag() { bagOpen = false; bagEl.classList.remove('show'); scrimEl.classList.remove('show'); }
@@ -1240,13 +1268,13 @@ function connectionCard(r, deps) {
   const locked = save.lifetimeMiles < r.minMiles;
   const here = r.from === save.lastCity;                               // can you board this now?
   const card = document.createElement('div'); card.className = 'cx-card' + (locked ? ' locked' : '');
-  const dep0 = deps[0], arr0 = dep0 + RIDE_MINUTES * 60000;
+  const dep0 = deps[0], arr0 = dep0 + routeMinutes(r) * 60000;
   card.innerHTML =
     `<div class="cx-head"><div class="cx-route">${r.from}<span>→</span>${r.to}</div>
        <div class="cx-cls${locked ? ' lock' : ''}">${locked ? '🔒 ' + r.minMiles + ' mi' : (here ? 'Board here' : 'Board at ' + r.fromCode)}</div></div>
      <div class="cx-times">
        <div class="cx-end"><b>${fmtETClock(dep0)}</b><small>${r.fromCode}</small></div>
-       <div class="cx-mid"><div class="dur">${RIDE_MINUTES} min · ${r.stations.length} stops</div><div class="rail"></div></div>
+       <div class="cx-mid"><div class="dur">${fmtDur(routeMinutes(r))} · ${r.stations.length} stops</div><div class="rail"></div></div>
        <div class="cx-end"><b>${fmtETClock(arr0)}</b><small>${r.toCode}</small></div>
      </div>
      <div class="cx-deps"></div>
@@ -1291,8 +1319,7 @@ function renderSearch() {
   const head = document.createElement('div'); head.className = 'sb-sec';
   head.textContent = routes.length ? ((fromV || toV) ? 'Connections' : 'Departures from ' + save.lastCity) : 'No direct service found';
   res.appendChild(head);
-  const deps = upcomingDepartures(3);
-  for (const r of routes) res.appendChild(connectionCard(r, deps));
+  for (const r of routes) res.appendChild(connectionCard(r, departuresFor(r, 3)));
 }
 sbFromEl.addEventListener('focus', () => { sbFocus = 'from'; });
 sbToEl.addEventListener('focus', () => { sbFocus = 'to'; });
@@ -1306,7 +1333,7 @@ document.getElementById('sbSwap').addEventListener('click', () => {
 let chosenDepartTs = 0;
 // the departure we're actually holding: your pick if it hasn't left yet, else the next train
 function effectiveDepartTs() {
-  return (chosenDepartTs && chosenDepartTs > Date.now() - 1000) ? chosenDepartTs : nextDepartTs();
+  return (chosenDepartTs && chosenDepartTs > Date.now() - 1000) ? chosenDepartTs : nextDepartFor(ROUTE);
 }
 function bookRideAt(r, ts) {
   loadRoute(r);
@@ -1314,7 +1341,7 @@ function bookRideAt(r, ts) {
   resetJourney();               // reset + pull up the fare inside the app
   toast(`Fare · ${r.from} → ${r.to} · departs ${fmtETClock(ts)}`);
 }
-function bookRoute(r) { bookRideAt(r, nextDepartTs()); }
+function bookRoute(r) { bookRideAt(r, nextDepartFor(r)); }
 
 function renderPassport() {
   const unlocked = classUnlocked(), cur = Math.min(save.classCurrent, unlocked);
@@ -1424,8 +1451,9 @@ let PLAT_MAXY = 196;   // how far down you can roam — grows when the departure
 const DOOR_CX = W / 2;
 let stnX = DOOR_CX, stnY = 150, stnFacing = -1, stnWalkT = 0, stnMoving = false, stnTarget = null, stnBoardLock = false;
 // which routes leave from a given city (their origin), for the departures board
-function departuresFrom(city) {
-  return ROUTES.filter(r => r.from === city);
+function departuresFrom(city) {   // routes leaving this city SOON (so the board is what you can actually catch)
+  const now = Date.now();
+  return ROUTES.filter(r => r.from === city && (FAST_MODE || nextDepartFor(r, now) - now <= BOARD_HORIZON_MS));
 }
 function onwardRoutes() { return departuresFrom(save.lastCity).filter(r => save.lifetimeMiles >= r.minMiles); }
 let selectedDepId = null;                     // the train currently at the platform (roll-sign + walk-on target)
@@ -1440,9 +1468,8 @@ function renderStation() {
   document.getElementById('stnCity').innerHTML = save.lastCity + ' · <b id="stnClock">' + fmtETClock(Date.now()) + '</b>';
   const board = document.getElementById('stnDeps'); board.innerHTML = '';
   const deps = departuresFrom(save.lastCity);
-  const t = fmtETClock(nextDepartTs());
   if (!deps.length) {
-    board.innerHTML = `<div class="stn-empty">No scheduled departures from here right now.<br>Plan a trip to ride from another city.</div>`;
+    board.innerHTML = `<div class="stn-empty">No trains from here right now.<br>Regular trains run 5am–11pm; catch the overnight from New York.</div>`;
     return;
   }
   // the train drawn at the platform = the first unlocked departure (unless you last tapped another)
@@ -1453,8 +1480,8 @@ function renderStation() {
     const atPlat = r.id === selectedDepId;
     const row = document.createElement('div'); row.className = 'stn-dep' + (atPlat ? ' sel' : '');
     row.innerHTML =
-      `<span class="t">${t}</span>
-       <span class="d">${r.to}<small>${locked ? '🔒 ' + r.minMiles + ' mi to unlock' : r.stations.length + ' stops · ' + RIDE_MINUTES + ' min'}</small></span>
+      `<span class="t">${fmtETClock(nextDepartFor(r))}</span>
+       <span class="d">${r.to}<small>${locked ? '🔒 ' + r.minMiles + ' mi to unlock' : r.stations.length + ' stops · ' + fmtDur(routeMinutes(r))}</small></span>
        <span class="p">${i + 3}</span><span class="go">${locked ? '🔒' : '›'}</span>`;
     if (!locked) row.onclick = () => takeTicket(r.id);
     board.appendChild(row);
@@ -1590,16 +1617,22 @@ const SCROLL_PER_MILE = 44;   // scenery px per mile (so motion matches speed)
 // The world runs on the real Eastern-Time clock. Trains leave on a fixed
 // cadence whether or not anyone is aboard, and a train's position is a pure
 // function of the wall clock — so every browser (and a refresh) agrees without
-// a server. Ride length is COMPRESSED for now so it's testable in one sitting.
-let DEPART_INTERVAL_MIN = 60;  // a train leaves every N minutes, on the clock (60 = hourly)
-let BOARD_LEAD_MIN      = 60;  // you may board up to this many minutes before departure
-let RIDE_MINUTES        = 20;  // compressed ride length (real 3½h → ~20 min for testing)
-let SCHED_DWELL         = 6;   // world-seconds paused at each intermediate stop
-// Add ?fast to the URL to shrink the cadence so the whole board→wait→ride→arrive
-// loop is watchable in a few minutes. Same mechanics, just tighter numbers.
+// a server. Rides run at REAL TIME: the journey takes as long as it really
+// would (distance ÷ average speed), so it's a proper sit-back-and-watch ride.
+let DEPART_INTERVAL_MIN = 30;  // a train leaves every half hour, on the clock (:00 and :30)
+let BOARD_LEAD_MIN      = 30;  // you may board up to this many minutes before departure
+let AVG_MPH             = 60;  // real-time cruising average incl. stops (≈ 1 mile / minute)
+let SCHED_DWELL         = 60;  // world-seconds paused at each intermediate stop
+let FAST_MODE           = false;
+// Add ?fast to the URL to compress the whole board→wait→ride→arrive loop for
+// testing — a 2-minute cadence and a 3-minute ride. Same mechanics, tighter numbers.
 if (new URLSearchParams(location.search).has('fast')) {
-  DEPART_INTERVAL_MIN = 2; BOARD_LEAD_MIN = 2; RIDE_MINUTES = 3; SCHED_DWELL = 3;
+  DEPART_INTERVAL_MIN = 2; BOARD_LEAD_MIN = 2; SCHED_DWELL = 3; FAST_MODE = true;
 }
+function routeMiles(r) { return r.stations[r.stations.length - 1].mile; }
+function routeMinutes(r) { return FAST_MODE ? 3 : Math.max(1, Math.round(routeMiles(r) / AVG_MPH * 60)); }
+function rideSeconds() { return FAST_MODE ? 3 * 60 : (ROUTE.totalMiles / AVG_MPH) * 3600; }   // real-time ride length
+function fmtDur(min) { return min >= 60 ? (Math.floor(min / 60) + 'h' + (min % 60 ? ' ' + (min % 60) + 'm' : '')) : (min + ' min'); }
 
 // Eastern-Time wall clock (works from any device timezone).
 function etNow() {
@@ -1613,21 +1646,41 @@ function fmtETClock(ts) {
   return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York',
     hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(ts));
 }
-// ms from now until the next scheduled departure (ceil to the interval)
-function msToNextDeparture() {
-  const t = etNow();
-  const into = ((t.m % DEPART_INTERVAL_MIN) * 60 + t.s) * 1000 + t.ms;
-  let rem = DEPART_INTERVAL_MIN * 60 * 1000 - into;
-  if (rem <= 0) rem += DEPART_INTERVAL_MIN * 60 * 1000;
-  return rem;
+// ET clock parts for an arbitrary epoch ms (for scheduling into the future)
+function etAt(ms) {
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour12: false,
+    hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(ms));
+  const o = {}; for (const x of p) o[x.type] = x.value;
+  return { h: parseInt(o.hour, 10) % 24, m: parseInt(o.minute, 10), s: parseInt(o.second, 10) };
 }
-function nextDepartTs() { return Date.now() + msToNextDeparture(); }
-// the next N scheduled departures (epoch ms) — the SBB-style options list
-function upcomingDepartures(n) {
-  const first = nextDepartTs(), step = DEPART_INTERVAL_MIN * 60 * 1000, out = [];
-  for (let i = 0; i < n; i++) out.push(first + i * step);
+function etMinuteOfDay(ms) { const t = etAt(ms); return t.h * 60 + t.m + t.s / 60; }
+// Regular trains: first at 5:00, last at 23:00. Half-hourly during the peaks
+// (6:30–10:00 and 15:00–20:00), hourly the rest of the day; nothing overnight.
+function isPeakMin(m) { return (m >= 390 && m < 600) || (m >= 900 && m < 1200); }
+function regularValidMin(m) { return m >= 300 && m <= 1380 && (m % (isPeakMin(m) ? 30 : 60) === 0); }
+// The overnight service runs evening through the small hours, hourly (20:00–05:00).
+function overnightValidMin(m) { return (m >= 1200 || m <= 300) && (m % 60 === 0); }
+// next epoch ms after fromMs whose ET minute-of-day satisfies validFn
+function nextValidDepart(validFn, fromMs) {
+  const base = etMinuteOfDay(fromMs), start = Math.ceil(base + 1e-6);
+  for (let abs = start; abs <= start + 2 * 1440; abs++) {
+    if (validFn(((abs % 1440) + 1440) % 1440)) return fromMs + (abs - base) * 60000;
+  }
+  return fromMs + 24 * 3600 * 1000;
+}
+const BOARD_HORIZON_MS = 90 * 60 * 1000;         // a route only shows on a platform board if it leaves within this
+function scheduleFn(r) { return r && r.depart === 'overnight' ? overnightValidMin : regularValidMin; }
+function nextDepartFor(r, fromMs) {
+  fromMs = fromMs || Date.now();
+  if (FAST_MODE) { const step = DEPART_INTERVAL_MIN * 60000; return Math.ceil((fromMs + 1) / step) * step; }
+  return nextValidDepart(scheduleFn(r), fromMs);
+}
+function departuresFor(r, n) {                    // the next n departures for this route
+  const out = []; let from = Date.now() - 1;
+  for (let i = 0; i < n; i++) { const t = nextDepartFor(r, from); out.push(t); from = t; }
   return out;
 }
+function nextDepartTs() { return nextDepartFor(null, Date.now()); }   // next regular departure (generic)
 
 // speed profile at an arbitrary milepost (RI sprint / shoreline crawl) — used
 // to shape the timetable so the ride still *feels* like the real corridor.
@@ -1637,11 +1690,11 @@ function speedFactorAt(m) {
 }
 // Build a deterministic timetable: seconds-since-departure for each station's
 // arrival + departure. Travel time per segment is weighted by the speed profile
-// so RI flies by and the CT shoreline lingers, then normalised to RIDE_MINUTES.
+// so RI flies by and the CT shoreline lingers, then normalised to the real ride time.
 let timetable = null;
 function buildTimetable() {
   const st = STATIONS, n = st.length, total = ROUTE.totalMiles;
-  const rideSec = RIDE_MINUTES * 60;
+  const rideSec = rideSeconds();
   const stops = Math.max(0, n - 2);                    // intermediate stops that dwell
   const moveSec = Math.max(1, rideSec - SCHED_DWELL * stops);
   // weighted segment costs
@@ -1736,7 +1789,7 @@ function buildRoutes() {
     const has = c => A.city === c || B.city === c;
     const minMiles = has('Washington') ? (has('New York') ? 300 : 1500) : 0;   // the long southern hauls unlock later
     out.push({
-      id: A.slug + B.slug, from:A.city, to:B.city, fromCode:A.code, toCode:B.code, depart:'hourly', minMiles,
+      id: A.slug + B.slug, from:A.city, to:B.city, fromCode:A.code, toCode:B.code, depart:'every 30 min', minMiles,
       stations, fast:spans(CORR.fast), slow:spans(CORR.slow), coast:spans(CORR.coast), bridges,
       underground: B.city === 'New York' ? Math.max(0, total - 15) : null,     // the dark dive into Penn on arrival
     });
@@ -1744,6 +1797,32 @@ function buildRoutes() {
   return out;
 }
 const ROUTES = buildRoutes();
+// The Lake Shore Limited — the one overnight run: west out of New York, up the
+// Hudson, along Lake Erie, then the long dark plains into Chicago (~16 hours).
+(function addOvernight() {
+  const west = [
+    ['New York Penn Station', 0], ['Poughkeepsie', 74], ['Albany-Rensselaer', 142],
+    ['Utica', 237], ['Syracuse', 291], ['Rochester', 369], ['Buffalo-Depew', 436],
+    ['Erie', 523], ['Cleveland', 623], ['Toledo', 721], ['South Bend', 862],
+    ['Chicago Union Station', 959],
+  ];
+  const T = 959, mir = m => T - m;
+  const fwd = west.map(([name, mile]) => ({ name, mile }));
+  const rev = west.map(([name, mile]) => ({ name, mile: mir(mile) })).reverse();
+  ROUTES.push({
+    id: 'nychi', from: 'New York', to: 'Chicago', fromCode: 'NYC', toCode: 'CHI',
+    depart: 'overnight', minMiles: 0, stations: fwd,
+    coast: [[498, 700]], slow: [[498, 700]], fast: [[720, 940]],       // Lake Erie shore, then the sprint
+    bridges: [{ m: 140, name: 'Hudson River' }, { m: 436, name: 'Buffalo Creek' }], underground: null,
+  });
+  ROUTES.push({
+    id: 'chiny', from: 'Chicago', to: 'New York', fromCode: 'CHI', toCode: 'NYC',
+    depart: 'overnight', minMiles: 0, stations: rev,
+    coast: [[mir(700), mir(498)]], slow: [[mir(700), mir(498)]], fast: [[mir(940), mir(720)]],
+    bridges: [{ m: mir(140), name: 'Hudson River' }, { m: mir(436), name: 'Buffalo Creek' }],
+    underground: mir(15),                                              // dives into Penn on arrival
+  });
+})();
 
 // --- classes + saved progress (miles economy) ------------------------------
 const CLASSES = [
@@ -1778,15 +1857,24 @@ showStation();          // open at the station concourse — your last stop, not
 let dayT = 0;            // 0..1 position in a looping day/night cycle
 let tunnelAmount = 0;    // 0..1 how deep we are inside a tunnel
 
-// time-of-day across the trip: depart 3:15 PM in the afternoon, arrive at dusk
-// (driven by journey progress, not a loop — so it never flips to full night)
+// time-of-day is the REAL Eastern-Time clock (0 = midnight … 1 = next midnight),
+// so rides reflect the actual hour and an overnight run truly passes through the
+// night and out into morning. A full 24-hour cosy palette:
 const SKY = [
-  { t: 0.00, c: [255, 246, 224], a: 0.00 },  // bright afternoon (departure)
-  { t: 0.40, c: [255, 224, 168], a: 0.08 },  // softening light
-  { t: 0.70, c: [255, 170, 100], a: 0.18 },  // golden hour
-  { t: 0.88, c: [176, 120, 138], a: 0.24 },  // sunset
-  { t: 1.00, c: [104,  92, 150], a: 0.32 },  // dusk / early evening (arrival)
+  { t: 0.00, c: [ 26,  28,  58], a: 0.52 },  // deep night (midnight)
+  { t: 0.20, c: [ 40,  42,  78], a: 0.48 },  // pre-dawn (~4:48a)
+  { t: 0.26, c: [255, 176, 138], a: 0.28 },  // sunrise (~6:15a)
+  { t: 0.33, c: [255, 240, 210], a: 0.05 },  // clear morning (~7:55a)
+  { t: 0.50, c: [255, 255, 246], a: 0.00 },  // bright noon
+  { t: 0.66, c: [255, 236, 190], a: 0.06 },  // softening afternoon (~3:50p)
+  { t: 0.75, c: [255, 178, 108], a: 0.16 },  // golden hour (~6p)
+  { t: 0.81, c: [238, 138, 116], a: 0.23 },  // sunset (~7:26p)
+  { t: 0.86, c: [150, 110, 150], a: 0.33 },  // dusk (~8:38p)
+  { t: 0.93, c: [ 68,  64, 116], a: 0.46 },  // night falling (~10:19p)
+  { t: 1.00, c: [ 26,  28,  58], a: 0.52 },  // deep night (midnight)
 ];
+// fraction of the Eastern-Time day, 0..1
+function etDayFraction() { const t = etNow(); return (t.h * 3600 + t.m * 60 + t.s) / 86400; }
 function lightingFor(t) {
   let a = SKY[0], b = SKY[SKY.length - 1];
   for (let i = 0; i < SKY.length - 1; i++) {
@@ -1815,6 +1903,7 @@ function tunnelAt(s) {
 // --- update ----------------------------------------------------------------
 let last = performance.now();
 function update(dt) {
+  tickNaps(dt);   // passengers doze off and stir awake as the hours pass
   if (atStation) { updateStation(dt); updateWorldClock(); if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show'); return; }
   // movement (disabled while seated or in the whole-train view)
   if (!player.seat && !wideView) {
@@ -1873,7 +1962,8 @@ function update(dt) {
   etaSeconds = arrived ? 0 : Math.max(0, timetable[timetable.length - 1].arr - Math.max(0, (Date.now() - departTs) / 1000));
   updateWorldClock();
   if (tripOpen) updateTripCard();
-  dayT = Math.min(1, miles / ROUTE.totalMiles);   // afternoon → dusk over the whole trip
+  // real-clock time of day; in ?fast mode, race a whole day/night cycle across the ride so it's previewable
+  dayT = FAST_MODE ? (0.42 + (boarded && !arrived ? miles / ROUTE.totalMiles : 0) * 0.9) % 1 : etDayFraction();
   tunnelAmount = Math.max(tunnelAt(scroll), undergroundAmount());   // dark underground into Penn
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
 
@@ -2485,18 +2575,42 @@ function drawPlant(bx, by) {
   px(bx+1, by-5, 2, 2, '#2b5c30'); px(bx+5, by-4, 2, 2, '#2b5c30');
   px(bx+3, by-7, 1, 4, '#6fbf63');                               // bright centre leaf
 }
+// a booth's sconce is lit unless you've flicked the whole cabin dark (sleep mask)
+// or the passenger sitting there has dozed off and turned their own light out
+function lampLit(st) {
+  return !lightsOff && !(st.occupant && st.occupant.npc && st.occupant.asleep);
+}
 // warm sconce lamps on the wall above each booth (glow pools live in applyAmbient,
 // screen-space, so the lamplight cuts through dusk + tunnel darkness)
 function drawLamps() {
   for (const st of seats) {
     const left = st.side === 'L';
     const cx = left ? WALL_L - 1 : WALL_R + 1;                   // fixture hugs the wall
+    if (!lampLit(st)) {                                          // an off lamp: a dim, unlit fixture
+      const ox = left ? WALL_L - 3 : WALL_R - 2, oy = st.row - 27;
+      px(ox, oy - 1, 5, 4, C.outline);
+      px(ox + 1, oy, 3, 2, '#4a4038');                          // dark, cold shade
+      px(ox + 2, oy + 3, 1, 2, '#3a332c');                      // stem
+      continue;
+    }
     if (drawProp(PROPS.lampS, cx, st.row - 18)) continue;        // the hand-drawn brass lamp
     const lx = left ? WALL_L - 3 : WALL_R - 2, ly = st.row - 27; // (procedural sconce fallback)
     px(lx + 1, ly + 3, 3, 2, C.outline); px(lx + 2, ly + 4, 1, 1, '#caa24e');
     px(lx, ly - 1, 5, 4, C.outline);
     px(lx + 1, ly, 3, 2, '#f0e0b8'); px(lx + 1, ly, 3, 1, '#fdf3d4');
     px(lx + 2, ly + 2, 1, 1, '#ffd98a');
+  }
+}
+// a little drift of Zzz rising above someone who's dozed off
+function drawZzz(cx, cy, phase) {
+  for (let i = 0; i < 3; i++) {
+    const p = ((phase + i * 0.9) % 3) / 3;                       // 0..1 rise, staggered
+    const zx = Math.round(cx + 3 + i * 3 + Math.sin(phase + i) * 1.5);
+    const zy = Math.round(cy - 2 - p * 12);                      // higher + fainter as it rises
+    const col = `rgba(226,232,246,${(1 - p) * 0.85})`;
+    px(zx, zy, 3, 1, col);                                       // top bar
+    px(zx + 1, zy + 1, 1, 1, col);                               // diagonal
+    px(zx, zy + 2, 3, 1, col);                                   // bottom bar
   }
 }
 
@@ -2568,14 +2682,17 @@ function drawChar(cx, cy, p, o) {
 }
 function drawPerson(cx, cy, p, t, hp) {
   const bob = Math.sin(t) * 0.6;
-  if (p.sprite && drawNpcSprite(cx, cy, bob, p.sprite)) return;   // hand-drawn passenger
-  drawChar(cx, cy - 10, p, { bob, hp });                   // lifted so head + shoulders clear the table
+  const drawn = p.sprite && drawNpcSprite(cx, cy, bob, p.sprite);   // hand-drawn passenger
+  if (!drawn) drawChar(cx, cy - 10, p, { bob, hp });                // lifted so head + shoulders clear the table
+  if (p.asleep) drawZzz(cx + 4, cy - (drawn ? 22 : 20), p.zzz || 0);   // dozing: a drift of Zzz
 }
 
 // the seated player, drawn inside the seat loop so the table sits in front of them
 function drawSeatedPlayer(st) {
   const cx = st.sitX, cy = st.sitY, hp = player.items.includes('headphones');
-  if (!drawPlayerSprite(cx, cy, player.facing, 0)) drawChar(cx, cy - 10, player, { hp });
+  const drawn = drawPlayerSprite(cx, cy, player.facing, 0);
+  if (!drawn) drawChar(cx, cy - 10, player, { hp });
+  if (lightsOff) drawZzz(cx + 4, cy - (drawn ? 22 : 20), elapsed * 1.4);   // 😴 mask on, resting your eyes
 }
 function drawPlayer() {
   if (player.seat) return;   // the seated player is drawn in the seat loop (behind its table)
@@ -2815,11 +2932,17 @@ function applyAmbient() {
   }
   if (!wideView) {   // carriage lamps warm the interior — a gentle glow always, deeper as it darkens
     const dark = Math.max(tunnelAmount, Math.min(1, (L.a - 0.15) / 0.3));
-    ctx.fillStyle = `rgba(255,196,124,${0.045 + dark*0.10})`;
-    ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
-    // pools of sconce lamplight, drawn over the dusk so they genuinely glow
+    if (lightsOff) {                                             // sleep mask on: the cabin sinks into a cosy dark
+      ctx.fillStyle = 'rgba(10,12,26,0.62)';
+      ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
+    } else {
+      ctx.fillStyle = `rgba(255,196,124,${0.045 + dark*0.10})`;
+      ctx.fillRect(WALL_L,0,WALL_R-WALL_L,H);
+    }
+    // pools of sconce lamplight, drawn over the dusk so they genuinely glow (lit lamps only)
     const a = 0.08 + dark * 0.30;
     for (const st of seats) {
+      if (!lampLit(st)) continue;
       const wx = st.side==='L' ? WALL_L+7 : WALL_R-7, wy = st.row-23;
       const sx = (wx - cam.fx)*cam.s + W/2, sy = (wy - cam.fy)*cam.s + H/2;   // world → screen
       const rad = 30*cam.s;
