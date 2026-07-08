@@ -136,9 +136,34 @@
   .sb-sug { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border-radius: 12px; cursor: pointer;
     background: rgba(255,255,255,.03); border: 1px solid transparent; }
   .sb-sug:active { background: rgba(127,211,189,.12); }
+  .sb-sug.on { background: rgba(127,211,189,.14); border-color: rgba(127,211,189,.4); }
   .sb-sug .pin { font-size: 15px; opacity: .7; }
   .sb-sug b { font-size: 14px; color: #fff; font-weight: 700; }
   .sb-sug span { font-size: 10.5px; color: #8f88a0; margin-left: auto; letter-spacing: .3px; }
+  .sb-field input[readonly] { cursor: pointer; }
+  .sb-caret { flex: 0 0 auto; color: #6f6980; font-size: 12px; padding: 0 2px; pointer-events: none; }
+  /* network map: live stations strung along the corridor */
+  .mp-body { padding: 4px 2px 8px; }
+  .mp-row { position: relative; display: flex; align-items: center; gap: 11px; padding: 9px 6px; border-radius: 11px; cursor: pointer; }
+  .mp-row::before { content: ''; position: absolute; left: 11px; top: 50%; height: 100%; width: 2px; background: #3a3646; z-index: 0; }
+  .mp-row:last-child::before { display: none; }
+  .mp-row:active { background: rgba(127,211,189,.10); }
+  .mp-row .st-dot { flex: 0 0 12px; width: 12px; height: 12px; }
+  .mp-row.here .st-dot { border-color: #7fd3bd; background: #7fd3bd; box-shadow: 0 0 0 4px rgba(127,211,189,.22); }
+  .mp-row.riding .st-dot { border-color: #ffd9a0; background: #ffd9a0; box-shadow: 0 0 0 4px rgba(255,217,160,.20); }
+  .mp-info { flex: 1; min-width: 0; }
+  .mp-name { font-size: 14px; color: #efe8da; font-weight: 700; }
+  .mp-name small { font-size: 10px; color: #8f88a0; font-weight: 700; margin-left: 5px; letter-spacing: .5px; }
+  .mp-sub { font-size: 11px; color: #8f88a0; margin-top: 1px; }
+  .mp-row.here .mp-sub { color: #7fd3bd; }
+  .mp-row.riding .mp-sub { color: #ffd9a0; }
+  .mp-seg { margin: -4px 0 -4px 27px; font-size: 10px; color: #6f6980; letter-spacing: .3px; padding: 2px 0; }
+  .mp-row.branch { margin-left: 22px; }
+  .mp-row.branch::before { left: -11px; top: -50%; }
+  .mp-row.branch .st-dot { border-color: #8a7fd3; background: #2a2735; }
+  .mp-banner { display: flex; align-items: center; gap: 8px; background: rgba(255,217,160,.10);
+    border: 1px solid rgba(255,217,160,.25); border-radius: 12px; padding: 9px 12px; margin-bottom: 12px;
+    font-size: 12px; color: #ffd9a0; font-weight: 600; }
 
   .sb-sec { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: #6f6980;
     margin: 4px 2px 9px; font-weight: 700; }
@@ -500,8 +525,8 @@
       <div class="app-panel" data-panel="search">
         <div class="ph-title">Plan a trip<span id="sbSub">Any trip on the corridor · board where you are</span></div>
         <div class="sb-od">
-          <div class="sb-field"><span class="sb-ic from"></span><input id="sbFrom" placeholder="From" autocomplete="off"></div>
-          <div class="sb-field"><span class="sb-ic to"></span><input id="sbTo" placeholder="Where to?" autocomplete="off"></div>
+          <div class="sb-field"><span class="sb-ic from"></span><input id="sbFrom" placeholder="From" autocomplete="off" readonly><span class="sb-caret">▾</span></div>
+          <div class="sb-field"><span class="sb-ic to"></span><input id="sbTo" placeholder="Where to?" autocomplete="off" readonly><span class="sb-caret">▾</span></div>
           <button class="sb-swap" id="sbSwap" aria-label="swap">⇅</button>
         </div>
         <div class="sb-suggest" id="sbSuggest"></div>
@@ -554,6 +579,12 @@
         </div>
       </div>
 
+      <!-- Live station map -->
+      <div class="app-panel" data-panel="map" hidden>
+        <div class="ph-title">Network map<span id="mapSub">Live stations on the corridor</span></div>
+        <div id="mapBody" class="mp-body"></div>
+      </div>
+
       <!-- Passport -->
       <div class="app-panel" data-panel="pass" hidden>
         <div class="ph-title">Passport<span>Your miles &amp; tiers</span></div>
@@ -563,6 +594,7 @@
 
     <div class="ph-nav">
       <button data-tab="search"><span class="ic">🔍</span>Plan</button>
+      <button data-tab="map"><span class="ic">🗺️</span>Map</button>
       <button data-tab="now"><span class="ic">🚆</span>Ride</button>
       <button data-tab="pass"><span class="ic">🎫</span>Passport</button>
     </div>
@@ -1261,7 +1293,8 @@ function setTab(t) {
   activeTab = t;
   for (const b of document.querySelectorAll('.ph-nav button')) b.classList.toggle('on', b.dataset.tab === t);
   for (const p of document.querySelectorAll('#trip .app-panel')) p.hidden = p.dataset.panel !== t;
-  if (t === 'search') { if (!sbFromEl.value.trim()) sbFromEl.value = save.lastCity; renderSearch(); }
+  if (t === 'search') { if (!sbFromEl.value.trim()) sbFromEl.value = save.lastCity; sbOpen = false; renderSearch(); }
+  if (t === 'map')    renderMap();
   if (t === 'pass')   renderPassport();
   if (t === 'now')    updateTripCard();
 }
@@ -1271,6 +1304,7 @@ for (const b of document.querySelectorAll('.ph-nav button')) b.addEventListener(
 const sbFromEl = document.getElementById('sbFrom'), sbToEl = document.getElementById('sbTo');
 function cityList() { return [...new Set(ROUTES.flatMap(r => [r.from, r.to]))]; }   // the terminals (lazy: ROUTES is defined later)
 let sbFocus = 'to';                                                    // which field you're editing
+let sbOpen = false;                                                   // which field's station dropdown is open ('from'/'to'/false)
 function connectionCard(r, deps) {
   const locked = save.lifetimeMiles < r.minMiles;
   const here = r.from === save.lastCity;                               // can you board this now?
@@ -1299,21 +1333,22 @@ function connectionCard(r, deps) {
 function renderSearch() {
   const fromV = sbFromEl.value.trim(), toV = sbToEl.value.trim();
   const originCity = cityList().find(c => c.toLowerCase() === fromV.toLowerCase()) || (fromV ? null : save.lastCity);
-  // autocomplete for whichever field you're editing
+  // the open field shows a dropdown of every station you can pick
   const sug = document.getElementById('sbSuggest'); sug.innerHTML = '';
-  const addSug = (label, sub, pick) => {
-    const d = document.createElement('div'); d.className = 'sb-sug';
+  const addSug = (label, sub, on, pick) => {
+    const d = document.createElement('div'); d.className = 'sb-sug' + (on ? ' on' : '');
     d.innerHTML = `<span class="pin">📍</span><b>${label}</b><span>${sub}</span>`;
     d.onclick = pick; sug.appendChild(d);
   };
-  if (sbFocus === 'from' && fromV) {
-    for (const c of cityList().filter(c => c.toLowerCase().includes(fromV.toLowerCase()) && c.toLowerCase() !== fromV.toLowerCase()).slice(0, 6))
-      addSug(c, c === save.lastCity ? 'you are here' : 'terminal', () => { sbFromEl.value = c; renderSearch(); });
-  } else if (sbFocus === 'to' && toV) {
+  if (sbOpen === 'from') {
+    for (const c of cityList())
+      addSug(c, c === save.lastCity ? 'you are here' : 'station', c === fromV, () => { sbFromEl.value = c; sbOpen = false; renderSearch(); });
+  } else if (sbOpen === 'to') {
     const base = originCity || save.lastCity;
     const dests = [...new Set(ROUTES.filter(r => r.from === base).map(r => r.to))];
-    for (const c of dests.filter(d => d.toLowerCase().includes(toV.toLowerCase()) && d.toLowerCase() !== toV.toLowerCase()).slice(0, 6))
-      addSug(c, 'from ' + base, () => { sbToEl.value = c; renderSearch(); });
+    if (!dests.length) addSug('No onward trains', 'from ' + base, false, () => {});
+    for (const c of dests)
+      addSug(c, 'from ' + base, c === toV, () => { sbToEl.value = c; sbOpen = false; renderSearch(); });
   }
   // results — default origin is where you are; change From to plan from elsewhere
   const res = document.getElementById('sbResults'); res.innerHTML = '';
@@ -1328,13 +1363,65 @@ function renderSearch() {
   res.appendChild(head);
   for (const r of routes) res.appendChild(connectionCard(r, departuresFor(r, 3)));
 }
-sbFromEl.addEventListener('focus', () => { sbFocus = 'from'; });
-sbToEl.addEventListener('focus', () => { sbFocus = 'to'; });
-sbFromEl.addEventListener('input', renderSearch);
-sbToEl.addEventListener('input', renderSearch);
+// each field is a station dropdown: tap to open the list, tap again to close
+function toggleDrop(which) { sbFocus = which; sbOpen = (sbOpen === which) ? false : which; renderSearch(); }
+sbFromEl.addEventListener('click', () => toggleDrop('from'));
+sbToEl.addEventListener('click', () => toggleDrop('to'));
 document.getElementById('sbSwap').addEventListener('click', () => {
-  const a = sbFromEl.value || save.lastCity; sbFromEl.value = sbToEl.value || save.lastCity; sbToEl.value = a; renderSearch();
+  const a = sbFromEl.value || save.lastCity; sbFromEl.value = sbToEl.value || save.lastCity; sbToEl.value = a; sbOpen = false; renderSearch();
 });
+
+// --- live network map: every station we serve, strung along the corridor -----
+function nextDepFromCity(city) {                      // soonest train leaving this city, whatever the destination
+  let best = Infinity;
+  for (const r of ROUTES) if (r.from === city) { const t = nextDepartFor(r, Date.now()); if (t < best) best = t; }
+  return best === Infinity ? null : best;
+}
+function planTo(city) {                               // tap a station on the map → plan a trip there
+  if (city !== save.lastCity) { sbFromEl.value = save.lastCity; sbToEl.value = city; }
+  sbOpen = false; setTab('search');
+}
+let lastMapMin = -1, lastMapMi = -1;
+function renderMap() {
+  const body = document.getElementById('mapBody'); if (!body) return;
+  const t = etNow(); lastMapMin = t.h * 60 + t.m;     // remember the minute we drew, so we can refresh live
+  body.innerHTML = '';
+  document.getElementById('mapSub').textContent = boarded && !arrived
+    ? 'En route · ' + ROUTE.from + ' → ' + ROUTE.to : 'Live stations on the corridor';
+  if (boarded && !arrived) {                          // a little live banner while you're riding
+    const ban = document.createElement('div'); ban.className = 'mp-banner';
+    ban.innerHTML = `🚆 On board — ${Math.round(miles)} of ${ROUTE.totalMiles} mi · ${STATIONS[nextStop] ? 'next ' + STATIONS[nextStop].name : 'arriving'}`;
+    body.appendChild(ban);
+  }
+  // the corridor terminals, in order north→south, plus the Chicago overnight branch
+  const stops = TERMINALS.map(tm => ({ city: tm.city, code: tm.code, mile: LINE.find(s => s.name === tm.station).mile }));
+  stops.forEach((s, i) => {
+    const here = s.city === save.lastCity && !(boarded && !arrived);
+    const riding = boarded && !arrived && (s.city === ROUTE.from || s.city === ROUTE.to);
+    const row = document.createElement('div'); row.className = 'mp-row' + (here ? ' here' : (riding ? ' riding' : ''));
+    const nd = nextDepFromCity(s.city);
+    const sub = here ? 'You are here'
+              : riding ? (s.city === ROUTE.to ? 'Your destination' : 'Departed here')
+              : nd ? 'Next train ' + fmtETClock(nd) : 'Served';
+    row.innerHTML = `<div class="st-dot"></div><div class="mp-info"><div class="mp-name">${s.city}<small>${s.code}</small></div><div class="mp-sub">${sub}</div></div>`;
+    row.onclick = () => planTo(s.city);
+    body.appendChild(row);
+    if (i < stops.length - 1) {
+      const seg = document.createElement('div'); seg.className = 'mp-seg';
+      seg.textContent = '│ ' + (stops[i + 1].mile - s.mile) + ' mi';
+      body.appendChild(seg);
+    }
+    if (s.city === 'New York') {                       // the overnight branch out to Chicago
+      const chi = ROUTES.find(r => r.from === 'New York' && r.to === 'Chicago');
+      if (chi) {
+        const b = document.createElement('div'); b.className = 'mp-row branch';
+        b.innerHTML = `<div class="st-dot"></div><div class="mp-info"><div class="mp-name">Chicago<small>CHI</small></div><div class="mp-sub">🌙 Overnight · ${routeMiles(chi)} mi</div></div>`;
+        b.onclick = () => planTo('Chicago');
+        body.appendChild(b);
+      }
+    }
+  });
+}
 
 // book a specific departure (from the planner) — or the next one
 let chosenDepartTs = 0;
@@ -1977,6 +2064,11 @@ function update(dt) {
   etaSeconds = arrived ? 0 : Math.max(0, timetable[timetable.length - 1].arr - Math.max(0, (Date.now() - departTs) / 1000));
   updateWorldClock();
   if (tripOpen) updateTripCard();
+  if (tripOpen && activeTab === 'map') {   // keep the live map fresh — on the minute, or as the miles tick while riding
+    const nowMin = (() => { const t = etNow(); return t.h * 60 + t.m; })();
+    const mi = Math.round(miles);
+    if (nowMin !== lastMapMin || (boarded && !arrived && mi !== lastMapMi)) { lastMapMi = mi; renderMap(); }
+  }
   // real-clock time of day; in ?fast mode, race a whole day/night cycle across the ride so it's previewable
   dayT = FAST_MODE ? (0.42 + (boarded && !arrived ? miles / ROUTE.totalMiles : 0) * 0.9) % 1 : etDayFraction();
   tunnelAmount = Math.max(tunnelAt(scroll), undergroundAmount());   // dark underground into Penn
