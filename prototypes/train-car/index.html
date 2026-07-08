@@ -1091,7 +1091,20 @@ function effectiveGain() {
 function applyMaster() {
   if (!actx || !trainBus) return;
   trainBus.gain.cancelScheduledValues(actx.currentTime);
-  trainBus.gain.setTargetAtTime(effectiveGain(), actx.currentTime, 0.4);
+  trainBus.gain.setTargetAtTime(effectiveGain() * audioSpeed, actx.currentTime, 0.4);
+}
+// the train sound follows the wheels: silent when stopped, fading up as we pull
+// away and easing down before a stop, with the clack tempo rising with speed
+function updateTrainAudio(dt, speedNorm) {
+  const rolling = (boarded && !arrived && !atStation) ? speedNorm : 0;
+  audioSpeed += (rolling - audioSpeed) * Math.min(1, dt * 2.5);
+  if (audioSpeed < 0.001) audioSpeed = 0;
+  if (soundLevel > 0 && actx && loopLP) {
+    const target = loopBaseLP - tunnelAmount * (loopBaseLP - 1400);   // muffle further underground
+    loopLP.frequency.value += (target - loopLP.frequency.value) * Math.min(1, dt * 4);
+    if (trainBus) trainBus.gain.setTargetAtTime(effectiveGain() * audioSpeed, actx.currentTime, 0.12);
+    if (loopSrc) loopSrc.playbackRate.setTargetAtTime(0.7 + 0.5 * audioSpeed, actx.currentTime, 0.15);
+  }
 }
 async function cycleSound() {
   try {
@@ -1713,6 +1726,8 @@ let scroll = 0;          // scenery scroll offset (px)
 let miles = 0;           // miles travelled along the route
 let elapsed = 0;         // seconds aboard since departure
 let trainSpeed = 0;      // current speed, miles/second of game time
+let audioSpeed = 0;      // smoothed 0..1 "how fast we're rolling" that drives the train sound
+let bobPhase = 0;        // ever-advancing phase for the seated gentle rock
 let dwellTimer = 0;      // seconds left standing at the current station
 let nextStop = 1;        // index of the next station we'll pull into (0 = Boston, where we board)
 let etaSeconds = 0;
@@ -1821,6 +1836,17 @@ function buildTimetable() {
   }
   return tt;
 }
+// eased distance-along-a-leg: pull away slowly, cruise, then brake into the stop
+// (a trapezoidal speed profile) so the train accelerates and decelerates instead
+// of teleporting to line speed. u,pos are 0..1; D is the leg's duration in seconds.
+function easeSeg(u, D) {
+  const r = Math.min(0.45, 9 / Math.max(0.001, D));     // ~9s to spool up / brake, capped for short legs
+  if (r <= 0) return u;
+  const vmax = 1 / (1 - r);
+  if (u < r)      return vmax * u * u / (2 * r);          // accelerating
+  if (u > 1 - r)  return 1 - vmax * (1 - u) * (1 - u) / (2 * r);   // braking
+  return vmax * (u - r / 2);                              // cruising
+}
 // miles travelled at e = world-seconds since departure (e<0 → still at platform)
 function milesAt(e) {
   const tt = timetable, last = tt[tt.length - 1];
@@ -1829,9 +1855,25 @@ function milesAt(e) {
   for (let i = 0; i < tt.length - 1; i++) {
     const a = tt[i], b = tt[i + 1];
     if (e < a.dep) return a.mile;                       // dwelling at a
-    if (e < b.arr) return a.mile + (b.mile - a.mile) * ((e - a.dep) / (b.arr - a.dep));
+    if (e < b.arr) { const D = b.arr - a.dep; return a.mile + (b.mile - a.mile) * easeSeg((e - a.dep) / D, D); }
   }
   return last.mile;
+}
+// how hard we're rolling right now, 0..1 (0 stopped/dwelling, 1 at line speed) —
+// read straight from the eased leg profile, so it's smooth and spike-free
+function currentSpeedFrac() {
+  if (!boarded || arrived || atStation) return 0;
+  const tt = timetable, e = (Date.now() - departTs) / 1000;
+  if (e <= 0 || e >= tt[tt.length - 1].arr) return 0;
+  for (let i = 0; i < tt.length - 1; i++) {
+    const a = tt[i], b = tt[i + 1];
+    if (e < a.dep) return 0;                              // standing at a stop
+    if (e < b.arr) {
+      const D = b.arr - a.dep, u = (e - a.dep) / D, r = Math.min(0.45, 9 / Math.max(0.001, D));
+      return u < r ? u / r : (u > 1 - r ? (1 - u) / r : 1);   // accel · cruise · brake
+    }
+  }
+  return 0;
 }
 
 // deterministic scenery features so they scroll consistently
@@ -1999,8 +2041,9 @@ function lightingFor(t) {
 // --- update ----------------------------------------------------------------
 let last = performance.now();
 function update(dt) {
+  bobPhase += dt;   // gentle carriage rock for the seated player
   tickNaps(dt);   // passengers doze off and stir awake as the hours pass
-  if (atStation) { updateStation(dt); updateWorldClock(); if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show'); return; }
+  if (atStation) { updateStation(dt); updateWorldClock(); updateTrainAudio(dt, 0); if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show'); return; }
   // movement (disabled while seated or in the whole-train view)
   if (!player.seat && !wideView) {
     let dx = 0, dy = 0;
@@ -2068,12 +2111,7 @@ function update(dt) {
   tunnelAmount = undergroundAmount();   // the only darkening underground is the real dive into NY Penn (no phantom tunnels)
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
 
-  // the sound sits at its level's tone, muffling further in a tunnel — smoothed
-  if (soundLevel > 0 && loopLP) {
-    const target = loopBaseLP - tunnelAmount * (loopBaseLP - 1400);
-    const cur = loopLP.frequency.value;
-    loopLP.frequency.value = cur + (target - cur) * Math.min(1, dt * 4);
-  }
+  updateTrainAudio(dt, currentSpeedFrac());   // clack follows how hard we're rolling (0..1)
 
   // smooth camera toward its target (zoomed into seat, or the whole car)
   const ts  = (zoomed && player.seat) ? 2.6 : 1;
@@ -2823,8 +2861,9 @@ function drawPerson(cx, cy, p, t, hp) {
 // the seated player, drawn inside the seat loop so the table sits in front of them
 function drawSeatedPlayer(st) {
   const cx = st.sitX, cy = st.sitY, hp = player.items.includes('headphones');
-  const drawn = drawPlayerSprite(cx, cy, player.facing, 0);
-  if (!drawn) drawChar(cx, cy - 10, player, { hp });
+  const bob = Math.sin(bobPhase) * 0.6;                              // rock gently with the carriage, like the NPCs
+  const drawn = drawPlayerSprite(cx, cy, player.facing, bob);
+  if (!drawn) drawChar(cx, cy - 10, player, { hp, bob });
   if (lightsOff) drawZzz(cx + 4, cy - (drawn ? 22 : 20), elapsed * 1.4);   // 😴 mask on, resting your eyes
 }
 function drawPlayer() {
