@@ -719,7 +719,8 @@ function carR(k, n) {   // stable per-car hash (same recipe as the scenery lots)
 function seatCarNPCs(k) {
   for (const st of seats) if (st.occupant && st.occupant.npc) st.occupant = null;
   npcSeats = [];
-  const want = 4 + Math.floor(carR(k, 3) * 3);            // 4..6 riders per carriage
+  const want = k === 0 ? 2 + Math.floor(carR(k, 3) * 2)   // first class rides quiet: 2..3
+                       : 4 + Math.floor(carR(k, 3) * 3);  // 4..6 riders elsewhere
   for (let n = 0; npcSeats.length < want && n < 40; n++) {
     const i = Math.floor(carR(k, 11 + n) * seats.length) % seats.length;
     if (!seats[i].occupant && !npcSeats.includes(i)) npcSeats.push(i);
@@ -785,11 +786,13 @@ const sofaImg = new Image(); let sofaImgOK = false;
 sofaImg.onload = () => { sofaImgOK = true; };
 sofaImg.src = 'data:image/png;base64,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';
 function drawSeatSprite(st) {
-  if (!sofaImgOK) return false;
-  const w = sofaImg.width, h = sofaImg.height, cx = st.x + st.w / 2, cy = st.y + st.h / 2;
+  const fc = carIdx === 0 && FC.seat.ok;                 // the front carriage rides first class
+  const img = fc ? FC.seat.img : (sofaImgOK ? sofaImg : null);
+  if (!img) return false;
+  const w = img.width, h = img.height, cx = st.x + st.w / 2, cy = st.y + st.h / 2;
   const dx = Math.round(cx - w / 2), dy = Math.round(cy + 17 - h);   // legs rest ~cy+17
   px(cx - w / 2 + 2, cy + 16, w - 4, 2, C.shadow);
-  ctx.drawImage(sofaImg, dx, dy, w, h);
+  ctx.drawImage(img, dx, dy, w, h);
   return true;
 }
 // the ¾-view wooden table (hand-drawn asset) that sits in front of each seat
@@ -1856,6 +1859,10 @@ function toggleSit() {
     toast('You stand up and stretch.');
     return;
   }
+  if (carIdx === 0 && classUnlocked() < 2) {   // browsing first class is free; the armchairs are not
+    toast('🎩 First Class — these seats unlock at ' + CLASSES[2].at.toLocaleString() + ' lifetime miles.');
+    return;
+  }
   const st = nearestFreeSeat();
   if (st) {
     st.occupant = { player: true };
@@ -2319,7 +2326,7 @@ function update(dt) {
       player.x = W/2 - player.w/2;
       player.y = carPending < 0 ? CAR_BOT - player.h - 6 : CAR_TOP + 6;   // step in from the door you came through
       if (save.ride) { save.ride.carIdx = carIdx; persist(); }
-      toast('Carriage ' + (carIdx + 1) + ' of ' + NCARS + (carIdx === 0 ? ' · right behind the engine' : ''));
+      toast('Carriage ' + (carIdx + 1) + ' of ' + NCARS + (carIdx === 0 ? ' · First Class 🎩' : ''));
       carPending = 0;
     }
   }
@@ -2401,11 +2408,13 @@ function itemSlots(st) {
   ];
 }
 function drawTable(st) {
-  if (tableImgOK) {                                 // hand-drawn wooden table sprite
-    const w = tableImg.width, h = tableImg.height;
+  const fc = carIdx === 0 && FC.table.ok;           // first class dines at clothed pedestal tables
+  if (fc || tableImgOK) {                           // hand-drawn table sprite
+    const img = fc ? FC.table.img : tableImg;
+    const w = img.width, h = img.height;
     const dx = Math.round(st.x + st.w / 2 - w / 2), dy = st.y + TABLE_TOP;   // in front of the passenger
     px(st.x + 1, dy + h - 3, st.w - 2, 2, C.shadow);  // soft shadow under the legs
-    ctx.drawImage(tableImg, dx, dy, w, h);
+    ctx.drawImage(img, dx, dy, w, h);
     return;
   }
   const tw = st.w, th = 13, tx = st.x, ty = st.y + TABLE_TOP, O = C.outline;
@@ -2550,6 +2559,15 @@ const FARM = {
   fence: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAKCAYAAACuaZ5oAAABx0lEQVR4nJ2SQWsTURSFz73vTSZxpmkKKS4kKDRStaBgsAak3URKKBRc+Q/8D/4qQRdCQTd10WiKtUJAI6S00kWbaCiJmenMvHddTNQIUo1ned/hvHffd4gIqFcWNkvz/tq7Tu9ls310nwAIpheBIBDUKwsvLhW92l6n19AiWGLG6vVSHnud7ooIlgQYAJj2HhKIAJhhhdXFUh6tw69VelS/mcx6GSrOZvm4P7KjMBFmOjeZAIgAIoJJLwEwVlDwXZrzM3xyGlodGaP6wxBhHCOIDFsLkP37c0UAKwLF9NvciqA/DDE6ixBEhglQtfU7l5/cu3Ex/6xxMHz98fhBLpf5FsdCAE3xRUKOQxIEkbe+fOVp9dq897z5WbSrNJQiKGYoZnhuFl6OEet05X+OB+A4gLUWin/l0eOHy6IU4YKrEEQGcZIa0kb8WSl9gRVAMaVox3MrAq0IjmZEiYXe7XRNYQLyYJSIUnRuhX6ciQBMmIBMMNZiznep4Ge4expavbmzf2vjbnmnvJjPvm33ku0PR7fxnzUd+2c2quXdytUiv9/vsyZCaxDEW2/avbXY2FcEtED4ufY0ojG0YZBsNT99qZ3FSeM7dUnMx5BHVZIAAAAASUVORK5CYII='])[0],
   tractor: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAARCAYAAADZsVyDAAAECklEQVR4nH2Uz2tcVRTHv+fe+96beZPJTDJJ82PSmLa2jUmx1ekPqOBgRaoQKCIVRXFdcOkfULNw505wrTtFN3bRgujOHxtTitJSa2ob0ubXTDIzeZmZvPfuPcdFmpIW6oUDl3s5n++953w5wLMX7Ua1ClOpVLxqFWbPvQKAg8PDJ89Xz/4IIP/ojP6HCSIikNqJZ4lWpqcPVc+c/Onlycm3AZhdMezdPJUkIkLCUhSW/MRg+aPjRw99+uLRg5cAZC7u5Mlmq17SRr/SiJoGgN3L2/2arlSgul1QkoCWl1E8eerYlZ6+7AvOWg4zxYK0fSwtP1zMZnHl36lKDXNznCTJ86XBwczK6toMgO+npqbUrVu3aC/Yzc3BPfFujdN+PoCIh0a9ntp1H4v3F97bjmlp5vMZc/316+JnvS6zE62oRYrk5s2bKSmSXbA+cmjoHc/4U3GaMolTSWz74zjldtQlUoTtdqoo9XSz0ckLpDD72qwHIFlZqOenp0FRsxMKSy8R7ZZkkwBkpifHvsnmggvGD+D7AZgZpAgCwdbmJkYPDKCQL6LR2OgowIqAiCAs4g2PlLO1tdUEwttb0bZErQ51O8kfBAD7S6ULxVLpWz+TATMrrRUxiyECOltdTJ0dwdBEAWwBoiddYm0KrQyMZ7BR30RzYwvRShsUhuHwRHn4br5QDNk5CQKfRBSIBNamSGKLA8dLCAsaSezkKS4UEYkASpE0Gm30Bh4OF3rYDBZyl8Iwl3XW2nwuZ4IgwMFyL5ZqbUSdGDbZBCDwAiNKa/sEWGBEBBBAaUXZrI9G1MHP86vaGKXHQCBjDEAab50dx6snRjG/2MJXV2+jbTw4xwATiWPvsdMBsGOACAQCY0fApg7dxCVGeWYCIBCR8ozC+HAe2iiMDubQk/WwoRUv/7Ol7t5YutdtR18TkWJASMgRqY/7SgNDSmkhReQcW5vEplFvfmHSOL5BhHPMziWpU9d+W8C5yhj+nF9HrdkFxImwcHerszy/uDa7t76TBybeJ9L7ctlQesIMbTQjsGNoHfQY69yvNkk/0Z5PaRrL3wsNurvYgmUG2CJNU1ZKeQL5pVqFuXNnxB8dHU1rD+8d1p7pBxFnAk8NFDNoRR1FBNbaTBIAHB4vXyvtG3rTWucUQbQxitmJtU48zzNRq/Fg7eG9U7UO1gAIcJmAWT4yXv6rf9/QMaN1opQ21tkkTZJMbWXpMl0E9HeAf+S58g+5fO8bxngQyE5D2KHTbt9ura1fWIqiO4+GDO8Om/GRgZcKvX3XMmE4KMIgEKJW8+ryRutDAkCy02jZP9D3rufrE9rPnpE0uZE692Bhpf4lgHgP9LGFAfBYf+/pTC78gLQ5lna7v99fXf8MQPc/y4bhrAv4OggAAAAASUVORK5CYII='])[0],
   hay: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAMCAYAAABr5z2BAAACKklEQVR4nD2QP4tVVxRH197n3D/vPhXUMEOUgARCkBhTBQvbWAqBgIVNKgu/Q0hI8gVSpkmXfIC0AUvBymasYqNEgzozvhmHd8+995yzt8WE/KoFq1n8BMD9BxX50b69fe2PLz/buXt0MlcVgqoSVABAwM0xhyBiXRd07+/DhxEgxp8MYPfC6qv7d66yf5Tk1cFIGwOXdtbkYoxTIU2ZtFSufHhW2ybwy+97NyNAKSYiwpjK+O/+lmrO68OEitB3kTFlxqlQqnEyZoYuEoKyTcVUVeja4DGId23QM0PLkitto4QguMN6Fdm9uGJYNaiAimJmLuDRzFnMzwF+sEl6fDKTpsqSDRWYl0IxQxBqNbZTIc2Zjz86J30Xg9z7+vpfX3x68cbbd7Nf3h3Ofv7JBU1Toe8i1fz0P4FaT7lrAw8evahPnx+P+0fzo3h598ytb25dQVR59vIdTVSadcuqj5TqmDu4c3A8sXN+8A/O9/LPq/Hgtz+fXAU2amb18Hj2l6+3vr+ZSHOlaZQ5G9uUURHebCbyYqQpk3Olb9WDyiZGIS65hpzt/7xSjBgDrYCZYe6ogAchzZVcT301b6JIjg62HhrdpkypRtM0LEtlzpWgSs4VFWG9bui7wJgqKRUD3AEVRIdVoG8jfRcQEVQgBGHoA30XUYU0FYIqQx8oZgP/Le49PXz486+Pby7ZDFARaGKgVMPdEQTHqdVRFVv1MTx7cfIAsPLd9/oedvslTVCuV+QAAAAASUVORK5CYII='])[0],
+};
+// first-class fittings (hand-drawn): plush armchair, pedestal table, brass
+// lamp, ornate rug and luggage rack — the front carriage wears these
+const FC = {
+  seat: loadSprites(['data:image/png;base64,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'])[0],
+  table: loadSprites(['data:image/png;base64,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'])[0],
+  lamp: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAMCAYAAABfnvydAAABZElEQVR4nEXKMUgbURyA8e//7t0zCYGL5rAdIh2CIlKxkKKoQ4sO1kFwOVcnyeLiaottQZyELi526d5zCOjSCq4tkrWhOYSC0LqoUDhS09zdc2jFb/zxAShrrQD+m/UX5283Vs4B/78p3dyvOSKiXq3NNl6/XBpCaXrxz4aIzDf3axkAlUFvuXVYt0m0kyTRdtI6rNvKoLcMIPNT1eeb9ZnG3MJIPrnuugjoUl9y8inqbO6eLOjxavl9Sf/xPh98Ic0sSWoxWrl+f86bGPa+SrlYHB16mHt307X9k2MDk9OPfdk7iC7yRrccJaf6Ko6/X53Fi0B17umDM2MU+Zw5brYvVgEU4AZB4BTcgtf9m3L5+wbjKvMxCJzVZ49yCsjCMEw7vV4KoAQya+1KGKZ9sZ8q7rPaEWu0g0B2hwpABKCnnwyXZXG6QqloCgDU/g12awsF/Dr9dh19OPpBp5seA7TbRXsLmip/3xzEbQYAAAAASUVORK5CYII='])[0],
+  rug: loadSprites(['data:image/png;base64,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'])[0],
+  rack: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAHCAYAAAABIM1CAAABbklEQVR4nD3QO24TURSA4f/ce8ePsWNnSBxCZFmKaCioSGVEA23WAEpPScNaaCI2QMMSkHCoIqFIFAgkUB6Sx7Gc4PedOYciiBV8+n95c/Tk8+NHWZ9Y6jqqE4EQHKaGARioGt47cCAGMapW0+C+fhsPwuKq7O/s1AlB3HQWUTOcFwRQAydCWSreC6YgTihLdRsx4TQf98N4spr/Ov+Trkxp1hKKUhG5U6uVwGIZSYIHQATMwMzIR0uuRot5OLkcHj99vvX66HC/+PH7JjTqCat1QbUSiMWdjBlJ8CxWBZXE09vbKN59+B6+fMqP5e2rg9nLw/00RuX07Jxss8FwNKXdqjG5WbJ1LyW/nrKdNZncznlwv0Vvr41zwvuPP+ehUfdp1kq4nUVePHvIxXBKp9MkRqXXzUBgd7cFZnS7bbbbNVbrkk5WZbNVScPJWT64zGf9dWGqqs47QUT+NzsRSrV/X0DN8E7UO3EX+WLwF5g4qjIViRGBAAAAAElFTkSuQmCC'])[0],
 };
 // hand-drawn platform props (bench, clock, vending machine, bin, luggage cart)
 // + the brass lamp used on platforms and as the train's sconce light
@@ -3003,6 +3021,19 @@ function drawCar() {
     const mx = AISLE_L+AW/2;
     px(mx-3, y, 6, 6, '#6e2f2a'); px(mx-2, y+1, 4, 4, '#a85a4e'); px(mx-1, y+2, 2, 2, '#d9a15a');
   }
+  if (carIdx === 0) {                                            // first class: ornate rugs + brass luggage racks
+    if (FC.rug.ok) {
+      const rw = FC.rug.img.width, rh = FC.rug.img.height, rx = Math.round(AISLE_L + AW/2 - rw/2);
+      for (let y = AY + 34; y < CAR_BOT - rh - 8; y += 60) ctx.drawImage(FC.rug.img, rx, y, rw, rh);
+    }
+    if (FC.rack.ok) {
+      const kw = FC.rack.img.width;
+      for (const row of rowYs) {                                 // racks on the wall between the windows
+        ctx.drawImage(FC.rack.img, WALL_L - 4, row + 24, kw, FC.rack.img.height);
+        ctx.drawImage(FC.rack.img, WALL_R + 4 - kw, row + 24, kw, FC.rack.img.height);
+      }
+    }
+  }
   // side walls: warm wood panelling
   for (const [wx, dir] of [[WALL_L-6, 1],[WALL_R, -1]]) {
     px(wx, 0, 6, H, C.wall);
@@ -3077,6 +3108,7 @@ function drawLamps() {
       px(ox + 2, oy + 3, 1, 2, '#3a332c');                      // stem
       continue;
     }
+    if (carIdx === 0 && drawProp(FC.lamp, cx, st.row - 16)) continue;   // first class glows under fluted brass
     if (drawProp(PROPS.lampS, cx, st.row - 18)) continue;        // the hand-drawn brass lamp
     const lx = left ? WALL_L - 3 : WALL_R - 2, ly = st.row - 27; // (procedural sconce fallback)
     px(lx + 1, ly + 3, 3, 2, C.outline); px(lx + 2, ly + 4, 1, 1, '#caa24e');
