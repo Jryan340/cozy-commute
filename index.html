@@ -861,6 +861,16 @@ function drawCharSprite(id, cx, cy, bob, facing) {
   return true;
 }
 function drawNpcSprite(cx, cy, bob, which) { return drawCharSprite(which, cx, cy, bob, 1); }
+// a soft sleep mask worn over the eyes (😴 lights out) — same eye line as the dozing NPCs
+function drawSleepMask(charId, cx, cy, bob) {
+  const rec = CHAR_IMG[charId], h = (rec && rec.ok) ? rec.img.height : 30;
+  const ht = Math.round(cy + 8 - h + (bob || 0));        // top of the head
+  const eyeY = Math.round(ht + h * 0.28);                // eye line
+  const mask = '#6b5b8a', maskHi = '#8a78ad', strap = '#463c5c';
+  px(cx - 7, eyeY + 1, 14, 1, strap);                    // strap wrapping around the head
+  px(cx - 6, eyeY, 12, 4, mask);                         // padded mask front over both eyes
+  px(cx - 6, eyeY, 12, 1, maskHi);                       // soft top highlight
+}
 // worn headphones — a hand-drawn asset in a colour you pick (procedural fallback until it loads)
 const HP_COLORS = [
   { id: 'dark',  name: 'Charcoal' },
@@ -1063,6 +1073,7 @@ function pickItem(key) {
     toast("Table's full — set something down first."); return;
   } else player.items.push(key);
   refreshBag();
+  save.items = player.items.slice(); persist();                                    // remember your desk + what you're doing
   if (key === 'headphones') setHeadphones(player.items.includes('headphones'));   // music + duck the train
   if (key === 'sleepmask')  setLightsOff(player.items.includes('sleepmask'));      // 😴 flick the cabin lights off
 }
@@ -1803,6 +1814,7 @@ function toggleSit() {
     zoomed = false;
     closeBag();
     player.x = (player.x < W/2) ? AISLE_L + 4 : AISLE_R - player.w - 4;
+    if (save.ride) { save.ride.seatId = null; persist(); }   // remember you're standing across a refresh
     toast('You stand up and stretch.');
     return;
   }
@@ -1812,6 +1824,7 @@ function toggleSit() {
     player.seat = st;
     player.x = st.sitX - player.w/2;
     player.y = st.sitY - player.h/2;
+    if (save.ride) { save.ride.seatId = st.id; persist(); }   // so a refresh puts you back in THIS seat
     toast(st.window ? 'You settle into the window seat. 🪟' : 'You take a seat.');
   } else {
     toast('No seat within reach — walk closer.');
@@ -2112,6 +2125,15 @@ if (HP_COLORS.some(c => c.id === save.hpColor)) hpColor = save.hpColor;         
 updateHpBtn();   // reflect the saved channel on the (hidden until headphones-on) button
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
 if (save.character && CHAR_IMG[save.character]) player.char = save.character;   // restore your pick
+if (Array.isArray(save.items)) player.items = save.items.slice();               // restore your desk — coffee, book, laptop…
+lightsOff    = player.items.includes('sleepmask');    // 😴 the mask stays on across a refresh
+headphonesOn = player.items.includes('headphones');   // 🎧 music intent — sound itself resumes on your next tap
+updateHpBtn();
+// audio can't autoplay on load; if you refreshed mid-song, resume the music on your first interaction
+let audioResumed = false;
+function resumeAudioOnGesture() { if (audioResumed) return; audioResumed = true; if (headphonesOn) setHeadphones(true); }
+addEventListener('pointerdown', resumeAudioOnGesture);
+addEventListener('keydown', resumeAudioOnGesture);
 function classUnlocked() { let t = 0; for (let i = 0; i < CLASSES.length; i++) if (save.lifetimeMiles >= CLASSES[i].at) t = i; return t; }
 function currentClass() { return CLASSES[Math.min(save.classCurrent, classUnlocked())]; }
 
@@ -2151,7 +2173,10 @@ function resumeRide() {
   }
   boarded = true; arrived = false;     // still rolling (or waiting to depart) — put you back aboard
   hideStation();
-  const seat = seats.find(s => !s.occupant);   // settle into a free window seat
+  // put you back in the SAME seat you left; fall back to any free seat only if it's gone
+  let seat = (rd.seatId != null) ? seats.find(s => s.id === rd.seatId && !s.occupant) : null;
+  if (!seat && rd.seatId == null) return;              // you were standing — leave you on your feet
+  if (!seat) seat = seats.find(s => !s.occupant);
   if (seat) { seat.occupant = { player: true }; player.seat = seat;
               player.x = seat.sitX - player.w / 2; player.y = seat.sitY - player.h / 2; }
 }
@@ -3027,11 +3052,14 @@ function drawPerson(cx, cy, p, t, hp) {
 // the seated player, drawn inside the seat loop so the table sits in front of them
 function drawSeatedPlayer(st) {
   const cx = st.sitX, cy = st.sitY, hp = player.items.includes('headphones');
-  const bob = Math.sin(bobPhase) * 0.6;                              // rock gently with the carriage, like the NPCs
+  const bob = lightsOff ? 0 : Math.sin(bobPhase) * 0.6;              // mask on → sit still, dozing; else rock gently
   const drawn = drawPlayerSprite(cx, cy, player.facing, bob);
   if (!drawn) drawChar(cx, cy - 10, player, { hp, bob });
   else if (hp) drawWornHeadphones(player.char, cx, cy, bob);          // headphones sit on your head
-  if (lightsOff) drawZzz(cx + 4, cy - (drawn ? 22 : 20), elapsed * 1.4);   // 😴 mask on, resting your eyes
+  if (lightsOff) {
+    drawSleepMask(player.char, cx, cy, bob);                          // 😴 the mask goes on over your eyes
+    drawZzz(cx + 4, cy - (drawn ? 22 : 20), elapsed * 1.4);           // and a drift of Zzz above
+  }
 }
 function drawPlayer() {
   if (player.seat) return;   // the seated player is drawn in the seat loop (behind its table)
