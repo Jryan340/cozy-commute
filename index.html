@@ -630,7 +630,7 @@
   <div id="toast" class="toast"></div>
   <div id="hint">
     <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows to walk &nbsp;·&nbsp;
-    <kbd>E</kbd> or <kbd>Space</kbd> to sit / stand &nbsp;·&nbsp; find a window seat 🪟
+    <kbd>E</kbd> or <kbd>Space</kbd> to sit / stand &nbsp;·&nbsp; find a window seat 🪟 &nbsp;·&nbsp; end doors lead to the next carriage
   </div>
 
 <script>
@@ -704,24 +704,44 @@ for (const row of rowYs) {
   }
 }
 
-// seed a few NPC passengers in random-ish (deterministic) seats
-const npcSeats = [0, 3, 4, 7, 9, 8];
+// Each carriage seeds its own little crowd, deterministically from its spot in
+// the train — walk through the end doors and different passengers are riding
+// the next car. carIdx is which carriage you're in (0 = right behind the loco).
+let carIdx = 2;
+let npcSeats = [];
 const NPC_ITEMS = ['coffee', 'laptop', 'book', 'coffee', 'book'];
-npcSeats.forEach((i, k) => {
-  seats[i].occupant = {
-    npc: true,
-    name: NAMES[k % NAMES.length],
-    shirt: SHIRTS[k % SHIRTS.length],
-    skin: ['#e8b88f','#caa07b','#a87a52','#f0cba0'][k % 4],
-    hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][k % 4],
-    bob: Math.random() * 6.28,
-    item: NPC_ITEMS[k % NPC_ITEMS.length],
-    sprite: ['ivy', 'silver', 'miles', 'rust', 'traveller', 'nova'][k],   // hand-drawn passengers from the roster
-    asleep: false,
-    napT: 8 + Math.random() * 18,   // seconds until this passenger next dozes off / stirs awake
-    zzz: Math.random() * 6.28,      // phase for the drifting Zzz above a sleeper
-  };
-});
+const NPC_SPRITES = ['ivy', 'silver', 'miles', 'rust', 'traveller', 'nova'];
+function carR(k, n) {   // stable per-car hash (same recipe as the scenery lots)
+  let h = (Math.imul(k + 1, 668265263) + Math.imul(n + 1, 374761393)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function seatCarNPCs(k) {
+  for (const st of seats) if (st.occupant && st.occupant.npc) st.occupant = null;
+  npcSeats = [];
+  const want = 4 + Math.floor(carR(k, 3) * 3);            // 4..6 riders per carriage
+  for (let n = 0; npcSeats.length < want && n < 40; n++) {
+    const i = Math.floor(carR(k, 11 + n) * seats.length) % seats.length;
+    if (!seats[i].occupant && !npcSeats.includes(i)) npcSeats.push(i);
+  }
+  const base = Math.floor(carR(k, 59) * NPC_SPRITES.length);   // rotate the roster per car
+  npcSeats.forEach((i, j) => {
+    seats[i].occupant = {
+      npc: true,
+      name: NAMES[Math.floor(carR(k, 71 + i) * NAMES.length) % NAMES.length],
+      shirt: SHIRTS[Math.floor(carR(k, 83 + i) * SHIRTS.length)],
+      skin: ['#e8b88f','#caa07b','#a87a52','#f0cba0'][(i + k) % 4],
+      hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][(i * 3 + k) % 4],
+      bob: Math.random() * 6.28,
+      item: NPC_ITEMS[Math.floor(carR(k, 97 + i) * NPC_ITEMS.length)],
+      sprite: NPC_SPRITES[(base + j) % NPC_SPRITES.length],   // hand-drawn passengers, no repeats per car
+      asleep: false,
+      napT: 8 + Math.random() * 18,   // seconds until this passenger next dozes off / stirs awake
+      zzz: Math.random() * 6.28,      // phase for the drifting Zzz above a sleeper
+    };
+  });
+}
+seatCarNPCs(carIdx);
 // passengers only really doze once it's dark — by day they stay awake
 function tickNaps(dt) {
   const night = Math.min(1, Math.max(0, (lightingFor(dayT).a - 0.15) / 0.35));   // 0 by day, 1 deep night
@@ -945,13 +965,22 @@ let wideView = false;                     // 🗺️ pull all the way out to see
 let fpView = false;                       // 🪟 first-person: your desk + the window
 const cam = { s: 1, fx: W/2, fy: H/2 };   // scale + focus point (world coords)
 
-// whole-train overview layout: a locomotive + carriages; the 3rd car is yours
+// whole-train overview layout: a locomotive + carriages; carIdx marks yours
 const TRAIN = (() => {
   const segs = []; let y = 34;
   segs.push({ y, h: 56, type: 'loco' }); y += 56 + 8;
-  for (let i = 0; i < 4; i++) { segs.push({ y, h: 50, type: 'car', player: i === 2 }); y += 50 + 8; }
+  for (let i = 0; i < 4; i++) { segs.push({ y, h: 50, type: 'car', idx: i }); y += 50 + 8; }
   return segs;
 })();
+const NCARS = TRAIN.filter(s => s.type === 'car').length;
+// walking into an end door crosses the gangway into the next carriage
+let carFade = 0, carPending = 0;   // fade through black, swap cars at the midpoint
+function switchCar(dir) {
+  if (carFade > 0) return;
+  if (carIdx + dir < 0)      { toast('🚂 The engine crew keeps that door locked.'); return; }
+  if (carIdx + dir >= NCARS) { toast('This is the last carriage — nothing behind but track.'); return; }
+  carPending = dir; carFade = 1; target = null;
+}
 function screenToWorld(x, y) {
   return { x: (x - W/2) / cam.s + cam.fx, y: (y - H/2) / cam.s + cam.fy };
 }
@@ -1684,7 +1713,8 @@ function board() {
   departTs = effectiveDepartTs();
   timetable = buildTimetable();
   boarding = false; purchased = false; boarded = true; atStation = false;
-  save.ride = { routeId: ROUTE.id, departTs }; persist();   // remember the ride so a refresh lands you back aboard
+  carIdx = 2; seatCarNPCs(carIdx);  // every ride starts in your usual carriage
+  save.ride = { routeId: ROUTE.id, departTs, carIdx }; persist();   // remember the ride so a refresh lands you back aboard
   hideStation();
   closeTrip();                      // put the phone away — you're in the car now
   const wait = Math.round((departTs - Date.now()) / 1000);
@@ -2182,6 +2212,8 @@ function resumeRide() {
   }
   boarded = true; arrived = false;     // still rolling (or waiting to depart) — put you back aboard
   hideStation();
+  carIdx = (rd.carIdx != null) ? rd.carIdx : 2;   // back into the same carriage you were riding
+  seatCarNPCs(carIdx);
   // put you back in the SAME seat you left; fall back to any free seat only if it's gone
   let seat = (rd.seatId != null) ? seats.find(s => s.id === rd.seatId && !s.occupant) : null;
   if (!seat && rd.seatId == null) return;              // you were standing — leave you on your feet
@@ -2245,14 +2277,15 @@ function update(dt) {
   animT += dt;      // ever-advancing clock for ambient wisps (steam, smoke, Zzz) — never freezes like `elapsed`
   tickNaps(dt);   // passengers doze off and stir awake as the hours pass
   if (atStation) { updateStation(dt); updateWorldClock(); updateTrainAudio(dt, 0); if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show'); return; }
-  // movement (disabled while seated or in the whole-train view)
-  if (!player.seat && !wideView) {
+  // movement (disabled while seated, in the whole-train view, or mid-gangway)
+  if (!player.seat && !wideView && carFade === 0) {
     let dx = 0, dy = 0;
     if (keys['a'] || keys['arrowleft'])  dx -= 1;
     if (keys['d'] || keys['arrowright']) dx += 1;
     if (keys['w'] || keys['arrowup'])    dy -= 1;
     if (keys['s'] || keys['arrowdown'])  dy += 1;
 
+    const tdy = target ? target.y - (player.y + player.h/2) : 0;   // tapped intent, kept before any wedge-cancel
     if (dx || dy) {
       target = null;                       // keyboard overrides a tapped target
       moveBy(dx, dy, dt);
@@ -2269,6 +2302,26 @@ function update(dt) {
         if (stepped < 0.4) arriveTarget(); // arrived, or wedged against the seat edge
       }
     } else player.walkT = 0;
+
+    // pressed up against an end door in the aisle → cross into the next carriage
+    const pcx = player.x + player.w/2, wantY = dy || tdy;
+    if (pcx > AISLE_L + 2 && pcx < AISLE_R - 2) {
+      if (wantY < -0.5 && player.y <= CAR_TOP + 1.5) switchCar(-1);
+      else if (wantY > 0.5 && player.y + player.h >= CAR_BOT - 1.5) switchCar(1);
+    }
+  }
+  // crossing the gangway: fade through black, swap carriages at the midpoint
+  if (carFade > 0) {
+    carFade = Math.max(0, carFade - dt * 2.4);
+    if (carPending && carFade <= 0.5) {
+      carIdx += carPending;
+      seatCarNPCs(carIdx);
+      player.x = W/2 - player.w/2;
+      player.y = carPending < 0 ? CAR_BOT - player.h - 6 : CAR_TOP + 6;   // step in from the door you came through
+      if (save.ride) { save.ride.carIdx = carIdx; persist(); }
+      toast('Carriage ' + (carIdx + 1) + ' of ' + NCARS + (carIdx === 0 ? ' · right behind the engine' : ''));
+      carPending = 0;
+    }
   }
 
   // journey: position is a pure function of the wall clock. The train departs
@@ -2329,7 +2382,7 @@ function update(dt) {
       : player.seat
         ? (zoomed ? 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; tap a thing to use it &nbsp;·&nbsp; double-tap to zoom out'
                   : '🪟 first-person &nbsp;·&nbsp; tap yourself 🎒 for your bag &nbsp;·&nbsp; double-tap to zoom')
-        : 'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; 🗺️ see the whole train';
+        : 'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; end doors → next carriage';
   }
 }
 
@@ -3358,6 +3411,12 @@ function frame(now) {
   g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(26,12,4,.34)');
   ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
 
+  if (carFade > 0) {   // the gangway crossing: a quick breath of black between carriages
+    const a = carFade > 0.5 ? (1 - carFade) * 2 : carFade * 2;
+    ctx.fillStyle = `rgba(8,7,10,${Math.min(1, a)})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
   requestAnimationFrame(frame);
 }
 
@@ -3481,7 +3540,7 @@ function drawWideView() {
         const r = 2 + ph * 5; ctx.fillRect((cx + sxo - r)|0, (sy - r)|0, (r*2)|0, (r*2)|0);
       }
     } else {
-      if (s.player) { px(x-4, s.y-3, w+8, s.h+6, 'rgba(255,217,160,.35)'); }  // glow
+      if (s.idx === carIdx) { px(x-4, s.y-3, w+8, s.h+6, 'rgba(255,217,160,.35)'); }  // glow
       px(x-1, s.y-1, w+2, s.h+2, C.outline);                    // shell outline
       px(x, s.y, w, s.h, '#8f4038');                            // body
       px(x+2, s.y+2, w-4, s.h-4, '#a85447');                    // roof
@@ -3493,7 +3552,7 @@ function drawWideView() {
         px(x+1, wy-1, 5, 7, C.outline); px(x+2, wy, 3, 5, winCol);
         px(x+w-6, wy-1, 5, 7, C.outline); px(x+w-5, wy, 3, 5, winCol);
       }
-      if (s.player) {
+      if (s.idx === carIdx) {
         px(x+w/2-2, s.y-9, 4, 6, '#ffd24a');                    // a little pin
         px(x+w/2-1, s.y-3, 2, 3, '#ffd24a');
       }
