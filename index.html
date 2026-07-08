@@ -440,7 +440,7 @@
     opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 5;
   }
   #scrim.show { opacity: 1; pointer-events: auto; }
-  #bag, #charPick {
+  #bag, #charPick, #hpMenu {
     position: fixed; left: 50%; bottom: 0; transform: translateX(-50%) translateY(110%);
     width: min(440px, 96vw); background: #221f2a; color: #efe8da;
     border: 1px solid rgba(255,255,255,.08); border-bottom: none;
@@ -448,7 +448,8 @@
     box-shadow: 0 -12px 40px rgba(0,0,0,.5); transition: transform .26s cubic-bezier(.2,.8,.2,1);
     z-index: 6;
   }
-  #bag.show, #charPick.show { transform: translateX(-50%) translateY(0); }
+  #bag.show, #charPick.show, #hpMenu.show { transform: translateX(-50%) translateY(0); }
+  #hpGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .bag-head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 4px 12px; }
   .bag-head b { font-size: 15px; letter-spacing: .3px; }
   #bagIcon { image-rendering: pixelated; vertical-align: -5px; margin-right: 6px; }
@@ -463,12 +464,12 @@
   .chip .emo { font-size: 22px; line-height: 1; }
   .chip:active { transform: translateY(1px); }
   .chip.on { background: #2f6d5f; border-color: #54998a; color: #fff; box-shadow: 0 0 0 2px rgba(84,153,138,.35); }
-  #bagDone, #charDone {
+  #bagDone, #charDone, #hpDone {
     width: 100%; margin-top: 14px; padding: 12px; border-radius: 12px; cursor: pointer;
     background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
     font: 600 14px ui-monospace, monospace; letter-spacing: .5px;
   }
-  #bagDone:active, #charDone:active { transform: translateY(1px); border-bottom-width: 2px; }
+  #bagDone:active, #charDone:active, #hpDone:active { transform: translateY(1px); border-bottom-width: 2px; }
 </style>
 </head>
 <body>
@@ -513,6 +514,12 @@
     <div class="bag-head"><b>🧑 Choose your traveller</b><span>tap to swap</span></div>
     <div id="charGrid"></div>
     <button id="charDone">Done</button>
+  </div>
+
+  <div id="hpMenu">
+    <div class="bag-head"><b>🎧 Choose a channel</b><span>music while you ride</span></div>
+    <div id="hpGrid"></div>
+    <button id="hpDone">Done</button>
   </div>
 
   <button id="tripTab">APP</button>
@@ -835,6 +842,16 @@ function drawCharSprite(id, cx, cy, bob, facing) {
   return true;
 }
 function drawNpcSprite(cx, cy, bob, which) { return drawCharSprite(which, cx, cy, bob, 1); }
+// a pair of headphones sitting over a roster sprite's head (drawn on top of the sprite)
+function drawWornHeadphones(charId, cx, cy, bob) {
+  const rec = CHAR_IMG[charId], h = (rec && rec.ok) ? rec.img.height : 30;
+  const ht = Math.round(cy + 8 - h + (bob || 0));        // top of the sprite = top of the head
+  const cup = '#2b2f36', cupHi = '#4a5058', band = '#3a3f47', bandHi = '#565c66';   // same palette as the table headphones
+  px(cx - 6, ht, 12, 2, band); px(cx - 6, ht, 12, 1, bandHi);        // headband arcs over the top, with a highlight
+  px(cx - 7, ht + 1, 1, 3, band); px(cx + 6, ht + 1, 1, 3, band);    // band shoulders down to the cups
+  px(cx - 8, ht + 3, 3, 6, cup);  px(cx - 8, ht + 4, 1, 4, cupHi);   // left ear cup + inner sheen
+  px(cx + 5, ht + 3, 3, 6, cup);  px(cx + 7, ht + 4, 1, 4, cupHi);   // right ear cup
+}
 
 // everything you can take out of your bag
 const BAG = [
@@ -1019,7 +1036,7 @@ function openBag()  { bagOpen = true;  closeCharPick(); bagEl.classList.add('sho
 function closeBag() { bagOpen = false; bagEl.classList.remove('show'); scrimEl.classList.remove('show'); }
 function toggleBag(){ bagOpen ? closeBag() : openBag(); }
 document.getElementById('bagDone').addEventListener('click', closeBag);
-scrimEl.addEventListener('click', () => { closeBag(); closeCharPick(); });
+scrimEl.addEventListener('click', () => { closeBag(); closeCharPick(); closeHpMenu(); });
 
 // --- character picker: pick which roster character you play as ---------------
 const charEl = document.getElementById('charPick');
@@ -1144,7 +1161,7 @@ async function cycleSound() {
   }
 }
 sndBtn.addEventListener('click', cycleSound);
-document.getElementById('hpch').addEventListener('click', cycleChannel);
+document.getElementById('hpch').addEventListener('click', () => hpMenuOpen ? closeHpMenu() : openHpMenu());
 
 // --- lofi music (plays when you put on headphones) --------------------------
 // --- headphone channels ----------------------------------------------------
@@ -1210,19 +1227,32 @@ async function setHeadphones(on) {
     updateHpBtn();
   } catch (e) {}
 }
-// the ⏭ channel button hops to the next station
-function cycleChannel() {
-  const i = HP_STATIONS.findIndex(s => s.id === hpChannel);
-  const st = HP_STATIONS[(i + 1) % HP_STATIONS.length];
-  hpChannel = st.id; save.hpChannel = hpChannel; persist();
-  updateHpBtn();
-  if (headphonesOn) { playStation(hpChannel); toast(st.id === 'none' ? 'Channel · your own music 🎧' : 'Channel · ' + st.name + ' ' + st.icon); }
+// pick a channel from the menu — applies it live if the headphones are on
+function selectChannel(id) {
+  hpChannel = id; save.hpChannel = id; persist();
+  updateHpBtn(); refreshHpMenu();
+  if (headphonesOn) playStation(id);
 }
 function updateHpBtn() {
   const b = document.getElementById('hpch'); if (!b) return;
   b.textContent = stationById(hpChannel).icon;
   b.style.display = headphonesOn ? 'flex' : 'none';
 }
+// --- channel menu (a little bottom-sheet of stations) ----------------------
+const hpMenuEl = document.getElementById('hpMenu');
+const hpGridEl = document.getElementById('hpGrid');
+let hpMenuOpen = false;
+for (const st of HP_STATIONS) {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.dataset.id = st.id;
+  b.innerHTML = `<span class="emo">${st.icon}</span><span>${st.name}</span>`;
+  b.addEventListener('click', () => selectChannel(st.id));
+  hpGridEl.appendChild(b);
+}
+function refreshHpMenu() { for (const b of hpGridEl.children) b.classList.toggle('on', b.dataset.id === hpChannel); }
+function openHpMenu()  { hpMenuOpen = true; closeBag(); closeCharPick(); hpMenuEl.classList.add('show'); scrimEl.classList.add('show'); refreshHpMenu(); }
+function closeHpMenu() { hpMenuOpen = false; hpMenuEl.classList.remove('show'); scrimEl.classList.remove('show'); }
+document.getElementById('hpDone').addEventListener('click', closeHpMenu);
 
 // --- whole-train overview toggle -------------------------------------------
 const wideBtn = document.getElementById('wide');
@@ -2876,6 +2906,7 @@ function drawSeatedPlayer(st) {
   const bob = Math.sin(bobPhase) * 0.6;                              // rock gently with the carriage, like the NPCs
   const drawn = drawPlayerSprite(cx, cy, player.facing, bob);
   if (!drawn) drawChar(cx, cy - 10, player, { hp, bob });
+  else if (hp) drawWornHeadphones(player.char, cx, cy, bob);          // headphones sit on your head
   if (lightsOff) drawZzz(cx + 4, cy - (drawn ? 22 : 20), elapsed * 1.4);   // 😴 mask on, resting your eyes
 }
 function drawPlayer() {
@@ -2886,6 +2917,7 @@ function drawPlayer() {
   const bob = moving ? -Math.abs(Math.sin(player.walkT)) * 1.5 : 0;   // a little hop while walking
   if (!drawPlayerSprite(cx, cy, player.facing, bob))                  // the hand-drawn sprite
     drawChar(cx, cy, player, { hp, facing: player.facing, walk: moving, walkT: player.walkT });
+  else if (hp) drawWornHeadphones(player.char, cx, cy, bob);
 
   // "sit here" prompt if near a free seat (keyboard hint only)
   const st = isTouch ? null : nearestFreeSeat();
