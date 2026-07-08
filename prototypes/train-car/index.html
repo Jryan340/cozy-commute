@@ -1750,6 +1750,32 @@ function buildRoutes() {
   return out;
 }
 const ROUTES = buildRoutes();
+// The Lake Shore Limited — the one overnight run: west out of New York, up the
+// Hudson, along Lake Erie, then the long dark plains into Chicago (~16 hours).
+(function addOvernight() {
+  const west = [
+    ['New York Penn Station', 0], ['Poughkeepsie', 74], ['Albany-Rensselaer', 142],
+    ['Utica', 237], ['Syracuse', 291], ['Rochester', 369], ['Buffalo-Depew', 436],
+    ['Erie', 523], ['Cleveland', 623], ['Toledo', 721], ['South Bend', 862],
+    ['Chicago Union Station', 959],
+  ];
+  const T = 959, mir = m => T - m;
+  const fwd = west.map(([name, mile]) => ({ name, mile }));
+  const rev = west.map(([name, mile]) => ({ name, mile: mir(mile) })).reverse();
+  ROUTES.push({
+    id: 'nychi', from: 'New York', to: 'Chicago', fromCode: 'NYC', toCode: 'CHI',
+    depart: 'overnight', minMiles: 0, stations: fwd,
+    coast: [[498, 700]], slow: [[498, 700]], fast: [[720, 940]],       // Lake Erie shore, then the sprint
+    bridges: [{ m: 140, name: 'Hudson River' }, { m: 436, name: 'Buffalo Creek' }], underground: null,
+  });
+  ROUTES.push({
+    id: 'chiny', from: 'Chicago', to: 'New York', fromCode: 'CHI', toCode: 'NYC',
+    depart: 'overnight', minMiles: 0, stations: rev,
+    coast: [[mir(700), mir(498)]], slow: [[mir(700), mir(498)]], fast: [[mir(940), mir(720)]],
+    bridges: [{ m: mir(140), name: 'Hudson River' }, { m: mir(436), name: 'Buffalo Creek' }],
+    underground: mir(15),                                              // dives into Penn on arrival
+  });
+})();
 
 // --- classes + saved progress (miles economy) ------------------------------
 const CLASSES = [
@@ -1784,15 +1810,24 @@ showStation();          // open at the station concourse — your last stop, not
 let dayT = 0;            // 0..1 position in a looping day/night cycle
 let tunnelAmount = 0;    // 0..1 how deep we are inside a tunnel
 
-// time-of-day across the trip: depart 3:15 PM in the afternoon, arrive at dusk
-// (driven by journey progress, not a loop — so it never flips to full night)
+// time-of-day is the REAL Eastern-Time clock (0 = midnight … 1 = next midnight),
+// so rides reflect the actual hour and an overnight run truly passes through the
+// night and out into morning. A full 24-hour cosy palette:
 const SKY = [
-  { t: 0.00, c: [255, 246, 224], a: 0.00 },  // bright afternoon (departure)
-  { t: 0.40, c: [255, 224, 168], a: 0.08 },  // softening light
-  { t: 0.70, c: [255, 170, 100], a: 0.18 },  // golden hour
-  { t: 0.88, c: [176, 120, 138], a: 0.24 },  // sunset
-  { t: 1.00, c: [104,  92, 150], a: 0.32 },  // dusk / early evening (arrival)
+  { t: 0.00, c: [ 26,  28,  58], a: 0.52 },  // deep night (midnight)
+  { t: 0.20, c: [ 40,  42,  78], a: 0.48 },  // pre-dawn (~4:48a)
+  { t: 0.26, c: [255, 176, 138], a: 0.28 },  // sunrise (~6:15a)
+  { t: 0.33, c: [255, 240, 210], a: 0.05 },  // clear morning (~7:55a)
+  { t: 0.50, c: [255, 255, 246], a: 0.00 },  // bright noon
+  { t: 0.66, c: [255, 236, 190], a: 0.06 },  // softening afternoon (~3:50p)
+  { t: 0.75, c: [255, 178, 108], a: 0.16 },  // golden hour (~6p)
+  { t: 0.81, c: [238, 138, 116], a: 0.23 },  // sunset (~7:26p)
+  { t: 0.86, c: [150, 110, 150], a: 0.33 },  // dusk (~8:38p)
+  { t: 0.93, c: [ 68,  64, 116], a: 0.46 },  // night falling (~10:19p)
+  { t: 1.00, c: [ 26,  28,  58], a: 0.52 },  // deep night (midnight)
 ];
+// fraction of the Eastern-Time day, 0..1
+function etDayFraction() { const t = etNow(); return (t.h * 3600 + t.m * 60 + t.s) / 86400; }
 function lightingFor(t) {
   let a = SKY[0], b = SKY[SKY.length - 1];
   for (let i = 0; i < SKY.length - 1; i++) {
@@ -1879,7 +1914,8 @@ function update(dt) {
   etaSeconds = arrived ? 0 : Math.max(0, timetable[timetable.length - 1].arr - Math.max(0, (Date.now() - departTs) / 1000));
   updateWorldClock();
   if (tripOpen) updateTripCard();
-  dayT = Math.min(1, miles / ROUTE.totalMiles);   // afternoon → dusk over the whole trip
+  // real-clock time of day; in ?fast mode, race a whole day/night cycle across the ride so it's previewable
+  dayT = FAST_MODE ? (0.42 + (boarded && !arrived ? miles / ROUTE.totalMiles : 0) * 0.9) % 1 : etDayFraction();
   tunnelAmount = Math.max(tunnelAt(scroll), undergroundAmount());   // dark underground into Penn
   if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show');
 
