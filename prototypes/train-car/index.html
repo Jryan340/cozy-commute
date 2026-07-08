@@ -2209,8 +2209,11 @@ function drawSpriteAt(list, idx, cx, groundY) {
 // The buildings are taller than one lot, so the city packs them into runs of
 // ceil(height/LOT_H) lots inside fixed 6-lot blocks — no overlap by construction.
 // `spans` lists platform windows gliding past; nothing is built where they'll be.
-function drawStreetscape(urban, coast, cityOnly, inset, spans) {
-  if (urban < 0.35) return;                              // deep countryside — no street out here
+// One lot-based pass draws the whole lineside — tall blocks, suburban cottages,
+// and country trees — with exactly ONE thing per LOT_H slot, so nothing ever
+// stacks. Buildings mark the lots they cover so cottages/trees never land under
+// them. Shared by the window view and the whole-train map.
+function drawStreetscape(urban, coast, wide, inset, spans) {
   inset = inset || WALL_L - 18;                          // how deep the street strip reaches in
   spans = spans || [];
   const CHUNK = 6;                                       // lots per city block
@@ -2222,7 +2225,9 @@ function drawStreetscape(urban, coast, cityOnly, inset, spans) {
     const side = left ? 'L' : 'R';
     const hits = (top, bot) => spans.some(sp => sp[2] === side && bot > sp[0] && top < sp[1]);
     const i0 = Math.floor((-LOT_H * 1.5 - scroll) / LOT_H), i1 = Math.floor((H + LOT_H * 1.5 - scroll) / LOT_H);
-    // 1) buildings, packed by height within each block (drawn first: behind the sidewalk)
+    // 1) tall blocks, packed by height within each 6-lot block; record every lot
+    //    a building sits on so nothing else gets placed on top of it
+    const built = new Set();
     const c0 = Math.floor(i0 / CHUNK) - 1, c1 = Math.floor(i1 / CHUNK) + 1;
     for (let c = c0; c <= c1; c++) {
       let slot = 0;
@@ -2235,19 +2240,29 @@ function drawStreetscape(urban, coast, cityOnly, inset, spans) {
         if (slot + span > CHUNK) break;                  // the rest of the block stays open
         const bot = (li + span) * LOT_H + scroll - 1;
         const u = urban + (lotR(li, sSeed) - 0.5) * 0.3;
-        if (u > 0.62 && !hits(bot - hgt, bot)) drawEdgeSprite(CITY_SPRITES, idx, left, bot);
+        if (u > 0.62 && !hits(bot - hgt, bot)) { drawEdgeSprite(CITY_SPRITES, idx, left, bot); for (let k = 0; k < span; k++) built.add(li + k); }
         slot += span + (lotR(li, sSeed + 13) > 0.7 ? 1 : 0);   // the odd alley between towers
       }
     }
-    // 2) per-lot street furniture + cottages
+    // 2) one thing per lot: sidewalk+lamp (city), a cottage (suburb) or a single
+    //    tree/bush (country) — never two, so scenery can't overlap
     for (let i = i0; i <= i1; i++) {
       const t = i * LOT_H + scroll;                      // screen y of this lot's top
       const r1 = lotR(i, sSeed), r2 = lotR(i, sSeed + 7), r3 = lotR(i, sSeed + 13);
       const u = urban + (r1 - 0.5) * 0.3;
+      if (built.has(i)) { drawSidewalk(left, t, inset); continue; }   // a building covers this lot
       if (u > 0.62) {
         drawSidewalk(left, t, inset);
         if (r3 > 0.72) drawStreetlamp(left, t + 6 + Math.floor(r2 * (LOT_H - 14)), dusk, inset);
-      } else if (u > 0.44 && !cityOnly && !hits(t, t + LOT_H)) drawCottageLot(left, t, r2, r3, inset);
+      } else if (u > 0.44) {
+        if (!hits(t, t + LOT_H)) drawCottageLot(left, t, r2, r3, inset);
+      } else {
+        if (r2 < 0.32) continue;                         // ~a third of country lots stay open meadow
+        const gy = t + LOT_H - 6 - Math.floor(r3 * 6);   // ground line, nudged within the lot
+        if (hits(gy - 22, gy + 2)) continue;             // keep clear of platforms
+        const f = { kind: r2 < 0.62 ? 'tree' : (r2 < 0.82 ? 'pole' : 'bush'), off: Math.floor(r3 * 18) };
+        drawTreeish(f, left ? -2 + Math.floor(r3 * 6) : W - 10 - Math.floor(r3 * 6), gy - 12);
+      }
     }
   }
 }
@@ -2424,29 +2439,20 @@ function drawScenery() {
     }
   }
   const gA = hexMix(C.fieldA, '#9a958c', uc*0.85), gB = hexMix(C.fieldB, '#8b867d', uc*0.85);
-  // 1) the grass field, out to the verge
+  // 1) the grass field, out to the verge — scrolls locked to distance (1×) so it
+  //    moves exactly with the trees + towns planted on it
   for (const band of [{x:0,w:WALL_L,left:true},{x:WALL_R,w:W-WALL_R,left:false}]) {
     for (let y=-40; y<H+40; y+=8) {
-      const yy = ((y + scroll*0.9) % (H+80)) - 40;
+      const yy = ((y + scroll) % (H+80)) - 40;
       px(band.x, yy, band.w, 8, (Math.floor((yy+scroll)/8)%2) ? gA : gB);
     }
     if (uc < 0.5 && !(band.left && coast > 0.5)) for (const b of groundBits) {   // wildflowers keep off the railbed
-      const yy = ((b.y + scroll*0.9) % (H+40)) - 20;
+      const yy = ((b.y + scroll) % (H+40)) - 20;
       drawGrassBit(band.left ? 1 + b.fx * (WALL_L - 22) : WALL_R + 18 + b.fx * (W - WALL_R - 20), yy, b.kind);
     }
   }
-  // 2) lineside trees hug the outer edge; the streetscape lots carry the towns
-  for (const f of feats) {
-    if (f.side === 'L' && coast > 0.5) continue;                // left side gives way to the sea
-    const yy = ((f.y + scroll) % (H + 60)) - 30;
-    const jit = (f.off % 10) * 0.4;
-    const bxL = -6 + jit * 6;
-    const bxT = f.side==='L' ? bxL : W - bxL - 12;
-    const r = (f.off % 18) / 18;                                // stable per-feature 0..1
-    const u = urban + (r - 0.5) * 0.4;                          // soft blending at region edges
-    if (u <= 0.5) drawTreeish(f, bxT, yy);
-  }
-  drawStreetscape(urban, coast, false, 0, stnSpans);            // buildings, sidewalks + cottage yards
+  // 2) the whole lineside — trees, cottages and city blocks — one item per lot
+  drawStreetscape(urban, coast, false, 0, stnSpans);
   if (coast > 0.01) drawSea(coast);               // Long Island Sound out the left window
   const br = bridgeAmount();
   if (br > 0.01) drawBridgeWater(br);             // a tidal river passing beneath the bridge
@@ -2999,13 +3005,13 @@ function drawWideView() {
   const gm = gA.match(/\d+/g).map(Number);             // a whisper-faint scroll stripe: gA darkened a touch
   const gB = `rgb(${Math.max(0,gm[0]-6)},${Math.max(0,gm[1]-6)},${Math.max(0,gm[2]-6)})`;
   const coast = coastAmount();
-  // 1) ground, scrolling past — same region tint as the window view
+  // 1) ground, scrolling past at 1× (locked to distance, like everything on it)
   for (let y = -16; y < H+16; y += 16) {
-    const yy = ((y + scroll*0.8) % (H+32)) - 16;
+    const yy = ((y + scroll) % (H+32)) - 16;
     px(0, yy, W, 16, (Math.floor((yy+scroll)/16) % 2) ? gA : gB);
   }
   if (uc < 0.5) for (const b of groundBits) {          // wildflowers across the meadow (not on the track)
-    const yy = ((b.y + scroll*0.8) % (H+40)) - 20, bx = b.fx * W;
+    const yy = ((b.y + scroll) % (H+40)) - 20, bx = b.fx * W;
     if (Math.abs(bx - cx) > 22 && !(coast > 0.5 && bx < cx)) drawGrassBit(bx, yy, b.kind);
   }
   // the sea takes over the left of the line along the shoreline, with rocks at the water's edge
@@ -3019,18 +3025,9 @@ function drawWideView() {
     for (const b of groundBits) { const yy = ((b.y*1.3 + scroll*0.5) % (H+40)) - 20; if (b.kind === 4) drawRock(cx - 30 + b.fx * 10, yy, 0.9); }
     ctx.globalAlpha = 1;
   }
-  // 2) lineside trees + cottages on both sides; city blocks come from the streetscape lots
-  for (const f of feats) {
-    const yy = ((f.y*1.3 + scroll) % (H+60)) - 30;
-    const r = (f.off % 18) / 18, u = urban + (r - 0.5) * 0.4;
-    const sides = coast > 0.5 ? [W - 22 - f.off*1.3] : [10 + f.off*1.3, W - 22 - f.off*1.3];  // left is sea
-    for (const bx of sides) {
-      if (u > 0.62) continue;                       // dense blocks are drawn by the streetscape
-      else if (u > 0.46) drawSpriteAt(HOUSE_SPRITES, f.off, bx, yy + 12);   // hand-drawn house
-      else drawTreeish(f, bx, yy);
-    }
-  }
-  drawStreetscape(urban, coast, true, 14);          // rowhouse blocks line the edges of the map
+  // 2) the whole lineside — trees, cottages and city blocks — one item per lot,
+  //    the same non-overlapping pass the window view uses
+  drawStreetscape(urban, coast, true, 14);
   if (uc > 0.55) {                                  // short side-streets between the blocks, meeting the rail corridor
     const j0 = Math.floor((-LOT_H - scroll) / LOT_H), j1 = Math.floor((H + LOT_H - scroll) / LOT_H);
     for (let i = j0; i <= j1; i++) {
