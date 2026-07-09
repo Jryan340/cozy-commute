@@ -716,9 +716,25 @@ function carR(k, n) {   // stable per-car hash (same recipe as the scenery lots)
   h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
 }
+function makeNPC(k, i, j, base) {
+  return {
+    npc: true,
+    name: NAMES[Math.floor(carR(k, 71 + i) * NAMES.length) % NAMES.length],
+    shirt: SHIRTS[Math.floor(carR(k, 83 + i) * SHIRTS.length)],
+    skin: ['#e8b88f','#caa07b','#a87a52','#f0cba0'][(i + k) % 4],
+    hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][(i * 3 + k) % 4],
+    bob: Math.random() * 6.28,
+    item: NPC_ITEMS[Math.floor(carR(k, 97 + i) * NPC_ITEMS.length)],
+    sprite: NPC_SPRITES[(base + j) % NPC_SPRITES.length],   // hand-drawn passengers from the roster
+    asleep: false,
+    napT: 8 + Math.random() * 18,   // seconds until this passenger next dozes off / stirs awake
+    zzz: Math.random() * 6.28,      // phase for the drifting Zzz above a sleeper
+  };
+}
+let extraRiders = 0;   // second riders doubled up on the shared benches
 function seatCarNPCs(k) {
-  for (const st of seats) if (st.occupant && st.occupant.npc) st.occupant = null;
-  npcSeats = [];
+  for (const st of seats) { if (st.occupant && st.occupant.npc) st.occupant = null; st.occupant2 = null; }
+  npcSeats = []; extraRiders = 0;
   const want = k === 0 ? 2 + Math.floor(carR(k, 3) * 2)   // first class rides quiet: 2..3
              : k === 3 ? 6 + Math.floor(carR(k, 3) * 3)   // third class rides busy: 6..8
                        : 4 + Math.floor(carR(k, 3) * 3);  // 4..6 riders elsewhere
@@ -727,43 +743,38 @@ function seatCarNPCs(k) {
     if (!seats[i].occupant && !npcSeats.includes(i)) npcSeats.push(i);
   }
   const base = Math.floor(carR(k, 59) * NPC_SPRITES.length);   // rotate the roster per car
-  npcSeats.forEach((i, j) => {
-    seats[i].occupant = {
-      npc: true,
-      name: NAMES[Math.floor(carR(k, 71 + i) * NAMES.length) % NAMES.length],
-      shirt: SHIRTS[Math.floor(carR(k, 83 + i) * SHIRTS.length)],
-      skin: ['#e8b88f','#caa07b','#a87a52','#f0cba0'][(i + k) % 4],
-      hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][(i * 3 + k) % 4],
-      bob: Math.random() * 6.28,
-      item: NPC_ITEMS[Math.floor(carR(k, 97 + i) * NPC_ITEMS.length)],
-      sprite: NPC_SPRITES[(base + j) % NPC_SPRITES.length],   // hand-drawn passengers, no repeats per car
-      asleep: false,
-      napT: 8 + Math.random() * 18,   // seconds until this passenger next dozes off / stirs awake
-      zzz: Math.random() * 6.28,      // phase for the drifting Zzz above a sleeper
-    };
-  });
+  npcSeats.forEach((i, j) => { seats[i].occupant = makeNPC(k, i, j, base); });
+  if (k === 3) {                                 // third class: friends double up on the wide benches
+    npcSeats.forEach((i, j) => {
+      if (i % 3 !== 1) return;                   // only the wide benches seat two
+      if (carR(k, 131 + i) < 0.5) return;
+      seats[i].occupant2 = makeNPC(k, i + 17, j + 3, base);
+      extraRiders++;
+    });
+  }
 }
 seatCarNPCs(carIdx);
 // passengers only really doze once it's dark — by day they stay awake
 function tickNaps(dt) {
   const night = Math.min(1, Math.max(0, (lightingFor(dayT).a - 0.15) / 0.35));   // 0 by day, 1 deep night
   for (const st of seats) {
-    const o = st.occupant;
-    if (!o || !o.npc) continue;
-    if (o.asleep && night < 0.25) { o.asleep = false; o.napT = 8 + Math.random() * 12; }   // daybreak wakes everyone
-    o.napT -= dt;
-    if (o.napT <= 0) {
-      if (o.asleep) {
-        o.asleep = false;                                  // stir awake for a good while
-        o.napT = 12 + Math.random() * 18;
-      } else if (night > 0.3 && Math.random() < night * 0.9) {
-        o.asleep = true;                                   // doze off — long spells, and only after dark
-        o.napT = (14 + Math.random() * 22) * (0.6 + night);
-      } else {
-        o.napT = 5 + Math.random() * 9;                    // still awake; reconsider a bit later
+    for (const o of [st.occupant, st.occupant2]) {
+      if (!o || !o.npc) continue;
+      if (o.asleep && night < 0.25) { o.asleep = false; o.napT = 8 + Math.random() * 12; }   // daybreak wakes everyone
+      o.napT -= dt;
+      if (o.napT <= 0) {
+        if (o.asleep) {
+          o.asleep = false;                                  // stir awake for a good while
+          o.napT = 12 + Math.random() * 18;
+        } else if (night > 0.3 && Math.random() < night * 0.9) {
+          o.asleep = true;                                   // doze off — long spells, and only after dark
+          o.napT = (14 + Math.random() * 22) * (0.6 + night);
+        } else {
+          o.napT = 5 + Math.random() * 9;                    // still awake; reconsider a bit later
+        }
       }
+      if (o.asleep) o.zzz += dt;
     }
-    if (o.asleep) o.zzz += dt;
   }
 }
 
@@ -987,6 +998,27 @@ function switchCar(dir) {
   if (carIdx + dir < 0)      { toast('🚂 The engine crew keeps that door locked.'); return; }
   if (carIdx + dir >= NCARS) { toast('This is the last carriage — nothing behind but track.'); return; }
   carPending = dir; carFade = 1; target = null;
+}
+// the wide third-class benches are double seats: two riders share one table
+function sharedSeat(st) { return carIdx === NCARS - 1 && st.id % 3 === 1; }
+function seatOpenSlot(st) {                    // -1 = full · 0 = the seat · 1 = squeeze-in side
+  if (!st.occupant) return 0;
+  if (sharedSeat(st) && !st.occupant2 && st.occupant.npc) return 1;
+  return -1;
+}
+function sitIn(st) {   // put the player into st's open slot; true = squeezed in beside someone
+  const slot = seatOpenSlot(st);
+  if (slot < 0) return null;
+  const off = sharedSeat(st) ? (slot === 1 ? 10 : -10) : 0;
+  if (slot === 1) st.occupant2 = { player: true }; else st.occupant = { player: true };
+  player.seat = st; player.seatOff = off;
+  player.x = st.sitX + off - player.w / 2;
+  player.y = st.sitY - player.h / 2;
+  return slot === 1;
+}
+function standUpFrom(st) {                     // clear whichever slot the player holds
+  if (st.occupant  && st.occupant.player)  st.occupant  = null;
+  if (st.occupant2 && st.occupant2.player) st.occupant2 = null;
 }
 function screenToWorld(x, y) {
   return { x: (x - W/2) / cam.s + cam.fx, y: (y - H/2) / cam.s + cam.fy };
@@ -1447,7 +1479,7 @@ function updateTripCard() {
   document.getElementById('tripDone').textContent = Math.round(miles);
   document.getElementById('tripLeft').textContent = Math.max(0, Math.round(total - miles));
   document.getElementById('tripAboard').textContent = fmtClock(elapsed);
-  document.getElementById('tripRiders').textContent = npcSeats.length;
+  document.getElementById('tripRiders').textContent = npcSeats.length + extraRiders;
   const status = document.getElementById('tripStatus');
   status.textContent = arrived ? 'Arrived' : atPlatform ? 'Boarding' : 'En route';
   status.classList.toggle('arrived', arrived);
@@ -1843,7 +1875,7 @@ function resetJourney() {
 function nearestFreeSeat() {
   let best = null, bd = 50*50;
   for (const st of seats) {
-    if (st.occupant) continue;
+    if (seatOpenSlot(st) < 0) continue;
     const dx = (player.x + player.w/2) - st.cx;
     const dy = (player.y + player.h/2) - st.cy;
     const d = dx*dx + dy*dy;
@@ -1854,7 +1886,7 @@ function nearestFreeSeat() {
 function toggleSit() {
   if (player.seat) {
     // stand up: step into the aisle
-    player.seat.occupant = null;
+    standUpFrom(player.seat);
     player.seat = null;
     zoomed = false;
     closeBag();
@@ -1869,12 +1901,10 @@ function toggleSit() {
   }
   const st = nearestFreeSeat();
   if (st) {
-    st.occupant = { player: true };
-    player.seat = st;
-    player.x = st.sitX - player.w/2;
-    player.y = st.sitY - player.h/2;
+    const squeezed = sitIn(st);
     if (save.ride) { save.ride.seatId = st.id; persist(); }   // so a refresh puts you back in THIS seat
-    toast(st.window ? 'You settle into the window seat. 🪟' : 'You take a seat.');
+    toast(squeezed ? 'You squeeze in beside ' + (st.occupant.name || 'a fellow rider') + '.'
+        : st.window ? 'You settle into the window seat. 🪟' : 'You take a seat.');
   } else {
     toast('No seat within reach — walk closer.');
   }
@@ -2225,18 +2255,17 @@ function resumeRide() {
   hideStation();
   carIdx = (rd.carIdx != null) ? rd.carIdx : 2;   // back into the same carriage you were riding
   seatCarNPCs(carIdx);
-  // put you back in the SAME seat you left; fall back to any free seat only if it's gone
-  let seat = (rd.seatId != null) ? seats.find(s => s.id === rd.seatId && !s.occupant) : null;
+  // put you back in the SAME seat you left; fall back to any open seat only if it's gone
+  let seat = (rd.seatId != null) ? seats.find(s => s.id === rd.seatId && seatOpenSlot(s) >= 0) : null;
   if (!seat && rd.seatId == null) return;              // you were standing — leave you on your feet
-  if (!seat) seat = seats.find(s => !s.occupant);
-  if (seat) { seat.occupant = { player: true }; player.seat = seat;
-              player.x = seat.sitX - player.w / 2; player.y = seat.sitY - player.h / 2; }
+  if (!seat) seat = seats.find(s => seatOpenSlot(s) >= 0);
+  if (seat) sitIn(seat);
 }
 // Abandon the current ride and step back onto the concourse of where you started
 // — no miles, no trip credit (you never arrived). This is the "restart" hatch.
 function leaveRide() {
   if (!boarded && !save.ride) return;
-  if (player.seat) { player.seat.occupant = null; player.seat = null; }
+  if (player.seat) { standUpFrom(player.seat); player.seat = null; }
   boarded = false; arrived = false; boarding = false; purchased = false;
   elapsed = 0; miles = 0; scroll = 0; trainSpeed = 0;
   save.ride = null; persist();
@@ -2514,11 +2543,19 @@ function drawItemKind(key, r, t) {
 function drawSeatItems(st) {
   drawTable(st);
   const slots = itemSlots(st);
-  if (st.occupant && st.occupant.player) {
+  const o1 = st.occupant, o2 = st.occupant2;
+  const npcItem = (o, slot, ph) => {   // asleep → they've put their things away
+    if (o && o.npc && o.item && o.item !== 'headphones' && !o.asleep) drawItemKind(o.item, slot, ph);
+  };
+  if (o1 && o1.player) {
     // headphones are worn (drawn on the head), not set on the table — pack the rest into slots
     tableItems().forEach((k, i) => { if (slots[i]) drawItemKind(k, slots[i], animT); });
-  } else if (st.occupant && st.occupant.npc && st.occupant.item && st.occupant.item !== 'headphones' && !st.occupant.asleep) {   // asleep → they've put their things away
-    drawItemKind(st.occupant.item, slots[1], animT + st.cy);
+  } else if (o2 && o2.player) {        // squeezed in beside someone: their thing left, yours right
+    npcItem(o1, slots[0], animT + st.cy);
+    const mine = tableItems(); if (mine[0]) drawItemKind(mine[0], slots[2], animT);
+  } else {
+    npcItem(o1, slots[o2 ? 0 : 1], animT + st.cy);
+    npcItem(o2, slots[2], animT + st.cy + 3);
   }
 }
 
@@ -3240,7 +3277,7 @@ function drawPerson(cx, cy, p, t, hp) {
 
 // the seated player, drawn inside the seat loop so the table sits in front of them
 function drawSeatedPlayer(st) {
-  const cx = st.sitX, cy = st.sitY, hp = player.items.includes('headphones');
+  const cx = st.sitX + (player.seatOff || 0), cy = st.sitY, hp = player.items.includes('headphones');
   const bob = lightsOff ? 0 : Math.sin(bobPhase) * 0.6;              // mask on → sit still, dozing; else rock gently
   const drawn = drawPlayerSprite(cx, cy, player.facing, bob);
   if (!drawn) drawChar(cx, cy - 10, player, { hp, bob });
@@ -3455,8 +3492,11 @@ function frame(now) {
     for (const st of seats) {
       drawSeat(st);
       const occ = st.occupant;
-      if (occ && occ.npc) { occ.bob += dt; drawPerson(st.sitX, st.sitY, occ, occ.bob, occ.item === 'headphones'); }
+      if (occ && occ.npc) { occ.bob += dt; drawPerson(st.sitX + (st.occupant2 ? -10 : 0), st.sitY, occ, occ.bob, occ.item === 'headphones'); }
       else if (occ && occ.player) drawSeatedPlayer(st);
+      const occ2 = st.occupant2;   // the second rider on a shared bench
+      if (occ2 && occ2.npc) { occ2.bob += dt; drawPerson(st.sitX + 10, st.sitY, occ2, occ2.bob, occ2.item === 'headphones'); }
+      else if (occ2 && occ2.player) drawSeatedPlayer(st);
       drawSeatItems(st, dt);        // table sits in front of whoever's seated here
     }
     drawPlayer();                   // only the walking (un-seated) player
