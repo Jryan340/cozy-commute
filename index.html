@@ -746,7 +746,7 @@ function seatCarNPCs(k) {
   npcSeats.forEach((i, j) => { seats[i].occupant = makeNPC(k, i, j, base); });
   if (k === 3) {                                 // third class: friends double up on the wide benches
     npcSeats.forEach((i, j) => {
-      if (i % 3 !== 1) return;                   // only the wide benches seat two
+      if (seats[i].side !== 'R') return;         // the doubles run down the right side
       if (carR(k, 131 + i) < 0.5) return;
       seats[i].occupant2 = makeNPC(k, i + 17, j + 3, base);
       extraRiders++;
@@ -801,7 +801,7 @@ function drawSeatSprite(st) {
   const fc = carIdx === 0 && FC.seat.ok;                 // the front carriage rides first class
   const tc = carIdx === NCARS - 1 && TC.bench.ok;        // the rear one rides third, on wooden benches
   const img = fc ? FC.seat.img
-            : tc ? ((st.id % 3 === 1 && TC.benchWide.ok) ? TC.benchWide.img : TC.bench.img)   // the odd wider bench, mismatched on purpose
+            : tc ? ((st.side === 'R' && TC.benchWide.ok) ? TC.benchWide.img : TC.bench.img)   // right side: wide doubles · left: narrow singles
             : (sofaImgOK ? sofaImg : null);
   if (!img) return false;
   const w = img.width, h = img.height, cx = st.x + st.w / 2, cy = st.y + st.h / 2;
@@ -999,8 +999,9 @@ function switchCar(dir) {
   if (carIdx + dir >= NCARS) { toast('This is the last carriage — nothing behind but track.'); return; }
   carPending = dir; carFade = 1; target = null;
 }
-// the wide third-class benches are double seats: two riders share one table
-function sharedSeat(st) { return carIdx === NCARS - 1 && st.id % 3 === 1; }
+// third class seats doubles down the right side (wide benches, two riders to
+// a table) and singles down the left
+function sharedSeat(st) { return carIdx === NCARS - 1 && st.side === 'R'; }
 function seatOpenSlot(st) {                    // -1 = full · 0 = the seat · 1 = squeeze-in side
   if (!st.occupant) return 0;
   if (sharedSeat(st) && !st.occupant2 && st.occupant.npc) return 1;
