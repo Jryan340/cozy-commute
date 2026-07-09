@@ -716,53 +716,65 @@ function carR(k, n) {   // stable per-car hash (same recipe as the scenery lots)
   h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
 }
+function makeNPC(k, i, j, base) {
+  return {
+    npc: true,
+    name: NAMES[Math.floor(carR(k, 71 + i) * NAMES.length) % NAMES.length],
+    shirt: SHIRTS[Math.floor(carR(k, 83 + i) * SHIRTS.length)],
+    skin: ['#e8b88f','#caa07b','#a87a52','#f0cba0'][(i + k) % 4],
+    hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][(i * 3 + k) % 4],
+    bob: Math.random() * 6.28,
+    item: NPC_ITEMS[Math.floor(carR(k, 97 + i) * NPC_ITEMS.length)],
+    sprite: NPC_SPRITES[(base + j) % NPC_SPRITES.length],   // hand-drawn passengers from the roster
+    asleep: false,
+    napT: 8 + Math.random() * 18,   // seconds until this passenger next dozes off / stirs awake
+    zzz: Math.random() * 6.28,      // phase for the drifting Zzz above a sleeper
+  };
+}
+let extraRiders = 0;   // second riders doubled up on the shared benches
 function seatCarNPCs(k) {
-  for (const st of seats) if (st.occupant && st.occupant.npc) st.occupant = null;
-  npcSeats = [];
+  for (const st of seats) { if (st.occupant && st.occupant.npc) st.occupant = null; st.occupant2 = null; }
+  npcSeats = []; extraRiders = 0;
   const want = k === 0 ? 2 + Math.floor(carR(k, 3) * 2)   // first class rides quiet: 2..3
+             : k === 3 ? 6 + Math.floor(carR(k, 3) * 3)   // third class rides busy: 6..8
                        : 4 + Math.floor(carR(k, 3) * 3);  // 4..6 riders elsewhere
   for (let n = 0; npcSeats.length < want && n < 40; n++) {
     const i = Math.floor(carR(k, 11 + n) * seats.length) % seats.length;
     if (!seats[i].occupant && !npcSeats.includes(i)) npcSeats.push(i);
   }
   const base = Math.floor(carR(k, 59) * NPC_SPRITES.length);   // rotate the roster per car
-  npcSeats.forEach((i, j) => {
-    seats[i].occupant = {
-      npc: true,
-      name: NAMES[Math.floor(carR(k, 71 + i) * NAMES.length) % NAMES.length],
-      shirt: SHIRTS[Math.floor(carR(k, 83 + i) * SHIRTS.length)],
-      skin: ['#e8b88f','#caa07b','#a87a52','#f0cba0'][(i + k) % 4],
-      hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][(i * 3 + k) % 4],
-      bob: Math.random() * 6.28,
-      item: NPC_ITEMS[Math.floor(carR(k, 97 + i) * NPC_ITEMS.length)],
-      sprite: NPC_SPRITES[(base + j) % NPC_SPRITES.length],   // hand-drawn passengers, no repeats per car
-      asleep: false,
-      napT: 8 + Math.random() * 18,   // seconds until this passenger next dozes off / stirs awake
-      zzz: Math.random() * 6.28,      // phase for the drifting Zzz above a sleeper
-    };
-  });
+  npcSeats.forEach((i, j) => { seats[i].occupant = makeNPC(k, i, j, base); });
+  if (k === 3) {                                 // third class: friends double up on the wide benches
+    npcSeats.forEach((i, j) => {
+      if (seats[i].side !== 'R') return;         // the doubles run down the right side
+      if (carR(k, 131 + i) < 0.5) return;
+      seats[i].occupant2 = makeNPC(k, i + 17, j + 3, base);
+      extraRiders++;
+    });
+  }
 }
 seatCarNPCs(carIdx);
 // passengers only really doze once it's dark — by day they stay awake
 function tickNaps(dt) {
   const night = Math.min(1, Math.max(0, (lightingFor(dayT).a - 0.15) / 0.35));   // 0 by day, 1 deep night
   for (const st of seats) {
-    const o = st.occupant;
-    if (!o || !o.npc) continue;
-    if (o.asleep && night < 0.25) { o.asleep = false; o.napT = 8 + Math.random() * 12; }   // daybreak wakes everyone
-    o.napT -= dt;
-    if (o.napT <= 0) {
-      if (o.asleep) {
-        o.asleep = false;                                  // stir awake for a good while
-        o.napT = 12 + Math.random() * 18;
-      } else if (night > 0.3 && Math.random() < night * 0.9) {
-        o.asleep = true;                                   // doze off — long spells, and only after dark
-        o.napT = (14 + Math.random() * 22) * (0.6 + night);
-      } else {
-        o.napT = 5 + Math.random() * 9;                    // still awake; reconsider a bit later
+    for (const o of [st.occupant, st.occupant2]) {
+      if (!o || !o.npc) continue;
+      if (o.asleep && night < 0.25) { o.asleep = false; o.napT = 8 + Math.random() * 12; }   // daybreak wakes everyone
+      o.napT -= dt;
+      if (o.napT <= 0) {
+        if (o.asleep) {
+          o.asleep = false;                                  // stir awake for a good while
+          o.napT = 12 + Math.random() * 18;
+        } else if (night > 0.3 && Math.random() < night * 0.9) {
+          o.asleep = true;                                   // doze off — long spells, and only after dark
+          o.napT = (14 + Math.random() * 22) * (0.6 + night);
+        } else {
+          o.napT = 5 + Math.random() * 9;                    // still awake; reconsider a bit later
+        }
       }
+      if (o.asleep) o.zzz += dt;
     }
-    if (o.asleep) o.zzz += dt;
   }
 }
 
@@ -787,7 +799,10 @@ sofaImg.onload = () => { sofaImgOK = true; };
 sofaImg.src = 'data:image/png;base64,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';
 function drawSeatSprite(st) {
   const fc = carIdx === 0 && FC.seat.ok;                 // the front carriage rides first class
-  const img = fc ? FC.seat.img : (sofaImgOK ? sofaImg : null);
+  const tc = carIdx === NCARS - 1 && TC.bench.ok;        // the rear one rides third, on wooden benches
+  const img = fc ? FC.seat.img
+            : tc ? ((st.side === 'R' && TC.benchWide.ok) ? TC.benchWide.img : TC.bench.img)   // right side: wide doubles · left: narrow singles
+            : (sofaImgOK ? sofaImg : null);
   if (!img) return false;
   const w = img.width, h = img.height, cx = st.x + st.w / 2, cy = st.y + st.h / 2;
   const dx = Math.round(cx - w / 2), dy = Math.round(cy + 17 - h);   // legs rest ~cy+17
@@ -983,6 +998,28 @@ function switchCar(dir) {
   if (carIdx + dir < 0)      { toast('🚂 The engine crew keeps that door locked.'); return; }
   if (carIdx + dir >= NCARS) { toast('This is the last carriage — nothing behind but track.'); return; }
   carPending = dir; carFade = 1; target = null;
+}
+// third class seats doubles down the right side (wide benches, two riders to
+// a table) and singles down the left
+function sharedSeat(st) { return carIdx === NCARS - 1 && st.side === 'R'; }
+function seatOpenSlot(st) {                    // -1 = full · 0 = the seat · 1 = squeeze-in side
+  if (!st.occupant) return 0;
+  if (sharedSeat(st) && !st.occupant2 && st.occupant.npc) return 1;
+  return -1;
+}
+function sitIn(st) {   // put the player into st's open slot; true = squeezed in beside someone
+  const slot = seatOpenSlot(st);
+  if (slot < 0) return null;
+  const off = sharedSeat(st) ? (slot === 1 ? 10 : -10) : 0;
+  if (slot === 1) st.occupant2 = { player: true }; else st.occupant = { player: true };
+  player.seat = st; player.seatOff = off;
+  player.x = st.sitX + off - player.w / 2;
+  player.y = st.sitY - player.h / 2;
+  return slot === 1;
+}
+function standUpFrom(st) {                     // clear whichever slot the player holds
+  if (st.occupant  && st.occupant.player)  st.occupant  = null;
+  if (st.occupant2 && st.occupant2.player) st.occupant2 = null;
 }
 function screenToWorld(x, y) {
   return { x: (x - W/2) / cam.s + cam.fx, y: (y - H/2) / cam.s + cam.fy };
@@ -1443,7 +1480,7 @@ function updateTripCard() {
   document.getElementById('tripDone').textContent = Math.round(miles);
   document.getElementById('tripLeft').textContent = Math.max(0, Math.round(total - miles));
   document.getElementById('tripAboard').textContent = fmtClock(elapsed);
-  document.getElementById('tripRiders').textContent = npcSeats.length;
+  document.getElementById('tripRiders').textContent = npcSeats.length + extraRiders;
   const status = document.getElementById('tripStatus');
   status.textContent = arrived ? 'Arrived' : atPlatform ? 'Boarding' : 'En route';
   status.classList.toggle('arrived', arrived);
@@ -1839,7 +1876,7 @@ function resetJourney() {
 function nearestFreeSeat() {
   let best = null, bd = 50*50;
   for (const st of seats) {
-    if (st.occupant) continue;
+    if (seatOpenSlot(st) < 0) continue;
     const dx = (player.x + player.w/2) - st.cx;
     const dy = (player.y + player.h/2) - st.cy;
     const d = dx*dx + dy*dy;
@@ -1850,7 +1887,7 @@ function nearestFreeSeat() {
 function toggleSit() {
   if (player.seat) {
     // stand up: step into the aisle
-    player.seat.occupant = null;
+    standUpFrom(player.seat);
     player.seat = null;
     zoomed = false;
     closeBag();
@@ -1865,12 +1902,10 @@ function toggleSit() {
   }
   const st = nearestFreeSeat();
   if (st) {
-    st.occupant = { player: true };
-    player.seat = st;
-    player.x = st.sitX - player.w/2;
-    player.y = st.sitY - player.h/2;
+    const squeezed = sitIn(st);
     if (save.ride) { save.ride.seatId = st.id; persist(); }   // so a refresh puts you back in THIS seat
-    toast(st.window ? 'You settle into the window seat. 🪟' : 'You take a seat.');
+    toast(squeezed ? 'You squeeze in beside ' + (st.occupant.name || 'a fellow rider') + '.'
+        : st.window ? 'You settle into the window seat. 🪟' : 'You take a seat.');
   } else {
     toast('No seat within reach — walk closer.');
   }
@@ -2221,18 +2256,17 @@ function resumeRide() {
   hideStation();
   carIdx = (rd.carIdx != null) ? rd.carIdx : 2;   // back into the same carriage you were riding
   seatCarNPCs(carIdx);
-  // put you back in the SAME seat you left; fall back to any free seat only if it's gone
-  let seat = (rd.seatId != null) ? seats.find(s => s.id === rd.seatId && !s.occupant) : null;
+  // put you back in the SAME seat you left; fall back to any open seat only if it's gone
+  let seat = (rd.seatId != null) ? seats.find(s => s.id === rd.seatId && seatOpenSlot(s) >= 0) : null;
   if (!seat && rd.seatId == null) return;              // you were standing — leave you on your feet
-  if (!seat) seat = seats.find(s => !s.occupant);
-  if (seat) { seat.occupant = { player: true }; player.seat = seat;
-              player.x = seat.sitX - player.w / 2; player.y = seat.sitY - player.h / 2; }
+  if (!seat) seat = seats.find(s => seatOpenSlot(s) >= 0);
+  if (seat) sitIn(seat);
 }
 // Abandon the current ride and step back onto the concourse of where you started
 // — no miles, no trip credit (you never arrived). This is the "restart" hatch.
 function leaveRide() {
   if (!boarded && !save.ride) return;
-  if (player.seat) { player.seat.occupant = null; player.seat = null; }
+  if (player.seat) { standUpFrom(player.seat); player.seat = null; }
   boarded = false; arrived = false; boarding = false; purchased = false;
   elapsed = 0; miles = 0; scroll = 0; trainSpeed = 0;
   save.ride = null; persist();
@@ -2326,7 +2360,8 @@ function update(dt) {
       player.x = W/2 - player.w/2;
       player.y = carPending < 0 ? CAR_BOT - player.h - 6 : CAR_TOP + 6;   // step in from the door you came through
       if (save.ride) { save.ride.carIdx = carIdx; persist(); }
-      toast('Carriage ' + (carIdx + 1) + ' of ' + NCARS + (carIdx === 0 ? ' · First Class 🎩' : ''));
+      toast('Carriage ' + (carIdx + 1) + ' of ' + NCARS +
+            (carIdx === 0 ? ' · First Class 🎩' : carIdx === NCARS - 1 ? ' · Third Class 🪵' : ''));
       carPending = 0;
     }
   }
@@ -2409,8 +2444,9 @@ function itemSlots(st) {
 }
 function drawTable(st) {
   const fc = carIdx === 0 && FC.table.ok;           // first class dines at clothed pedestal tables
-  if (fc || tableImgOK) {                           // hand-drawn table sprite
-    const img = fc ? FC.table.img : tableImg;
+  const tc = carIdx === NCARS - 1 && TC.table.ok;   // third class makes do with a plain plank one
+  if (fc || tc || tableImgOK) {                     // hand-drawn table sprite
+    const img = fc ? FC.table.img : tc ? TC.table.img : tableImg;
     const w = img.width, h = img.height;
     const dx = Math.round(st.x + st.w / 2 - w / 2), dy = st.y + TABLE_TOP;   // in front of the passenger
     px(st.x + 1, dy + h - 3, st.w - 2, 2, C.shadow);  // soft shadow under the legs
@@ -2508,11 +2544,19 @@ function drawItemKind(key, r, t) {
 function drawSeatItems(st) {
   drawTable(st);
   const slots = itemSlots(st);
-  if (st.occupant && st.occupant.player) {
+  const o1 = st.occupant, o2 = st.occupant2;
+  const npcItem = (o, slot, ph) => {   // asleep → they've put their things away
+    if (o && o.npc && o.item && o.item !== 'headphones' && !o.asleep) drawItemKind(o.item, slot, ph);
+  };
+  if (o1 && o1.player) {
     // headphones are worn (drawn on the head), not set on the table — pack the rest into slots
     tableItems().forEach((k, i) => { if (slots[i]) drawItemKind(k, slots[i], animT); });
-  } else if (st.occupant && st.occupant.npc && st.occupant.item && st.occupant.item !== 'headphones' && !st.occupant.asleep) {   // asleep → they've put their things away
-    drawItemKind(st.occupant.item, slots[1], animT + st.cy);
+  } else if (o2 && o2.player) {        // squeezed in beside someone: their thing left, yours right
+    npcItem(o1, slots[0], animT + st.cy);
+    const mine = tableItems(); if (mine[0]) drawItemKind(mine[0], slots[2], animT);
+  } else {
+    npcItem(o1, slots[o2 ? 0 : 1], animT + st.cy);
+    npcItem(o2, slots[2], animT + st.cy + 3);
   }
 }
 
@@ -2568,6 +2612,15 @@ const FC = {
   lamp: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAMCAYAAABfnvydAAABZElEQVR4nEXKMUgbURyA8e//7t0zCYGL5rAdIh2CIlKxkKKoQ4sO1kFwOVcnyeLiaottQZyELi526d5zCOjSCq4tkrWhOYSC0LqoUDhS09zdc2jFb/zxAShrrQD+m/UX5283Vs4B/78p3dyvOSKiXq3NNl6/XBpCaXrxz4aIzDf3axkAlUFvuXVYt0m0kyTRdtI6rNvKoLcMIPNT1eeb9ZnG3MJIPrnuugjoUl9y8inqbO6eLOjxavl9Sf/xPh98Ic0sSWoxWrl+f86bGPa+SrlYHB16mHt307X9k2MDk9OPfdk7iC7yRrccJaf6Ko6/X53Fi0B17umDM2MU+Zw5brYvVgEU4AZB4BTcgtf9m3L5+wbjKvMxCJzVZ49yCsjCMEw7vV4KoAQya+1KGKZ9sZ8q7rPaEWu0g0B2hwpABKCnnwyXZXG6QqloCgDU/g12awsF/Dr9dh19OPpBp5seA7TbRXsLmip/3xzEbQYAAAAASUVORK5CYII='])[0],
   rug: loadSprites(['data:image/png;base64,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'])[0],
   rack: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAHCAYAAAABIM1CAAABbklEQVR4nD3QO24TURSA4f/ce8ePsWNnSBxCZFmKaCioSGVEA23WAEpPScNaaCI2QMMSkHCoIqFIFAgkUB6Sx7Gc4PedOYciiBV8+n95c/Tk8+NHWZ9Y6jqqE4EQHKaGARioGt47cCAGMapW0+C+fhsPwuKq7O/s1AlB3HQWUTOcFwRQAydCWSreC6YgTihLdRsx4TQf98N4spr/Ov+Trkxp1hKKUhG5U6uVwGIZSYIHQATMwMzIR0uuRot5OLkcHj99vvX66HC/+PH7JjTqCat1QbUSiMWdjBlJ8CxWBZXE09vbKN59+B6+fMqP5e2rg9nLw/00RuX07Jxss8FwNKXdqjG5WbJ1LyW/nrKdNZncznlwv0Vvr41zwvuPP+ehUfdp1kq4nUVePHvIxXBKp9MkRqXXzUBgd7cFZnS7bbbbNVbrkk5WZbNVScPJWT64zGf9dWGqqs47QUT+NzsRSrV/X0DN8E7UO3EX+WLwF5g4qjIViRGBAAAAAElFTkSuQmCC'])[0],
+};
+// third-class fittings (hand-drawn): slatted wooden benches (a narrow one
+// and a wall-hugging wide one), a plain plank table and a little stool
+const TC = {
+  bench: loadSprites(['data:image/png;base64,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'])[0],
+  benchWide: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAuCAYAAABTTPsKAAAMr0lEQVR4nL2ZXaskWVaGn7X2jojMPF9VNV1dbU87zTQI3g6CNOi1f8BfotDgTxAE/UmCLTp4MxeCMDgzIrRj1/TU16lzMjL21/Ji7Yg8VbYt4jAB55w8mRH7a73rfd+1Uv7kD374j88e7T4/TEOLQZT3LhWhmW3/GwYGCAji75kh8i2vse0eEXwc48HnIP0zMwgqmEG1RhCh9Wlbs3Z3yvrLF/OP4+9/cvP57318SYyqh2now/QbzZhioJpRq6EiqEIqjaDSJxOCCrk2zAcnqmDrZpsRghCD8nbORBVEBO3P59qYhkBtPr5ZoxkMUanVaGbUZvr2mPjb+evPY2nWjkvRWJTa/ITMjGkILLlyRwGBlCtDVMYYSKX23RtBFFWPgmxROJ90qY0xKiK+KekbMSAG39DdXFCB0hqt+WLN1pM3zGBeCinXFgVUxU9gjIr18Et/bzcEhqgcl0KujVQquzFuCzR7EIl+yiEIGDSDMeoGqZvDyP0pMw2BU6pEVSRAaT7WTgO5NlozhiFQW2OKkbtTBhFEROMa/tf3C6dUaWbE4Fh6fDlxypXbObGkiqhQq7Hkitl6Un4CHWuE/uyKWzO29+7mjBksudHMtvnWKwZliIKZMB8TuTRiEMYYNqTqmhxBBJXzxABPriYudwNR/YQFHJ89XPenTC5tW6ABx1N5AAv/GYOiQO3jplyptVGbvfNsypXWIJe65UxQ4eZipOcpETzbH19N7KcBM6O0xmGMvLxbqM0Yh8APP7p2OAyR0hq1Gk+udsSgnFJhHAIqQi6VGJRSGwiUagSBm4uJ1DFcm6H6gGVwSC25kkrjYhcdAushLOUchfXFcfFEmobA8VRo1Qh9YukLKdUo1fG2lMoQtBOTUapndwyysUUuvuhTbcy5oqIMQTiliqpHtDMdKTWqtf6/06FHyLbIvLPg3RgYY8DMPDmWAtIAnBMFpqAbZKYhbCdUqhGDso/KnCtL9lOWTl27IW5YF3G+1Y6/EGSjPxXHaq6N/ehJ1xrv4lzwN755PRP77vdT5HeeHPj35295erPnV7czqVTCCvJ3rjVwcqYhYIqBy8NAEOGrl/fcHEaWXLjYDby+X7g5jKgqd3NCRZlTQQT2U+QwRn7x8pYhOGsNg26HFVeC//DRnsNuYF4yQwwMMfDpsytUhQ9udiy5UtuaHueltk5rqxAEdRoT8UioCp99dIWIh1gVLnYDDeMwRq4PAyLwds7sx8gQnNevDiMAKnC/FO7n9C4kUmlIKiArmSdAqK2B+eeprKGyLUxDUFLpNKfCEPyzUoxVSYJ6tjt2oRQ/tbtTZk36i2kg10aupVPmmT3gLOfbgmMQ9kOgtEZUpTRPiN3oA6kKF7vAkp0bpxBIXSimwfG/5LpJcgy+gaAuQEuu7MbQBckTGYMYFcyZqJ6cx8fg67DmYSytvZt0hvHqbkEQ7k6JIQZSn3w/RgSXy1yb86z4otarmW3GBYwlNy73kVKMGJXWjN0YOC6FZk7+K5NMoytkrtZFwwWkNqM131htrhPbggUYY2BOhVphNwoXu4FSG7U2RIVJheOxMEQlBl+EdJ5tZhvDrGNNYyBr28xQrbbRoCq8PSZqH2MICta43k8b5eWc2Y2Rt3NiHMLmU+KaPpf7sJmboJ1mVDu1GK0Z3//exYbVUyqb9WzdLGFsi1g5feWQ1Qyl7F7k8dXEkpz+VsgAXB7c+Bym2JNvoDTj9m55cMIrgZtwe0wIwhCV3Qj3p7IZmPsuuyJnmVUVaheNM4HY2WoGf7Y1h00zOoU5hkutQNlM1JqkpUfmMEXuOgyhe4nNdTUP7WoX7+eMivjuO+k/XJIrEgyxh0z8HhEhiBBUN5M0DZ5wh8mpa70ffFOqfkgrZqchEFQ55UrUs5mPIm7vXrw68uhy4v6UaQbXh4E398n9qwq5NIIqV4eBJddNssFNyzrpWU4bMTjMvne948194u2cGYMSgmymyXBsrydvBuOgW1IL8PhqYgy++biewCdPLzlMkdp2m7283I8MQQhBOS1OS4Z7BIcJW+KJrHTm/mMplUHP8vy7Ty+Zl8LbU+Ywxu1+ZxmHwZwccvspbh5ijIqK8h+/vkNkozXIpXGkUGpjiMFDpcqcKlBREY6Lfw6+SDPbYLDkxhCUi13k1DFaaiMtzuFeeQSGoBxTz4vmi9oNgeNSt9Ip58opV0K3Ci4877CES+hhikRV7pcMCCEIBw3U2h2UCOPgoSldTKR7iGHn2Z5y89qvVx2HXdxqsxik+xGHTwjK8IARSj07/+vD6OobHBcbhr22Um6Pidd3C0PU7fRE2BTscj9wN+fuCVyZSmn9/m7Ggf0YMINUqlvVpXBzGJlT5cXtiTG6C1uyw2oIyovbE7k0rg4DuzHy4s0JUXh6s+PNXeKYKjG8c8Lw6GIkZRcJBUwcJrlUnlztPAoixKgcxsBujMyLC0npPN3MuJgitRlz8hoxl8ZhNzAOrp6OT7g9Liy5sR+VaRDaaFzsBh/vMIAZQZUQlMPkftxZAqi1cd+MxxcT2rW/ttaTa0eqFUx4+mi/8fC6eFFhCrJylHOpwKPLkVOqfHCz21Rx6qcvAjeXk5ugeH62mlE6vkWEu1N2CMJ5wY5gx5YI7qB64ag9c1ebuOSy9RCG6NRTq9FkTd1O7j3hcm3Udi51HL9u5FvfXK3QMGpthNBzQt0lrvqw0ucmHCp+412vnVbVac0ozahmLKVunnbt+lhf5EprMTg8cm2cUutVsJ/QKggN98ylejOmwWYDxhh9zm6GVP3Z/1YipZS4nTNTDIxD4Ho/8MtvjgQV597OCrUZzx7teX1MvD0mLnbD1sdYyyIVj5SqknLl2aM9t3N2U/NAKZsZjy4m73cUNzyrAfvges/dKWM9krfH5IWpQUSEZx9/yA/GoYfb/e6z79MLS5fJdvbjPO2kvpYwsimhU+FpKZRSubrYUWvjQ3G/MQRlGLQv/twtkgf9De0s1APpkTHj9u4EP31JBOHppz/gWCC35grTqa6Vc9/rlPJmK/e7ESuV1Ax94MyWVGhBWeLC3TGxv7k+V3xmLMVgiuQlb8a/mZFS5fpyd/bAHSZ0X9JK49Gjhsi/EsGY54X71BiCbKX6kn3H9yn1PoKQSvG+Rc7E4DKNKikX0uJQIIO1SkmJkrw+TClvODwtp95UFLI1lly8Ufj2SO55MkQlRuU4Z0SFIUaOaXFIGDCNkWMp5FKYppGcXVqnMRKjknPlOGensR6+2qsBV7xzl1bcTWHmMPEioKLqPtv9sid5UCWGszk3M6bRpWE+FcZxcHqtDe3arIJ70ta8gGqb5EIpleXkFetucsOy0tnQjb7ZOYxmbhUv9iPjqGivhQ670YvP2s6urs/7cIyVPUpPQmgI3jkaY1+wAbnBnCvZwERpKBojuUEBQn9dm3C/VOZUydWYc6Oh5AZN3ChZ/3t7n0EDFSE3AQ0Ug2Ig/f1iwlKM1MfKBg2FEJlT5X6pNPHxU/FEj5hxevmCcp9pKqRuZuhEv2Lv/S770vlaezlVooLByzevALjCuP36eYeJZ/861sx5/GbnnnQVIfV7U66EoKQ+zxSF6/1AvJ8z4+ktF6VsNlC6U/OiUkDwbuLawOupfy6DBCsPviJYb6ln3n349cHD99bBWmOb0wxGQKrfv5TKYT9wsY/EasZcjFMxEMMaqBrSVrH13wKup5u+na+l9yfckHt9F3qXXXgo2u8/2cOszrVSbesnu//wjYgIx+wOL0rPvK0CCOfh3u+krdXvw56E9ZCFLgQhCNJ6bbfe02yrPFaIuEAKGlz1hgeN8BUuABrOX9iodC8BbH72uy73VU5ra9Nb+uAibP2Hh93G1ThtYoDDqzXr9GjbwefS1i9htjXVft96SBH3NiGqsnYyewn+P6/f5MEprefcIbAao614eP91n1B9+81ad3fnjblbM1m/qaod1xg1xqhhGpS5OzUBprhV/995tQehXtVwZZPvenh68HqM+q33NjNysQ1y06DEqCH+/D/f/MPbY/rDTz7YawiirRr/9vy+mD3M8W+5+gnLe6/XRPv/XioSPn12ETu1tq9+PbdfvZn/Kf7dP3/1xx89uf7LP/2jH3wRVOdU2/7HP/3mb75+eftXwADk38D8/5drAPJHT66/+PiD/RdBdc617f7+X57/9dcvb/8iimBPrqbXKiIimIrw+Gp88/wV37yL09/Otc75+Gp80721qYg8uZpeP3+FqRlSql0FFaKqBRVK5dIM+ewzJjPkt/mzzlkql++uya7MkAgYhS9/8otXf64wNrOFwpeA/ehHlJ/97H9lu9/otc1Z+PInP3/5ZyoyNtjW9F9Cv/KzAwdsSwAAAABJRU5ErkJggg=='])[0],
+  table: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB8AAAAUCAYAAAB1aeb6AAAD/klEQVR4nJ2UTYtcVRCGn6o69/Z0epI4mkCE6ISgiATUnQQXUXDjUv+M5hfoSn+NuFEwRNSs4kJJCBKJDBLzNc5nd997TpWLc7tnJiTgeBb3dp+69VbVW2+VfPLe6z9ePHfy8rx3BxQB4dknhofI0btnff/c+8BHjerd+zs/pbOnVy5/8PY5pl3RlcbwCPrsAKgKEYFHBTITTIR5doSaRDIlF18AL/1MhK74QQJSM4pAxyNja7+7nLpc/K8n+zqdZ0x1CBZEQNsYEYGIMOsyJ0aJ4jU5VSGZ0pdCY0Zxx33JD6PG6IYikglddgShhDMZJfbn2VPxUAIaU3yocpF5nwsiQpuEyUpCRcjFMVN00Z5gWbkIqAh+6K4xRQRMBQJUFVVBRTTV7J3t/Y6kQlCp1MaY9wUR6HMFaJMx6wrJFFRwCWZ9QaUCB0GTlFIO2GsmLR7QZ6d4MGqMnJ0ISF3vjEdG0FaQQS4RsDpuiagOxZ0uO5Nxgwx97frCqXE7EH2gKJqDv+6BCKw0BiIUd9rGliw9U6cyGESELhdMlVGTsEGEfXZMleKx7PPBW1ARkiqmQpuMACICE2Fl0FIC2Jtl9mY9prqkT0TqXAx9cw+mXVlWMesKHnB60rI77SgeqAhmSt8XzJRkwqwrmAqmgnswao1ZX7WUAhi3hgDFK92TlVrh7ixjKozbRBAHPSuVOoDiTpOMNEyFCJhUimXAZtBE24Cp0mevYypQQGylTeTiuNcgxYNklbLs9T5ZpVlV6jYaqEwmCEqwHPRDbaiTYVrH0j0YjxIEJbXJbNQoj3fmy3HIftBDldq/PntVsge5BDIECmDUKG0ydmc9ESxtC4wikEsQEWQPTp1QmmSWfru3+V1EeX9t0opHLAU4xA+Vxe+aSARH1T3oQwahH7VV9Q01DXMu/svvj+LWxtb3Aqx++M6rT95946Vmc68LQUQFmlRnOw7t8hjW7NNLe7FWn2frhrmGiBcmrdy487j/9uafL6b1dfLWXvf1jTuPP1o/O0lNEt3tivzx994cmMtyKx/7SAQhyui1l0+OGpOYzovf2tjOO3vlm/V1crpwgXzt2v2Pz59Z+/zNV05/OhnZrC/z8e2NnS8fbG59ASQg/4/gCcjnz6x99taFtasD7sqv97a/erC5dfXKFVLa3a2srp6waQTiUQlaHdv04T9suyOqx6984TfgMuDKqbFNH27C7i6SoHJaSuhTzhqBXLpEE0F/3OALP3eO4JYSuqgkLS5F5NCA1fhAjMcc3p//+RzyO4IrIr74ZplVwDipYKqRVAAZHzfg8/I4issSVy9epGaSuX7z7pP5z7cftbc3tueK/ACwtB/zLPwi88NhXNDrC/u/XN5F0EFr4ycAAAAASUVORK5CYII='])[0],
+  stool: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABEAAAATCAYAAAB2pebxAAACn0lEQVR4nHWSS28cVRCFv6q63ePxIxgNBiwWEZKFhNixs5RFVixRNmzyY/KzskNCCg+BFNgEAsgJkiNr8vJMxm7b049bxaJ7rCh2alO6qnPrVJ068t2tL37+7KON/Ta7i6DuwXUhIgB4BAIE+CiZHr6qfkkffzjev/XVDk3naipcNJmkgkdcfvYIRoXRdJmkRueZnEM3xgXVw3Y/Lc4aP6+zzqoa7ckoC6PLDkBSpc1OYZm6y5gIRVKazmlzsGw6TwiqKowKQwARyB6Y6rAHjEuj6ZxRMoIgAFOhTIqIaBJgXi25qDM31ktOLxpAkGH/MhmtCnWbiWHFFcFKvwQwLhOFGQGUKbG5ljirWwhBBFSFzXFB2zmjQnGnn6w0ABR6kFrPvj7qRx+XCTNBtW9EQDLBA3IEpv27bxKRI/rRUlK6HJgJXY6VJET0q61wKhCAOxDktD4urDAhQmnaTASYCU2X0cEb10UAa4VhSSw9+m/2fV23t3c+GEnnsboyHhH9HG8bbtisJ/I/Dpp4fPjmB/3pr6M7R8fnbiK6bLqoWx9OLGKCmHKZ3YO6zSzbHElFD1+e+a9/T++kvT3a14vm/tMX1beTrdI7dzt8dRHzqqlMJVa6dDlkZ3u0+en2mrjj/xyd6qxq7u/t0aYnT6gjnt/d2b754vNPNjeyB/NqUf3459GXwOlwQQe2vvn65uMb6+VWdtdHzxZnvx88vytCrQCTCaYi4RHiESSV2N1lrsKJCG9UONndZW49Bg+kUInJBLv0yfHxVeWnU4rsSASWHZlOKd7FrP7pe28IoUq8nd8HvGwigq8Yotfgaohci0mrcsDYBpeoMOZdk4BAXIvRe4EC9etF/eC3f2c8PJhxep4fAMuhFkNevjy5gqnvBfo/1Et2tJD8l9YAAAAASUVORK5CYII='])[0],
+  lamp: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAYAAAALCAYAAABcUvyWAAABCklEQVR4nC3Bu0rDUAAG4P9cmpiS66mICaViSkCzqFC7GF0VdHDoG/gEXVwEwQfo0rdwcRbRsaNODi51EoRYSWMTkZjkuPh9BAD1XafNVX2kNbXdRfJx8PqevFEANWkYw5bdHOiassZUYwigpgDUjmdH46vTenQeyZWWEQFQqaWL4zBY7m36FrZCIQdHGz1F0U+4ZeqXwmAyn8dSckZC35TCti8oJfL+8TmWhBAIs1Fn+S+yLJ9wRsqX72qJjq+n0l935MMkJt6quc9BaPE5myU3d6kmQVVZ/iwUxgr8M3fC4Havv11zoA8AFAA1ANd0xKHrtUnQ7ZwBAAeACki/0vm0LIpuXVVPAMgfnoRUyjEVEgcAAAAASUVORK5CYII='])[0],
 };
 // hand-drawn platform props (bench, clock, vending machine, bin, luggage cart)
 // + the brass lamp used on platforms and as the train's sconce light
@@ -3021,6 +3074,18 @@ function drawCar() {
     const mx = AISLE_L+AW/2;
     px(mx-3, y, 6, 6, '#6e2f2a'); px(mx-2, y+1, 4, 4, '#a85a4e'); px(mx-1, y+2, 2, 2, '#d9a15a');
   }
+  if (carIdx === NCARS - 1) {                                    // third class: bare boards + a plain jute runner
+    px(AISLE_L, AY, AW, AH, C.floor);
+    for (let y = AY + 8; y < CAR_BOT; y += 22) px(AISLE_L, y, AW, 1, C.plank);   // floorboard seams
+    px(AISLE_L + 6, AY, AW - 12, AH, '#b3925c');                 // the runner itself
+    px(AISLE_L + 6, AY, AW - 12, 1, '#c7a76e'); px(AISLE_L + 6, AY + AH - 1, AW - 12, 1, '#8f7344');
+    px(AISLE_L + 6, AY, 1, AH, '#9c7f4e'); px(AISLE_R - 7, AY, 1, AH, '#9c7f4e');
+    for (let y = AY + 6; y < CAR_BOT - 4; y += 9) px(AISLE_L + 8, y, AW - 16, 1, 'rgba(90,70,40,.25)');   // weave
+    if (TC.stool.ok) {                                           // stools tucked in by the vestibules
+      ctx.drawImage(TC.stool.img, WALL_L + 22, CAR_TOP + 2, TC.stool.img.width, TC.stool.img.height);
+      ctx.drawImage(TC.stool.img, WALL_R - 39, CAR_BOT - 22, TC.stool.img.width, TC.stool.img.height);
+    }
+  }
   if (carIdx === 0) {                                            // first class: ornate rugs + brass luggage racks
     if (FC.rug.ok) {
       const rw = FC.rug.img.width, rh = FC.rug.img.height, rx = Math.round(AISLE_L + AW/2 - rw/2);
@@ -3109,6 +3174,7 @@ function drawLamps() {
       continue;
     }
     if (carIdx === 0 && drawProp(FC.lamp, cx, st.row - 16)) continue;   // first class glows under fluted brass
+    if (carIdx === NCARS - 1 && drawProp(TC.lamp, cx, st.row - 17)) continue;   // third class reads by candlelight
     if (drawProp(PROPS.lampS, cx, st.row - 18)) continue;        // the hand-drawn brass lamp
     const lx = left ? WALL_L - 3 : WALL_R - 2, ly = st.row - 27; // (procedural sconce fallback)
     px(lx + 1, ly + 3, 3, 2, C.outline); px(lx + 2, ly + 4, 1, 1, '#caa24e');
@@ -3212,7 +3278,7 @@ function drawPerson(cx, cy, p, t, hp) {
 
 // the seated player, drawn inside the seat loop so the table sits in front of them
 function drawSeatedPlayer(st) {
-  const cx = st.sitX, cy = st.sitY, hp = player.items.includes('headphones');
+  const cx = st.sitX + (player.seatOff || 0), cy = st.sitY, hp = player.items.includes('headphones');
   const bob = lightsOff ? 0 : Math.sin(bobPhase) * 0.6;              // mask on → sit still, dozing; else rock gently
   const drawn = drawPlayerSprite(cx, cy, player.facing, bob);
   if (!drawn) drawChar(cx, cy - 10, player, { hp, bob });
@@ -3427,8 +3493,11 @@ function frame(now) {
     for (const st of seats) {
       drawSeat(st);
       const occ = st.occupant;
-      if (occ && occ.npc) { occ.bob += dt; drawPerson(st.sitX, st.sitY, occ, occ.bob, occ.item === 'headphones'); }
+      if (occ && occ.npc) { occ.bob += dt; drawPerson(st.sitX + (st.occupant2 ? -10 : 0), st.sitY, occ, occ.bob, occ.item === 'headphones'); }
       else if (occ && occ.player) drawSeatedPlayer(st);
+      const occ2 = st.occupant2;   // the second rider on a shared bench
+      if (occ2 && occ2.npc) { occ2.bob += dt; drawPerson(st.sitX + 10, st.sitY, occ2, occ2.bob, occ2.item === 'headphones'); }
+      else if (occ2 && occ2.player) drawSeatedPlayer(st);
       drawSeatItems(st, dt);        // table sits in front of whoever's seated here
     }
     drawPlayer();                   // only the walking (un-seated) player
