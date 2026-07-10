@@ -830,17 +830,17 @@ function tickNaps(dt) {
   for (const st of seats) {
     for (const o of [st.occupant, st.occupant2]) {
       if (!o || !o.npc) continue;
-      if (o.asleep && night < 0.25) { o.asleep = false; o.napT = 8 + Math.random() * 12; }   // daybreak wakes everyone
+      if (o.asleep && night < 0.25) { o.asleep = false; o.napT = 10 + Math.random() * 14; }   // daybreak wakes everyone
       o.napT -= dt;
       if (o.napT <= 0) {
         if (o.asleep) {
-          o.asleep = false;                                  // stir awake for a good while
-          o.napT = 12 + Math.random() * 18;
-        } else if (night > 0.3 && Math.random() < night * 0.9) {
-          o.asleep = true;                                   // doze off — long spells, and only after dark
-          o.napT = (14 + Math.random() * 22) * (0.6 + night);
+          o.asleep = false;                                  // a brief stir — then usually back under
+          o.napT = 18 + Math.random() * 30;
+        } else if (night > 0.3 && Math.random() < 0.6 + night * 0.35) {
+          o.asleep = true;                                   // settle in for a long spell once it's dark
+          o.napT = (90 + Math.random() * 120) * (0.7 + night * 0.5);   // ≈2–4 min at night, so they stay down on a long ride
         } else {
-          o.napT = 5 + Math.random() * 9;                    // still awake; reconsider a bit later
+          o.napT = 8 + Math.random() * 12;                   // still awake; reconsider shortly
         }
       }
       if (o.asleep) o.zzz += dt;
@@ -3599,26 +3599,20 @@ function drawPlant(bx, by) {
   px(bx+1, by-5, 2, 2, '#2b5c30'); px(bx+5, by-4, 2, 2, '#2b5c30');
   px(bx+3, by-7, 1, 4, '#6fbf63');                               // bright centre leaf
 }
-// a booth's sconce is lit unless the passenger sitting there has dozed off and
-// turned their own light out — or it's your seat and you've put your sleep mask on
-function lampLit(st) {
-  if (st.occupant && st.occupant.npc && st.occupant.asleep) return false;   // a dozing passenger's own lamp
-  if (lightsOff && st === player.seat) return false;                        // you flicked your own light off
-  return true;
+// how brightly a booth's sconce burns: full while someone's reading, dimmed to a
+// low ember when the passenger (or you) has settled in to sleep — a gentle fade
+// rather than a hard on/off, so a dozing booth never reads as a flickering light
+function lampLevel(st) {
+  if (st.occupant && st.occupant.npc && st.occupant.asleep) return 0.4;   // a dozing passenger turns theirs down low
+  if (lightsOff && st === player.seat) return 0.4;                        // you've dimmed your own to rest
+  return 1;
 }
 // warm sconce lamps on the wall above each booth (glow pools live in applyAmbient,
 // screen-space, so the lamplight cuts through dusk + tunnel darkness)
 function drawLamps() {
   for (const st of seats) {
     const left = st.side === 'L';
-    const cx = left ? WALL_L - 1 : WALL_R + 1;                   // fixture hugs the wall
-    if (!lampLit(st)) {                                          // an off lamp: a dim, unlit fixture
-      const ox = left ? WALL_L - 3 : WALL_R - 2, oy = st.row - 27;
-      px(ox, oy - 1, 5, 4, C.outline);
-      px(ox + 1, oy, 3, 2, '#4a4038');                          // dark, cold shade
-      px(ox + 2, oy + 3, 1, 2, '#3a332c');                      // stem
-      continue;
-    }
+    const cx = left ? WALL_L - 1 : WALL_R + 1;                   // fixture hugs the wall (glow softens in applyAmbient when dozing)
     if (carIdx === 0 && drawProp(FC.lamp, cx, st.row - 16)) continue;   // first class glows under fluted brass
     if (carIdx === THIRD_CAR && drawProp(TC.lamp, cx, st.row - 17)) continue;   // third class reads by candlelight
     if (drawProp(PROPS.lampS, cx, st.row - 18)) continue;        // the hand-drawn brass lamp
@@ -4056,20 +4050,12 @@ function applyAmbient() {
     // pools of sconce lamplight, drawn over the dusk so they genuinely glow (lit lamps only)
     const a = 0.08 + dark * 0.30;
     for (const st of (carIdx === SHOP_CAR ? [] : seats)) {
-      if (!lampLit(st)) continue;
+      const aa = a * lampLevel(st);                              // a sleeper dims their lamp rather than snapping it off
       const wx = st.side==='L' ? WALL_L+7 : WALL_R-7, wy = st.row-23;
       const sx = (wx - cam.fx)*cam.s + W/2, sy = (wy - cam.fy)*cam.s + H/2;   // world → screen
       const rad = 30*cam.s;
       const g = ctx.createRadialGradient(sx, sy, 2, sx, sy, rad);
-      g.addColorStop(0, `rgba(255,214,136,${a})`); g.addColorStop(0.45, `rgba(255,196,116,${a*0.45})`); g.addColorStop(1, 'rgba(255,196,116,0)');
-      ctx.fillStyle = g; ctx.fillRect(sx-rad, sy-rad, rad*2, rad*2);
-    }
-    // your sleep mask darkens just your own booth — a soft pool of shadow over your seat
-    if (lightsOff && player.seat) {
-      const sx = (player.seat.cx - cam.fx)*cam.s + W/2, sy = (player.seat.cy - cam.fy)*cam.s + H/2;
-      const rad = 40*cam.s;
-      const g = ctx.createRadialGradient(sx, sy, 4, sx, sy, rad);
-      g.addColorStop(0, 'rgba(10,12,26,0.60)'); g.addColorStop(0.7, 'rgba(10,12,26,0.34)'); g.addColorStop(1, 'rgba(10,12,26,0)');
+      g.addColorStop(0, `rgba(255,214,136,${aa})`); g.addColorStop(0.45, `rgba(255,196,116,${aa*0.45})`); g.addColorStop(1, 'rgba(255,196,116,0)');
       ctx.fillStyle = g; ctx.fillRect(sx-rad, sy-rad, rad*2, rad*2);
     }
   }
