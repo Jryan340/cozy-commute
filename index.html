@@ -26,15 +26,15 @@
     touch-action: none;          /* let us handle taps without scroll/zoom */
   }
   #act {
-    position: fixed; right: 18px; bottom: 64px; display: none;
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(66px + env(safe-area-inset-bottom)); display: none; z-index: 6;
     background: #3f7d6e; color: #fff; border: 1px solid #54998a;
     border-bottom-width: 3px; border-radius: 14px; padding: 14px 20px;
     font: 600 15px ui-monospace, monospace; letter-spacing: .5px;
     box-shadow: 0 6px 20px rgba(0,0,0,.5); cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
-  #act:active { transform: translateY(1px); border-bottom-width: 2px; }
-  #snd, #wide, #fp, #charBtn, #info, #hpch {
+  #act:active { transform: translateX(-50%) translateY(1px); border-bottom-width: 2px; }
+  #snd, #wide, #fp, #charBtn, #info, #hpch, #bagBtn {
     position: fixed; width: 46px; height: 46px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
     background: linear-gradient(180deg, #e6d6b2, #d2ba88); border: 2px solid #8a6a42; border-bottom-width: 4px;
@@ -44,23 +44,20 @@
   #snd { left: 18px; bottom: 64px; }
   #wide { right: 18px; top: 64px; }
   #fp   { left: 18px; top: 64px; display: none; }
-  #charBtn { right: 18px; bottom: 64px; }
+  #bagBtn { right: 18px; bottom: 64px; }               /* your bag — a button on the periphery like the rest */
+  #charBtn { right: 18px; bottom: 118px; }
   #info { right: 18px; top: 118px; }
   #hpch { left: 18px; bottom: 118px; display: none; }   /* music channel — shown only with headphones on */
-  #snd:active, #wide:active, #fp:active, #charBtn:active, #info:active, #hpch:active { transform: translateY(1px); border-bottom-width: 3px; }
+  #snd:active, #wide:active, #fp:active, #charBtn:active, #info:active, #hpch:active, #bagBtn:active { transform: translateY(1px); border-bottom-width: 3px; }
   /* the how-to-play hint stays tucked away behind the ℹ️ button until you ask for it */
   #hint { display: none; }
   #hint.on { display: block; }
   /* first-person mode hides the rest of the chrome for a clean look */
-  body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp, body.fp #charBtn, body.fp #info, body.fp #hpch { display: none !important; }
-  /* at the station you're on the platform, not in the car — hide the in-car chrome */
-  body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp, body.at-station #charBtn, body.at-station #info, body.at-station #hpch,
+  body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp, body.fp #charBtn, body.fp #info, body.fp #hpch, body.fp #bagBtn { display: none !important; }
+  /* at the station you're on the platform, not in the car — hide the in-car chrome
+     (but keep the APP pill: it's now the whole station panel, replacing departures) */
+  body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp, body.at-station #charBtn, body.at-station #info, body.at-station #hpch, body.at-station #bagBtn,
   body.at-station #hint, body.at-station #wclock { display: none !important; }
-  /* at the station the full app (Plan / Map / Ride / Wallet / Passport) is one tap
-     away — float the APP pill up top so it clears the departures card at the bottom */
-  body.at-station #tripTab { bottom: auto; top: calc(10px + env(safe-area-inset-top));
-    border-radius: 14px; border-bottom: 2px solid #8a6a42; }
-  body.at-station #tripTab::before { content: '📱'; }
   /* the character picker panel + its swatches (mirrors the bag panel) */
   #charGrid, #hatGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   #hatHead { margin-top: 16px; }
@@ -77,14 +74,15 @@
 
   /* ---- the in-game phone: main hub (SBB planner × Flighty polish) -------- */
   #tripTab {
-    position: fixed; left: 50%; bottom: env(safe-area-inset-bottom); transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%);
     display: flex; align-items: center; gap: 7px;
-    background: linear-gradient(180deg, #e6d6b2, #d2ba88); color: #4a3826; border: 2px solid #8a6a42; border-bottom: none;
-    border-radius: 14px 14px 0 0; padding: 7px 22px 9px; cursor: pointer; z-index: 6;
-    font: 700 11px ui-monospace, monospace; letter-spacing: 1.5px; -webkit-tap-highlight-color: transparent;
+    background: linear-gradient(180deg, #e6d6b2, #d2ba88); color: #4a3826; border: 2px solid #8a6a42; border-bottom-width: 4px;
+    border-radius: 16px; padding: 9px 24px; cursor: pointer; z-index: 6;
+    font: 700 12px ui-monospace, monospace; letter-spacing: 1.5px; -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 4px 14px rgba(0,0,0,.45);
   }
-  #tripTab::before { content: '▴'; font-size: 12px; opacity: .8; }
-  #tripTab:active { color: #fff; }
+  #tripTab::before { content: '📱'; font-size: 14px; }
+  #tripTab:active { transform: translateX(-50%) translateY(1px); border-bottom-width: 3px; }
 
   #tripScrim {
     position: fixed; inset: 0; background: rgba(8,7,12,.55); backdrop-filter: blur(4px);
@@ -323,6 +321,19 @@
   .bd-meta > div { text-align: center; }
   .bd-meta b { display: block; font-size: 13px; }
   .bd-meta span { font-size: 8.5px; color: #8a8170; letter-spacing: .5px; }
+  /* pick your class right on the ticket — fare updates as you switch */
+  .bd-clshead { font-size: 8.5px; color: #8a8170; letter-spacing: 1.5px; margin-bottom: 7px; }
+  .bd-classpick { display: flex; gap: 6px; margin-bottom: 18px; }
+  .bd-cls { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 8px 4px; border-radius: 11px; cursor: pointer;
+    background: rgba(0,0,0,.035); border: 1.5px solid #cdbfa2; color: #4a4232;
+    font-family: ui-monospace, monospace; -webkit-tap-highlight-color: transparent; }
+  .bd-cls b { font-size: 12px; font-weight: 800; letter-spacing: .5px; }
+  .bd-cls span { font-size: 9.5px; opacity: .82; display: flex; align-items: center; gap: 3px; }
+  .bd-cls .coin { width: 10px; height: 10px; vertical-align: 0; }
+  .bd-cls.on { background: #2f7d6e; border-color: #2f7d6e; color: #fff; }
+  .bd-cls.on span { opacity: .95; }
+  .bd-cls.locked { opacity: .5; cursor: default; }
   #bdGo {
     width: 100%; padding: 14px; border-radius: 13px; cursor: pointer; background: #2f7d6e; color: #fff;
     border: none; font: 700 15px ui-monospace, monospace; letter-spacing: 1px;
@@ -349,9 +360,8 @@
   #station {
     position: fixed; inset: 0; z-index: 8; display: flex; flex-direction: column;
     justify-content: flex-end; align-items: center;
-    /* transparent up top so the canvas platform + your character show through;
-       only the lower area darkens for the departures card's legibility */
-    background: linear-gradient(180deg, transparent 0%, transparent 40%, rgba(16,14,22,.4) 60%, rgba(16,14,22,.92) 100%);
+    /* the platform lives on the canvas; the app pill is the only station chrome now */
+    background: none;
     opacity: 0; pointer-events: none; transition: opacity .45s;
     padding: 0 0 calc(18px + env(safe-area-inset-bottom));
   }
@@ -541,28 +551,13 @@
 
   <div id="wclock"><span id="wcTime">—</span><span class="z">ET</span><span class="dep" id="wcDep"></span></div>
 
-  <div id="station">
-    <div class="stn-card">
-      <button class="stn-collapse" id="stnToggle" aria-label="show or hide departures">▾</button>
-      <div id="stnBody">
-        <div class="stn-top">
-          <div class="stn-eyebrow">YOU ARE AT</div>
-          <div class="stn-name" id="stnName">Boston South Station</div>
-          <div class="stn-city" id="stnCity">Boston · <b id="stnClock">3:15 PM</b></div>
-        </div>
-        <div class="stn-board">
-          <div class="stn-board-head"><span>Departures · tap for a ticket</span><span>Plat</span></div>
-          <div id="stnDeps"></div>
-        </div>
-        <button class="stn-plan2" id="stnPlan">Search departures →</button>
-      </div>
-    </div>
-  </div>
+  <div id="station"></div>
 
   <button id="act">Sit</button>
   <button id="snd" aria-label="toggle train sounds">🔇</button>
   <button id="wide" aria-label="see the whole train">🗺️</button>
   <button id="fp" aria-label="first-person view">🪟</button>
+  <button id="bagBtn" aria-label="your bag">🎒</button>
   <button id="charBtn" aria-label="choose your character">🧑</button>
   <button id="info" aria-label="how to play">ℹ️</button>
   <button id="hpch" aria-label="music channel">🎵</button>
@@ -635,6 +630,8 @@
               <div><b id="bdDist">—</b><span>FARE</span></div>
               <div><b id="bdEarn">—</b><span>EARN</span></div>
             </div>
+            <div class="bd-clshead" id="bdClsHead">CHOOSE YOUR CLASS</div>
+            <div class="bd-classpick" id="bdClassPick"></div>
             <button id="bdGo">Buy ticket →</button>
             <div class="bd-status" id="bdStatus">Boarding open · departs at the top of the hour</div>
           </div>
@@ -1181,8 +1178,7 @@ cv.addEventListener('pointerdown', e => {
 
   if (player.seat) { seatedTap(p); return; }
 
-  // standing: tap yourself for your bag, else walk / tap a seat to sit
-  if (hitPlayer(p)) { toggleBag(); return; }
+  // standing: walk, or tap a seat to sit (your bag is the 🎒 button on the periphery)
   if (carIdx === SHOP_CAR) {                       // in the buffet car a tap near the counter walks up + buys
     if (p.x > W/2 - 34 && p.x < W/2 + 34 && p.y > 96 && p.y < 184) {
       target = { x: W/2, y: 162 }; autoSit = true; return;
@@ -1211,14 +1207,8 @@ function seatedTap(p) {
   pendingTap = p;
   tapTimer = setTimeout(() => {
     tapTimer = null;
-    if (hitPlayer(pendingTap)) { toggleBag(); return; }   // tap yourself -> your bag
-    tryUseItem(pendingTap.x, pendingTap.y);                // tap a thing on the table
+    tryUseItem(pendingTap.x, pendingTap.y);                // tap a thing on the table (bag is the 🎒 button)
   }, 250);
-}
-function hitPlayer(p) {
-  const cx = player.x + player.w/2, cy = player.y + player.h/2;
-  const dx = p.x - cx, dy = p.y - cy;
-  return dx*dx + dy*dy < 13*13;
 }
 function tryUseItem(wx, wy) {
   if (!player.seat) return false;
@@ -1448,6 +1438,7 @@ function openCharPick()  { charOpen = true;  closeBag(); charEl.classList.add('s
 function closeCharPick() { charOpen = false; charEl.classList.remove('show'); scrimEl.classList.remove('show'); }
 document.getElementById('charDone').addEventListener('click', closeCharPick);
 document.getElementById('charBtn').addEventListener('click', () => charOpen ? closeCharPick() : openCharPick());
+document.getElementById('bagBtn').addEventListener('click', toggleBag);   // 🎒 open/close your bag from the periphery
 
 // --- audio: looped train-interior recording; tap 🔇 to cycle Off/Background/Prominent ---
 let actx = null, master = null, trainBus = null, lofiBus = null, ambientBus = null, loopLP = null, loopSrc = null;
@@ -2034,6 +2025,25 @@ function showBoarding() {
   setTab('now');                    // the fare / ticket lives on the Ride tab
   tripEl.classList.add('show'); tripScrim.classList.add('show');
 }
+// the class picker on the ticket — tap 3rd/2nd/1st to switch (locked tiers show
+// what you need to unlock them); the fare updates live and this sets the class
+// you'll ride. Hidden once the ticket's paid — the class is locked in by then.
+function renderClassPick() {
+  const wrap = document.getElementById('bdClassPick'), head = document.getElementById('bdClsHead');
+  if (!wrap) return;
+  wrap.hidden = purchased; head.hidden = purchased;
+  if (purchased) return;
+  const unlocked = classUnlocked(), cur = currentClassIdx();
+  wrap.innerHTML = '';
+  CLASSES.forEach((c, i) => {
+    const avail = i <= unlocked;
+    const b = document.createElement('button');
+    b.className = 'bd-cls' + (i === cur ? ' on' : '') + (avail ? '' : ' locked');
+    b.innerHTML = `<b>${c.short}</b><span>${avail ? coinsHTML(fareForClass(ROUTE, i)) : '🔒 ' + c.at + ' mi'}</span>`;
+    if (avail) b.onclick = () => { save.classCurrent = i; persist(); renderTicket(); };
+    wrap.appendChild(b);
+  });
+}
 // swap the ticket card between "fare to buy" and "paid boarding pass" — and gate
 // boarding on actually being in the origin city at departure (no teleporting).
 function renderTicket() {
@@ -2042,6 +2052,9 @@ function renderTicket() {
   document.getElementById('bdSub').textContent = purchased ? 'Boarding pass · Cozy Rail' : 'Fare · Cozy Rail';
   document.getElementById('bdHead').textContent = purchased ? 'BOARDING PASS' : 'TICKET';
   document.getElementById('bdStamp').hidden = !purchased;
+  document.getElementById('bdDist').innerHTML = coinsHTML(fareFor(ROUTE));       // fare tracks the chosen class
+  document.getElementById('bdClass').textContent = currentClass().name.toUpperCase();
+  renderClassPick();
   const go = document.getElementById('bdGo');
   if (!purchased)               { go.textContent = 'Buy ticket · ' + fareFor(ROUTE) + ' coins'; go.disabled = false; }
   else if (!atOrigin)           { go.textContent = 'Board at ' + ROUTE.from; go.disabled = true; }
@@ -2082,7 +2095,7 @@ const stationEl = document.getElementById('station');
 let atStation = false;
 // walkable platform state (declared here so showStation() can use it at init)
 const PLAT_MINX = 14, PLAT_MAXX = W - 14, PLAT_MINY = 74;
-let PLAT_MAXY = 196;   // how far down you can roam — grows when the departures card is collapsed
+let PLAT_MAXY = 306;   // how far down you can roam the platform (no card in the way now)
 const DOOR_CX = W / 2;
 let stnX = DOOR_CX, stnY = 150, stnFacing = -1, stnWalkT = 0, stnMoving = false, stnTarget = null, stnBoardLock = false, stnFaceUp = false;
 // which routes leave from a given city (their origin), for the departures board
@@ -2091,53 +2104,15 @@ function departuresFrom(city) {   // routes leaving this city SOON (so the board
   return ROUTES.filter(r => r.from === city && (FAST_MODE || nextDepartFor(r, now) - now <= BOARD_HORIZON_MS));
 }
 function onwardRoutes() { return departuresFrom(save.lastCity).filter(r => save.lifetimeMiles >= r.minMiles); }
-let selectedDepId = null;                     // the train currently at the platform (roll-sign + walk-on target)
-// tap a departure on the ticker → pull up the app with that ticket
-function takeTicket(id) {
-  selectedDepId = id;
-  const r = departuresFrom(save.lastCity).find(x => x.id === id);
-  if (r) bookRoute(r);
-}
-function renderStation() {
-  document.getElementById('stnName').textContent = save.lastStation;
-  document.getElementById('stnCity').innerHTML = save.lastCity + ' · <b id="stnClock">' + fmtETClock(Date.now()) + '</b>';
-  const board = document.getElementById('stnDeps'); board.innerHTML = '';
-  const deps = departuresFrom(save.lastCity);
-  if (!deps.length) {
-    board.innerHTML = `<div class="stn-empty">No trains from here right now.<br>Corridor trains run 5am–11pm; the Lake Shore Ltd runs hourly, 5am–midnight.</div>`;
-    return;
-  }
-  // the train drawn at the platform = the first unlocked departure (unless you last tapped another)
-  const unlocked = deps.filter(r => save.lifetimeMiles >= r.minMiles);
-  if (!unlocked.some(r => r.id === selectedDepId)) selectedDepId = unlocked[0] ? unlocked[0].id : null;
-  deps.forEach((r, i) => {
-    const locked = save.lifetimeMiles < r.minMiles;
-    const atPlat = r.id === selectedDepId;
-    const row = document.createElement('div'); row.className = 'stn-dep' + (atPlat ? ' sel' : '');
-    row.innerHTML =
-      `<span class="t">${fmtETClock(nextDepartFor(r))}</span>
-       <span class="d">${r.to}<small>${locked ? '🔒 ' + r.minMiles + ' mi to unlock' : r.stations.length + ' stops · ' + fmtDur(routeMinutes(r))}</small></span>
-       <span class="p">${i + 3}</span><span class="go">${locked ? '🔒' : '›'}</span>`;
-    if (!locked) row.onclick = () => takeTicket(r.id);
-    board.appendChild(row);
-  });
-}
-let stnCollapsed = false;
-function setStationCollapsed(c) {
-  stnCollapsed = c;
-  document.querySelector('#station .stn-card').classList.toggle('min', c);
-  document.getElementById('stnToggle').textContent = c ? '▴  ' + save.lastCity + ' · departures' : '▾';
-  PLAT_MAXY = c ? 306 : 196;                 // roam the whole platform when the board is tucked away
-}
-document.getElementById('stnToggle').addEventListener('click', () => setStationCollapsed(!stnCollapsed));
+// the train at the platform (roll-sign + walk-on target) — defaults to the first
+// unlocked onward route; the app's Plan tab is where you browse + book departures now
+let selectedDepId = null;
 function showStation() {
   atStation = true; document.body.classList.add('at-station');
   stnX = DOOR_CX; stnY = 150; stnTarget = null; stnBoardLock = true;   // arrive mid-platform; must step to the doors
-  setStationCollapsed(false);                // arrive with the departures board open
-  renderStation(); stationEl.classList.add('show');
+  stationEl.classList.add('show');
 }
 function hideStation() { atStation = false; document.body.classList.remove('at-station'); stationEl.classList.remove('show'); }
-document.getElementById('stnPlan').addEventListener('click', () => { openTrip(); });
 
 function fmtMMSS(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 function updateWorldClock() {
@@ -2786,8 +2761,8 @@ function update(dt) {
     hintEl.innerHTML = wideView
       ? 'The whole train · tap anywhere to come back to your car 🚃'
       : player.seat
-        ? (zoomed ? 'Tap yourself 🎒 for your bag &nbsp;·&nbsp; tap a thing to use it &nbsp;·&nbsp; double-tap to zoom out'
-                  : '🪟 first-person &nbsp;·&nbsp; tap yourself 🎒 for your bag &nbsp;·&nbsp; double-tap to zoom')
+        ? (zoomed ? '🎒 button for your bag &nbsp;·&nbsp; tap a thing to use it &nbsp;·&nbsp; double-tap to zoom out'
+                  : '🪟 first-person &nbsp;·&nbsp; 🎒 button for your bag &nbsp;·&nbsp; double-tap to zoom')
         : carIdx === SHOP_CAR
           ? 'Step up to the counter to buy a treat ☕ &nbsp;·&nbsp; end doors → next carriage'
           : 'Tap to walk &nbsp;·&nbsp; tap a seat to sit &nbsp;·&nbsp; end doors → next carriage';
