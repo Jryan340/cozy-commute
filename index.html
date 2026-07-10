@@ -479,12 +479,20 @@
   .chip .emo { font-size: 22px; line-height: 1; }
   .chip:active { transform: translateY(1px); }
   .chip.on { background: #2f6d5f; border-color: #54998a; color: #fff; box-shadow: 0 0 0 2px rgba(84,153,138,.35); }
-  #bagDone, #charDone, #hpDone, #shopDone {
+  #bagDone, #charDone, #hpDone, #shopDone, #bagDrop {
     width: 100%; margin-top: 14px; padding: 12px; border-radius: 12px; cursor: pointer;
     background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
     font: 600 14px ui-monospace, monospace; letter-spacing: .5px;
   }
-  #bagDone:active, #charDone:active, #hpDone:active, #shopDone:active { transform: translateY(1px); border-bottom-width: 2px; }
+  #bagDone:active, #charDone:active, #hpDone:active, #shopDone:active, #bagDrop:active { transform: translateY(1px); border-bottom-width: 2px; }
+  .bag-row { display: flex; gap: 8px; }
+  #bagDrop { flex: 0 0 34%; background: #7d4a3f; border-color: #a06a54; }
+  #bagDrop.on { background: #a34d3c; border-color: #c97a5a; }
+  #bagGrid.dropping .chip { border-color: rgba(255,120,100,.6); }
+  #shopGrid .chip { position: relative; }
+  #shopGrid .chip .pr { position: absolute; top: 3px; right: 5px; font-size: 9px; opacity: .7; color: #ffd9a0; }
+  #hpColors button.locked { opacity: .38; filter: grayscale(.4); }
+  .pp-spend { text-align: center; color: #ffd9a0; font-size: 12px; margin: -6px 0 12px; letter-spacing: .5px; }
 </style>
 </head>
 <body>
@@ -522,11 +530,11 @@
   <div id="bag">
     <div class="bag-head"><b><img id="bagIcon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAANCAYAAACdKY9CAAAB+ElEQVR4nE2SP2hTURyFv3tf3kvzp0lsajUOVatUUdAIKtrBpYMo6CJOOhSETh2cRBwcBNHJxcnBQUEcXAURWhBB0IJCqyJY0VIcato0aZO8v/e+n4O0eLZz+A5nOfCfZPo2U+MHZebRDdnMHkyMiciWRW3BIlwd2y9Xzp7guy3TXW0QW6OWvn6SWimv7r1aACCzWXhx67zU9/bTaPyit26IY0M+68jObXk6gRERUUqpfwsPJ89J4DeoFFyWmz6JsYiAUpDLajytmV/sMttyVQZg+v0c9X1VOr2YbhDhOgqtFYkR/EiRdRTtTohZS9DHrz/DN2BMShBZtNa4mQxWFCmK9V7En3ZAivCjsYKe6Dymz3NwHEW54JKkKd0wouOHKIShkkeSCJKmTJ4eFO37gYyUc3xcWMGIIokt1eHdjByr0/NDUqtYXO4yUPRYDQx6T7VIbC21UhYJezg2wnE98p6w1jWstX2ODFfwI8PSqo++fHdcWQErivrodmpDZT7PzvP29QdqlRy1agGloZD16HMzaFW+SRwZsq7DcjOgtZFQLeUZLBfZ8C0bocXiEMUJ1ZxGiQh3zozypbUuhZwm47iEiaXVieglwq5+DxtHeAM7ePrum9q6xpsn95lb+CknDx/i1NED/G40ef5yhmuXLuD1ORTrFxXAXyks7xZXXAU6AAAAAElFTkSuQmCC" alt="" width="20" height="22">Your bag</b><span id="bagCount">0/3 out</span></div>
     <div id="bagGrid"></div>
-    <button id="bagDone">Done</button>
+    <div class="bag-row"><button id="bagDrop">Drop…</button><button id="bagDone">Done</button></div>
   </div>
 
   <div id="shop">
-    <div class="bag-head"><b>☕ Buffet counter</b><span>fresh from the trolley</span></div>
+    <div class="bag-head"><b>☕ Buffet counter</b><span id="shopMi">✦</span></div>
     <div id="shopGrid"></div>
     <button id="shopDone">Done</button>
   </div>
@@ -580,8 +588,8 @@
             </div>
             <div class="bd-meta">
               <div><b id="bdDepart">3:15 PM</b><span>DEPARTS</span></div>
-              <div><b id="bdDist">229 mi</b><span>DISTANCE</span></div>
-              <div><b id="bdEarn">+229</b><span>MILES</span></div>
+              <div><b id="bdDist">57 mi</b><span>FARE</span></div>
+              <div><b id="bdEarn">+229</b><span>EARN</span></div>
             </div>
             <button id="bdGo">Buy ticket →</button>
             <div class="bd-status" id="bdStatus">Boarding open · departs at the top of the hour</div>
@@ -1169,11 +1177,31 @@ for (const it of BAG) {
   bagGrid.appendChild(b);
 }
 function tableItems() { return player.items.filter(k => k !== 'headphones' && k !== 'sleepmask'); }   // headphones + mask are worn, not on the table
+let bagDropMode = false;
 function refreshBag() {
-  bagCount.textContent = `${tableItems().length}/${MAX_ITEMS} out`;
-  for (const b of bagGrid.children) b.classList.toggle('on', player.items.includes(b.dataset.key));
+  bagCount.textContent = `${tableItems().length}/${MAX_ITEMS} out · ${fmtMi(save.mi)}`;
+  for (const b of bagGrid.children) {
+    b.style.display = save.owned.includes(b.dataset.key) ? '' : 'none';   // the bag shows only what you own
+    b.classList.toggle('on', player.items.includes(b.dataset.key));
+  }
+  bagGrid.classList.toggle('dropping', bagDropMode);
+  bagDropBtn.classList.toggle('on', bagDropMode);
+}
+function dropItem(key) {                      // leave something behind for good
+  save.owned = save.owned.filter(k => k !== key);
+  const i = player.items.indexOf(key);
+  if (i >= 0) player.items.splice(i, 1);
+  save.items = player.items.slice(); persist();
+  if (key === 'headphones') setHeadphones(false);
+  if (key === 'sleepmask' && lightsOff) setLightsOff(false);
+  const it = BAG.find(b => b.key === key);
+  toast('You leave the ' + (it ? it.label.toLowerCase() : key) + ' behind.');
+  if (!save.owned.length) bagDropMode = false;
+  refreshBag();
 }
 function pickItem(key) {
+  if (bagDropMode) { dropItem(key); return; }
+  if (!save.owned.includes(key)) return;
   const i = player.items.indexOf(key);
   if (i >= 0) player.items.splice(i, 1);
   else if (key !== 'headphones' && key !== 'sleepmask' && tableItems().length >= MAX_ITEMS) {   // worn things don't use a table slot
@@ -1189,40 +1217,69 @@ function setLightsOff(on) {
   toast(on ? 'Lights off — sweet dreams 😴' : 'Lights on ☀️');
 }
 function openBag()  { bagOpen = true;  closeCharPick(); bagEl.classList.add('show');  scrimEl.classList.add('show'); refreshBag(); }
-function closeBag() { bagOpen = false; bagEl.classList.remove('show'); scrimEl.classList.remove('show'); }
+function closeBag() { bagOpen = false; bagDropMode = false; bagEl.classList.remove('show'); scrimEl.classList.remove('show'); }
+const bagDropBtn = document.getElementById('bagDrop');
+bagDropBtn.addEventListener('click', () => {
+  bagDropMode = !bagDropMode;
+  if (bagDropMode) toast('Tap something to leave it behind.');
+  refreshBag();
+});
 function toggleBag(){ bagOpen ? closeBag() : openBag(); }
 document.getElementById('bagDone').addEventListener('click', closeBag);
 scrimEl.addEventListener('click', () => { closeBag(); closeCharPick(); closeHpMenu(); closeShop(); });
 
-// --- the buffet counter: a little menu of treats -----------------------------
+// --- the buffet counter: everything is for sale, priced in miles -------------
+// 'hp:*' entries are headphone colours for your existing set
 const SHOP_GOODS = [
-  { key: 'coffee',   label: 'Coffee',   emoji: '☕' },
-  { key: 'espresso', label: 'Espresso', emoji: '☕' },
-  { key: 'tea',      label: 'Tea',      emoji: '🍵' },
-  { key: 'water',    label: 'Water',    emoji: '💧' },
-  { key: 'pastry',   label: 'Pastry',   emoji: '🥐' },
-  { key: 'snacks',   label: 'Snacks',   emoji: '👝' },
+  { key: 'water',      label: 'Water',    emoji: '💧', price: 2 },
+  { key: 'newspaper',  label: 'News',     emoji: '📰', price: 3 },
+  { key: 'letter',     label: 'Letter',   emoji: '✉️', price: 3 },
+  { key: 'coffee',     label: 'Coffee',   emoji: '☕', price: 4 },
+  { key: 'tea',        label: 'Tea',      emoji: '🍵', price: 4 },
+  { key: 'snacks',     label: 'Snacks',   emoji: '👝', price: 5 },
+  { key: 'espresso',   label: 'Espresso', emoji: '☕', price: 6 },
+  { key: 'pastry',     label: 'Pastry',   emoji: '🥐', price: 6 },
+  { key: 'notepad',    label: 'Notepad',  emoji: '✏️', price: 8 },
+  { key: 'sleepmask',  label: 'Sleep',    emoji: '😴', price: 10 },
+  { key: 'book',       label: 'Book',     emoji: '📖', price: 12 },
+  { key: 'headphones', label: 'Music',    emoji: '🎧', price: 20 },
+  { key: 'watch',      label: 'Watch',    emoji: '⏱️', price: 25 },
+  { key: 'laptop',     label: 'Laptop',   emoji: '💻', price: 40 },
+  { key: 'hp:brown',   label: 'Copper',   emoji: '🎧', price: 15 },
+  { key: 'hp:gold',    label: 'Gold',     emoji: '🎧', price: 15 },
+  { key: 'hp:teal',    label: 'Teal',     emoji: '🎧', price: 15 },
+  { key: 'hp:pink',    label: 'Rose',     emoji: '🎧', price: 15 },
 ];
+function ownedGood(g) {
+  return g.key.startsWith('hp:') ? save.hpOwned.includes(g.key.slice(3)) : save.owned.includes(g.key);
+}
 const shopEl = document.getElementById('shop');
 const shopGrid = document.getElementById('shopGrid');
 let shopOpen = false;
 for (const g of SHOP_GOODS) {
   const b = document.createElement('button');
   b.className = 'chip'; b.dataset.key = g.key;
-  b.innerHTML = `<span class="emo">${g.emoji}</span><span>${g.label}</span>`;
+  b.innerHTML = `<span class="pr">${g.price}</span><span class="emo">${g.emoji}</span><span>${g.label}</span>`;
   b.addEventListener('click', () => buyGood(g));
   shopGrid.appendChild(b);
 }
 function openShop()  { shopOpen = true; closeBag(); shopEl.classList.add('show'); scrimEl.classList.add('show'); refreshShop(); }
 function closeShop() { shopOpen = false; shopEl.classList.remove('show'); if (!bagOpen) scrimEl.classList.remove('show'); }
-function refreshShop() { for (const b of shopGrid.children) b.classList.toggle('on', player.items.includes(b.dataset.key)); }
+function refreshShop() {
+  document.getElementById('shopMi').textContent = fmtMi(save.mi) + ' to spend';
+  for (const b of shopGrid.children) {
+    const g = SHOP_GOODS.find(x => x.key === b.dataset.key);
+    b.classList.toggle('on', ownedGood(g));
+  }
+}
 function buyGood(g) {
-  if (player.items.includes(g.key)) { toast('You already have ' + g.label.toLowerCase() + ' with you.'); return; }
-  if (tableItems().length >= MAX_ITEMS) { toast('Hands full — set something down first.'); return; }
-  player.items.push(g.key);
-  save.items = player.items.slice(); persist();
+  if (ownedGood(g)) { toast('You already own that — it\'s in your bag.'); return; }
+  if (!spendMi(g.price, true)) { refreshShop(); return; }   // always keep a ticket home in reserve
+  if (g.key.startsWith('hp:')) { save.hpOwned.push(g.key.slice(3)); refreshHpMenu(); }
+  else save.owned.push(g.key);
+  persist();
   refreshShop(); refreshBag();
-  toast(g.emoji + ' ' + g.label + ' — enjoy!');
+  toast(g.emoji + ' ' + g.label + ' — yours! −' + g.price + ' mi · ' + fmtMi(save.mi));
 }
 document.getElementById('shopDone').addEventListener('click', closeShop);
 
@@ -1453,10 +1510,16 @@ for (const c of HP_COLORS) {                              // headphone colour sw
   b.addEventListener('click', () => setHpColor(c.id));
   hpColorsEl.appendChild(b);
 }
-function setHpColor(id) { hpColor = id; save.hpColor = id; persist(); refreshHpMenu(); }
+function setHpColor(id) {
+  if (!save.hpOwned.includes(id)) { toast('That colour is for sale at the buffet car 🎧'); return; }
+  hpColor = id; save.hpColor = id; persist(); refreshHpMenu();
+}
 function refreshHpMenu() {
   for (const b of hpGridEl.children)   b.classList.toggle('on', b.dataset.id === hpChannel);
-  for (const b of hpColorsEl.children) b.classList.toggle('on', b.dataset.color === hpColor);
+  for (const b of hpColorsEl.children) {
+    b.classList.toggle('on', b.dataset.color === hpColor);
+    b.classList.toggle('locked', !save.hpOwned.includes(b.dataset.color));   // unowned colours: buy at the buffet
+  }
 }
 // the scrolling "now playing" line — song · artist, only while a track is on
 function updateNowPlaying() {
@@ -1727,6 +1790,7 @@ function renderPassport() {
   const el = document.getElementById('passBody');
   el.innerHTML =
     `<div class="pp-hero"><b>${Math.round(save.lifetimeMiles)}</b><span>LIFETIME MILES</span></div>
+     <div class="pp-spend">${fmtMi(save.mi)} to spend</div>
      <div class="pp-class">
        <div class="pp-tier tier${cur}">${CLASSES[cur].name}</div>
        ${next ? `<div class="pp-next">${Math.max(0, next.at - Math.round(save.lifetimeMiles))} mi to ${next.name}</div>
@@ -1751,6 +1815,8 @@ function renderPassport() {
 function creditTrip() {
   const before = classUnlocked();
   save.lifetimeMiles += ROUTE.totalMiles;
+  save.mi += ROUTE.totalMiles;      // the ride pays for itself and then some
+  setTimeout(() => toast('✦ +' + ROUTE.totalMiles + ' mi earned · ' + fmtMi(save.mi) + ' to spend'), 700);
   save.trips += 1;
   STATIONS.forEach(s => { save.stations[s.name] = 1; });
   save.lastStation = STATIONS[STATIONS.length - 1].name;   // you're now at the destination
@@ -1779,7 +1845,7 @@ function showBoarding() {
   document.getElementById('bdFromName').textContent = ROUTE.from;
   document.getElementById('bdToName').textContent = ROUTE.to;
   document.getElementById('bdDepart').textContent = fmtETClock(departTs);
-  document.getElementById('bdDist').textContent = ROUTE.totalMiles + ' mi';
+  document.getElementById('bdDist').textContent = fareFor(ROUTE) + ' mi';
   document.getElementById('bdEarn').textContent = '+' + ROUTE.totalMiles;
   document.getElementById('bdClass').textContent = currentClass().name.toUpperCase();
   renderTicket();
@@ -1796,7 +1862,7 @@ function renderTicket() {
   document.getElementById('bdHead').textContent = purchased ? 'BOARDING PASS' : 'TICKET';
   document.getElementById('bdStamp').hidden = !purchased;
   const go = document.getElementById('bdGo');
-  if (!purchased)               { go.textContent = 'Buy ticket →';        go.disabled = false; }
+  if (!purchased)               { go.textContent = 'Buy ticket · ' + fareFor(ROUTE) + ' mi ✦'; go.disabled = false; }
   else if (!atOrigin)           { go.textContent = 'Board at ' + ROUTE.from; go.disabled = true; }
   else if (Date.now() < boardOpensAt()) { go.textContent = 'Boarding opens ' + fmtETClock(boardOpensAt()); go.disabled = true; }
   else                          { go.textContent = 'Board this train →';  go.disabled = false; }
@@ -1804,9 +1870,11 @@ function renderTicket() {
 // boarding opens an hour before departure — no getting on the train before then
 function boardOpensAt() { return departTs - BOARD_LEAD_MIN * 60000; }
 function buyTicket() {
+  const fare = fareFor(ROUTE);
+  if (!spendMi(fare, false)) return;
   purchased = true;
   renderTicket();
-  toast('Ticket purchased ✓ · +' + ROUTE.totalMiles + ' mi when you arrive');
+  toast('Ticket ✓ −' + fare + ' mi · arrive to earn +' + ROUTE.totalMiles + ' ✦');
 }
 function board() {
   if (!purchased) return;           // can't board without a ticket
@@ -2273,7 +2341,26 @@ if (HP_COLORS.some(c => c.id === save.hpColor)) hpColor = save.hpColor;         
 updateHpBtn();   // reflect the saved channel on the (hidden until headphones-on) button
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
 if (save.character && CHAR_IMG[save.character]) player.char = save.character;   // restore your pick
+// --- the miles economy -------------------------------------------------------
+// save.mi is your SPENDABLE balance — every mile you ride earns a mile to
+// spend, on tickets and at the buffet car. It's separate from lifetimeMiles,
+// so a shopping spree never costs you class progress. The backpack starts
+// barebones (just your charcoal headphones); everything else is for sale.
+if (save.mi == null) save.mi = Math.max(30, Math.round((save.lifetimeMiles || 0) * 0.5));   // old passports get credit
+if (!Array.isArray(save.owned))   save.owned   = ['headphones'];
+if (!Array.isArray(save.hpOwned)) save.hpOwned = ['dark', save.hpColor].filter((v, i, a) => v && a.indexOf(v) === i);
+function routeMiles(r) { return r.totalMiles != null ? r.totalMiles : r.stations[r.stations.length - 1].mile; }
+function fareFor(r) { return Math.max(5, Math.round(routeMiles(r) * 0.25)); }   // rides always net +75%
+function minFare() { return Math.min(...ROUTES.map(fareFor)); }
+function fmtMi(n) { return '✦ ' + Math.round(n) + ' mi'; }
+function spendMi(cost, keepReserve) {
+  if (save.mi < cost) { toast('Not enough miles — riding earns them ✦'); return false; }
+  if (keepReserve && save.mi - cost < minFare()) { toast('Keep ' + minFare() + ' mi aside for a ticket home ✦'); return false; }
+  save.mi -= cost; persist(); return true;
+}
 if (Array.isArray(save.items)) player.items = save.items.slice();               // restore your desk — coffee, book, laptop…
+player.items = player.items.filter(k => save.owned.includes(k));                // you can only carry what you own
+save.items = player.items.slice();
 lightsOff    = player.items.includes('sleepmask');    // 😴 the mask stays on across a refresh
 headphonesOn = player.items.includes('headphones');   // 🎧 music intent — sound itself resumes on your next tap
 updateHpBtn();
