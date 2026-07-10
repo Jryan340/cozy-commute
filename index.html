@@ -55,7 +55,12 @@
   body.fp #act, body.fp #snd, body.fp #wide, body.fp #tripTab, body.fp #hint, body.fp #fp, body.fp #charBtn, body.fp #info, body.fp #hpch { display: none !important; }
   /* at the station you're on the platform, not in the car — hide the in-car chrome */
   body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp, body.at-station #charBtn, body.at-station #info, body.at-station #hpch,
-  body.at-station #hint, body.at-station #tripTab, body.at-station #wclock { display: none !important; }
+  body.at-station #hint, body.at-station #wclock { display: none !important; }
+  /* at the station the full app (Plan / Map / Ride / Wallet / Passport) is one tap
+     away — float the APP pill up top so it clears the departures card at the bottom */
+  body.at-station #tripTab { bottom: auto; top: calc(10px + env(safe-area-inset-top));
+    border-radius: 14px; border-bottom: 2px solid #8a6a42; }
+  body.at-station #tripTab::before { content: '📱'; }
   /* the character picker panel + its swatches (mirrors the bag panel) */
   #charGrid, #hatGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   #hatHead { margin-top: 16px; }
@@ -115,8 +120,8 @@
     padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); background: rgba(20,17,26,.6); }
   .ph-nav button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
     background: none; border: none; cursor: pointer; color: #6f6980; padding: 4px 0;
-    font: 600 9.5px ui-monospace, monospace; letter-spacing: .4px; -webkit-tap-highlight-color: transparent; }
-  .ph-nav button .ic { font-size: 19px; line-height: 1; filter: grayscale(1) opacity(.6); }
+    font: 600 9px ui-monospace, monospace; letter-spacing: .2px; -webkit-tap-highlight-color: transparent; }
+  .ph-nav button .ic { font-size: 18px; line-height: 1; filter: grayscale(1) opacity(.6); }
   .ph-nav button.on { color: #7fd3bd; }
   .ph-nav button.on .ic { filter: none; }
 
@@ -511,6 +516,24 @@
   #shopGrid .chip.owned .pr { color: #9fd8c4; background: rgba(40,90,72,.5); border-color: rgba(84,153,138,.5); }
   #hpColors button.locked { opacity: .38; filter: grayscale(.4); }
   .pp-spend { text-align: center; color: #ffd9a0; font-size: 12px; margin: -6px 0 12px; letter-spacing: .5px; }
+  /* --- Wallet tab --- */
+  .wl-hero { text-align: center; margin-bottom: 16px; }
+  .wl-hero .coin { width: 22px; height: 22px; vertical-align: -3px; margin-right: 4px; }
+  .wl-hero b { font-size: 40px; font-weight: 800; color: #ffd9a0; line-height: 1; }
+  .wl-hero span { display: block; font-size: 10px; letter-spacing: 2px; opacity: .6; margin-top: 6px; }
+  .wl-list { display: flex; flex-direction: column; }
+  .wl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 11px 2px; border-top: 1px solid rgba(255,255,255,.06); }
+  .wl-row:first-child { border-top: none; }
+  .wl-desc { min-width: 0; }
+  .wl-desc b { display: block; font-size: 12.5px; font-weight: 600; color: #efe9f4;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wl-desc span { font-size: 10px; opacity: .5; letter-spacing: .3px; }
+  .wl-amt { flex: none; font: 700 14px ui-monospace, monospace; display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+  .wl-amt .coin { width: 13px; height: 13px; vertical-align: 0; }
+  .wl-amt.pos { color: #7fd3a8; }
+  .wl-amt.neg { color: #e79191; }
+  .wl-empty { text-align: center; opacity: .55; font-size: 12px; padding: 24px 10px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -647,6 +670,12 @@
         <div id="mapBody" class="mp-body"></div>
       </div>
 
+      <!-- Wallet -->
+      <div class="app-panel" data-panel="wallet" hidden>
+        <div class="ph-title">Wallet<span>Coins in &amp; out</span></div>
+        <div id="walletBody"></div>
+      </div>
+
       <!-- Passport -->
       <div class="app-panel" data-panel="pass" hidden>
         <div class="ph-title">Passport<span>Your miles &amp; tiers</span></div>
@@ -658,6 +687,7 @@
       <button data-tab="search"><span class="ic">🔍</span>Plan</button>
       <button data-tab="map"><span class="ic">🗺️</span>Map</button>
       <button data-tab="now"><span class="ic">🚆</span>Ride</button>
+      <button data-tab="wallet"><span class="ic">🪙</span>Wallet</button>
       <button data-tab="pass"><span class="ic">🎫</span>Passport</button>
     </div>
   </div>
@@ -1373,6 +1403,7 @@ function purchaseCart() {
     bought.push(g.label);
   }
   save.coins -= total; persist();
+  logTxn(-total, 'Buffet · ' + bought.join(', '));
   shopCart.clear();
   refreshHpMenu(); refreshHatPick(); refreshBag(); refreshShop();
   shopStatus('Enjoy! ' + bought.join(', ') + ' · −' + total + ' coins');
@@ -1757,6 +1788,7 @@ function setTab(t) {
   for (const p of document.querySelectorAll('#trip .app-panel')) p.hidden = p.dataset.panel !== t;
   if (t === 'search') { if (!sbFromEl.value.trim()) sbFromEl.value = save.lastCity; sbOpen = false; renderSearch(); }
   if (t === 'map')    renderMap();
+  if (t === 'wallet') renderWallet();
   if (t === 'pass')   renderPassport();
   if (t === 'now')    updateTripCard();
 }
@@ -1927,12 +1959,44 @@ function renderPassport() {
   });
 }
 
+// stamp a ledger entry's time — clock alone for today, else "Jul 9 · 2:45 PM"
+function etDayKey(ts) {
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(ts));
+}
+function fmtLedgerTime(ts) {
+  const time = fmtETClock(ts);
+  if (etDayKey(ts) === etDayKey(Date.now())) return time;
+  const day = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }).format(new Date(ts));
+  return day + ' · ' + time;
+}
+// the Wallet tab: coin balance up top, then every earn/spend newest-first
+function renderWallet() {
+  const el = document.getElementById('walletBody');
+  const rows = save.ledger.slice().reverse();
+  const list = rows.length
+    ? rows.map(e => {
+        const pos = e.delta >= 0;
+        const amt = (pos ? '+' : '−') + Math.abs(e.delta);
+        return `<div class="wl-row">
+                  <div class="wl-desc"><b>${escHtml(e.label)}</b><span>${fmtLedgerTime(e.ts)}</span></div>
+                  <div class="wl-amt ${pos ? 'pos' : 'neg'}">${amt}${COIN}</div>
+                </div>`;
+      }).join('')
+    : `<div class="wl-empty">No transactions yet — ride a train to earn your first coins 🪙</div>`;
+  el.innerHTML =
+    `<div class="wl-hero">${COIN}<b>${Math.round(save.coins)}</b><span>COINS TO SPEND</span></div>
+     <div class="wl-list">${list}</div>`;
+}
+// small HTML-escaper so ledger labels can't break the panel markup
+function escHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
 // credit the completed trip to your passport (once, on arrival)
 function creditTrip() {
   const before = classUnlocked();
   save.lifetimeMiles += ROUTE.totalMiles;   // miles still count toward 2nd/1st class
   const earned = earnFor(ROUTE);
   save.coins += earned;                     // the ride pays out coins
+  logTxn(earned, 'Ride · ' + ROUTE.from + ' → ' + ROUTE.to);
   setTimeout(() => toast('🪙 +' + earned + ' coins · ' + coinsTxt(save.coins) + ' to spend'), 700);
   save.trips += 1;
   STATIONS.forEach(s => { save.stations[s.name] = 1; });
@@ -1989,6 +2053,7 @@ function boardOpensAt() { return departTs - BOARD_LEAD_MIN * 60000; }
 function buyTicket() {
   const fare = fareFor(ROUTE);
   if (!spendCoins(fare, false)) return;
+  logTxn(-fare, currentClass().name + ' ticket · ' + ROUTE.from + ' → ' + ROUTE.to);
   purchased = true;
   renderTicket();
   toast('Ticket ✓ −' + fare + ' coins · arrive to earn +' + earnFor(ROUTE) + ' 🪙');
@@ -2475,6 +2540,15 @@ if (!save.starterKit) { if (!save.owned.includes('book')) save.owned.push('book'
 if (!Array.isArray(save.hpOwned)) save.hpOwned = ['dark', save.hpColor].filter((v, i, a) => v && a.indexOf(v) === i);
 if (!Array.isArray(save.hatsOwned)) save.hatsOwned = [];   // hats you've bought; save.hat = the one worn (null = bare)
 if (save.hat === undefined) save.hat = null;
+if (!Array.isArray(save.ledger)) save.ledger = [];   // wallet history: {ts, delta, label} — newest last, capped at LEDGER_MAX
+// record a coin movement in the wallet history (delta +earn / −spend). Keeps the
+// tail bounded so the save never bloats; the Wallet tab renders newest-first.
+const LEDGER_MAX = 40;
+function logTxn(delta, label) {
+  save.ledger.push({ ts: Date.now(), delta: Math.round(delta), label });
+  if (save.ledger.length > LEDGER_MAX) save.ledger = save.ledger.slice(-LEDGER_MAX);
+  persist();
+}
 function routeMiles(r) { return r.totalMiles != null ? r.totalMiles : r.stations[r.stations.length - 1].mile; }
 const FARE_RATE = [0.13, 0.20, 0.30], FARE_MIN = [3, 5, 8];   // per-mile fare + floor, by class (3rd·2nd·1st)
 function fareForClass(r, ci) { const c = Math.max(0, Math.min(2, ci)); return Math.max(FARE_MIN[c], Math.round(routeMiles(r) * FARE_RATE[c])); }
