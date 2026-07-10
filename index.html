@@ -321,6 +321,19 @@
   .bd-meta > div { text-align: center; }
   .bd-meta b { display: block; font-size: 13px; }
   .bd-meta span { font-size: 8.5px; color: #8a8170; letter-spacing: .5px; }
+  /* pick your class right on the ticket — fare updates as you switch */
+  .bd-clshead { font-size: 8.5px; color: #8a8170; letter-spacing: 1.5px; margin-bottom: 7px; }
+  .bd-classpick { display: flex; gap: 6px; margin-bottom: 18px; }
+  .bd-cls { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 8px 4px; border-radius: 11px; cursor: pointer;
+    background: rgba(0,0,0,.035); border: 1.5px solid #cdbfa2; color: #4a4232;
+    font-family: ui-monospace, monospace; -webkit-tap-highlight-color: transparent; }
+  .bd-cls b { font-size: 12px; font-weight: 800; letter-spacing: .5px; }
+  .bd-cls span { font-size: 9.5px; opacity: .82; display: flex; align-items: center; gap: 3px; }
+  .bd-cls .coin { width: 10px; height: 10px; vertical-align: 0; }
+  .bd-cls.on { background: #2f7d6e; border-color: #2f7d6e; color: #fff; }
+  .bd-cls.on span { opacity: .95; }
+  .bd-cls.locked { opacity: .5; cursor: default; }
   #bdGo {
     width: 100%; padding: 14px; border-radius: 13px; cursor: pointer; background: #2f7d6e; color: #fff;
     border: none; font: 700 15px ui-monospace, monospace; letter-spacing: 1px;
@@ -617,6 +630,8 @@
               <div><b id="bdDist">—</b><span>FARE</span></div>
               <div><b id="bdEarn">—</b><span>EARN</span></div>
             </div>
+            <div class="bd-clshead" id="bdClsHead">CHOOSE YOUR CLASS</div>
+            <div class="bd-classpick" id="bdClassPick"></div>
             <button id="bdGo">Buy ticket →</button>
             <div class="bd-status" id="bdStatus">Boarding open · departs at the top of the hour</div>
           </div>
@@ -2010,6 +2025,25 @@ function showBoarding() {
   setTab('now');                    // the fare / ticket lives on the Ride tab
   tripEl.classList.add('show'); tripScrim.classList.add('show');
 }
+// the class picker on the ticket — tap 3rd/2nd/1st to switch (locked tiers show
+// what you need to unlock them); the fare updates live and this sets the class
+// you'll ride. Hidden once the ticket's paid — the class is locked in by then.
+function renderClassPick() {
+  const wrap = document.getElementById('bdClassPick'), head = document.getElementById('bdClsHead');
+  if (!wrap) return;
+  wrap.hidden = purchased; head.hidden = purchased;
+  if (purchased) return;
+  const unlocked = classUnlocked(), cur = currentClassIdx();
+  wrap.innerHTML = '';
+  CLASSES.forEach((c, i) => {
+    const avail = i <= unlocked;
+    const b = document.createElement('button');
+    b.className = 'bd-cls' + (i === cur ? ' on' : '') + (avail ? '' : ' locked');
+    b.innerHTML = `<b>${c.short}</b><span>${avail ? coinsHTML(fareForClass(ROUTE, i)) : '🔒 ' + c.at + ' mi'}</span>`;
+    if (avail) b.onclick = () => { save.classCurrent = i; persist(); renderTicket(); };
+    wrap.appendChild(b);
+  });
+}
 // swap the ticket card between "fare to buy" and "paid boarding pass" — and gate
 // boarding on actually being in the origin city at departure (no teleporting).
 function renderTicket() {
@@ -2018,6 +2052,9 @@ function renderTicket() {
   document.getElementById('bdSub').textContent = purchased ? 'Boarding pass · Cozy Rail' : 'Fare · Cozy Rail';
   document.getElementById('bdHead').textContent = purchased ? 'BOARDING PASS' : 'TICKET';
   document.getElementById('bdStamp').hidden = !purchased;
+  document.getElementById('bdDist').innerHTML = coinsHTML(fareFor(ROUTE));       // fare tracks the chosen class
+  document.getElementById('bdClass').textContent = currentClass().name.toUpperCase();
+  renderClassPick();
   const go = document.getElementById('bdGo');
   if (!purchased)               { go.textContent = 'Buy ticket · ' + fareFor(ROUTE) + ' coins'; go.disabled = false; }
   else if (!atOrigin)           { go.textContent = 'Board at ' + ROUTE.from; go.disabled = true; }
