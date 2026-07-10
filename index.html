@@ -1043,12 +1043,11 @@ function solids() {
     { x: 0,       y: 0,        w: W, h: CAR_TOP },          // top cap
     { x: 0,       y: CAR_BOT,  w: W, h: H-CAR_BOT },        // bottom cap
   ];
-  if (carIdx === SHOP_CAR) {                               // the buffet car: counter + café row, no booths
-    s.push({ x: WALL_L,      y: 118, w: 56, h: 34 });      // behind the counter (the keeper's side)
-    s.push({ x: WALL_L + 8,  y: 150, w: 47, h: 17 });      // the counter itself
-    s.push({ x: WALL_L + 8,  y: 250, w: 23, h: 18 });      // the café row: loveseat...
-    for (const t of SHOP_TABLES) s.push({ x: t.x, y: t.gy - 14, w: t.w, h: 14 });   // ...two standing tables...
-    s.push({ x: WALL_R - 24, y: 250, w: 16, h: 18 });      // ...and the tall stool table, all on one line
+  if (carIdx === SHOP_CAR) {                               // the buffet car: a centred bar, café tables at the walls
+    s.push({ x: W/2 - 26, y: 96, w: 52, h: 52 });          // the bar block: shelf, keeper and counter
+    for (const t of SHOP_TABLES) s.push({ x: t.x, y: t.gy - 14, w: t.w, h: 14 });   // café tables
+    s.push({ x: WALL_L + 8,  y: 302, w: 23, h: 18 });      // the loveseat, last row left
+    s.push({ x: WALL_R - 26, y: 298, w: 16, h: 20 });      // the tall stool table, last row right
     return s;
   }
   for (const st of seats) s.push({ x: st.x, y: st.y, w: st.w, h: st.h });
@@ -1099,8 +1098,8 @@ cv.addEventListener('pointerdown', e => {
   // standing: tap yourself for your bag, else walk / tap a seat to sit
   if (hitPlayer(p)) { toggleBag(); return; }
   if (carIdx === SHOP_CAR) {                       // in the buffet car a tap near the counter walks up + buys
-    if (p.x > WALL_L && p.x < WALL_L + 70 && p.y > 130 && p.y < 200) {
-      target = { x: WALL_L + 34, y: 180 }; autoSit = true; return;
+    if (p.x > W/2 - 34 && p.x < W/2 + 34 && p.y > 96 && p.y < 184) {
+      target = { x: W/2, y: 162 }; autoSit = true; return;
     }
     for (const tb of SHOP_TABLES) {                // tapping a café table walks you up to it
       if (p.x > tb.x - 6 && p.x < tb.x + tb.w + 6 && p.y > tb.gy - 24 && p.y < tb.gy + 20) {
@@ -3290,28 +3289,29 @@ function drawZzz(cx, cy, phase) {
 }
 
 // --- the buffet car interior ------------------------------------------------
-// the café row: a straight, evenly-spaced line of standing tables you can walk
-// up to — stand at one and your things go out on it
+// café tables in the same rhythm as the booths everywhere else: two columns
+// hugging the walls, evenly spaced down the car — stand at one and your
+// things go out on it
 const SHOP_TABLES = [
-  { x: WALL_L + 44, w: 20, gy: 268 },
-  { x: WALL_L + 80, w: 20, gy: 268 },
+  { x: WALL_L + 10, w: 20, gy: 200 }, { x: WALL_R - 30, w: 20, gy: 200 },
+  { x: WALL_L + 10, w: 20, gy: 260 }, { x: WALL_R - 30, w: 20, gy: 260 },
 ];
 let atShopTable = null;   // the table you're currently standing at
 function shopStandTable() {
   if (carIdx !== SHOP_CAR || player.seat) return null;
   const px_ = player.x + player.w / 2, py_ = player.y;
   for (const t of SHOP_TABLES) {   // standing on any side of the table counts
-    if (px_ > t.x - 4 && px_ < t.x + t.w + 4 && py_ > t.gy - 36 && py_ < t.gy + 18) return t;
+    if (px_ > t.x - 10 && px_ < t.x + t.w + 10 && py_ > t.gy - 36 && py_ < t.gy + 18) return t;
   }
   return null;
 }
 function nearCounter() {
   if (carIdx !== SHOP_CAR) return false;
   const px_ = player.x + player.w/2, py_ = player.y + player.h/2;
-  return px_ > WALL_L + 4 && px_ < WALL_L + 70 && py_ > 162 && py_ < 198;
+  return px_ > W/2 - 32 && px_ < W/2 + 32 && py_ > 144 && py_ < 182;
 }
 function drawShopkeeper() {
-  const kx = WALL_L + 32, ky = 150;                        // feet line, just behind the counter
+  const kx = W/2, ky = 126;                                // feet line, just behind the counter
   const dx = (player.x + player.w/2) - kx, dy = (player.y + player.h/2) - ky;
   let rec;                                                 // she turns to face wherever you are
   if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy)) rec = dx < 0 ? SHOP.keeperL : SHOP.keeperR;
@@ -3322,24 +3322,26 @@ function drawShopkeeper() {
   ctx.drawImage(rec.img, Math.round(kx - w/2), ky - h, w, h);
 }
 function drawShopInterior() {
-  const sh = SHOP.shelf;                                   // the stocked shelf on the keeper's wall
-  if (sh.ok) { px(WALL_L + 17, 146, sh.img.width - 4, 2, C.shadow); ctx.drawImage(sh.img, WALL_L + 15, 147 - sh.img.height, sh.img.width, sh.img.height); }
+  const cx = W/2;
+  // the bar sits centred like a proper buffet: shelf, then the keeper, then
+  // her counter, stacked down the middle of the car
+  const sh = SHOP.shelf;
+  if (sh.ok) ctx.drawImage(sh.img, Math.round(cx - sh.img.width/2), 108 - sh.img.height, sh.img.width, sh.img.height);
   drawShopkeeper();
-  const co = SHOP.counter;                                 // the counter in front of her
-  if (co.ok) { px(WALL_L + 10, 165, co.img.width - 4, 2, C.shadow); ctx.drawImage(co.img, WALL_L + 8, 167 - co.img.height, co.img.width, co.img.height); }
-  // the café row: loveseat, two standing tables and the tall stool table,
-  // evenly spaced along one line across the back half
+  const co = SHOP.counter;
+  if (co.ok) { px(Math.round(cx - co.img.width/2) + 2, 146, co.img.width - 4, 2, C.shadow); ctx.drawImage(co.img, Math.round(cx - co.img.width/2), 148 - co.img.height, co.img.width, co.img.height); }
+  // café tables in booth rhythm down both walls, loveseat + stool as the last row
   const b = SHOP.bench, t = SHOP.table, sl = SHOP.stool;
-  if (b.ok)  ctx.drawImage(b.img,  WALL_L + 8, 268 - b.img.height, b.img.width, b.img.height);
   if (t.ok)  for (const tb of SHOP_TABLES) ctx.drawImage(t.img, tb.x, tb.gy - t.img.height, t.img.width, t.img.height);
-  if (sl.ok) ctx.drawImage(sl.img, WALL_R - 24, 268 - sl.img.height, sl.img.width, sl.img.height);
+  if (b.ok)  ctx.drawImage(b.img,  WALL_L + 8, 320 - b.img.height, b.img.width, b.img.height);
+  if (sl.ok) ctx.drawImage(sl.img, WALL_R - 26, 318 - sl.img.height, sl.img.width, sl.img.height);
   const here = shopStandTable();                           // your things, out on the table you stand at
   if (here) tableItems().slice(0, 2).forEach((k, i) =>
     drawItemKind(k, { x: here.x + 2 + i * 9, y: here.gy - 17, w: 8, h: 9 }, animT));
   if (!isTouch && nearCounter()) {                         // keyboard prompt at the counter
-    px(WALL_L + 23, 174, 18, 9, 'rgba(20,18,26,.8)');
+    px(cx - 9, 156, 18, 9, 'rgba(20,18,26,.8)');
     ctx.fillStyle = '#fff'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
-    ctx.fillText('buy · E', WALL_L + 32, 181);
+    ctx.fillText('buy · E', cx, 163);
   }
 }
 function drawSeat(st) {
