@@ -1778,7 +1778,7 @@ function renderMap() {
       const chi = ROUTES.find(r => r.from === 'New York' && r.to === 'Chicago');
       if (chi) {
         const b = document.createElement('div'); b.className = 'mp-row branch';
-        b.innerHTML = `<div class="st-dot"></div><div class="mp-info"><div class="mp-name">Chicago<small>CHI</small></div><div class="mp-sub">🌙 Overnight · ${routeMiles(chi)} mi</div></div>`;
+        b.innerHTML = `<div class="st-dot"></div><div class="mp-info"><div class="mp-name">Chicago<small>CHI</small></div><div class="mp-sub">🚆 Lake Shore Ltd · hourly · ${routeMiles(chi)} mi</div></div>`;
         b.onclick = () => planTo('Chicago');
         body.appendChild(b);
       }
@@ -1939,7 +1939,7 @@ function renderStation() {
   const board = document.getElementById('stnDeps'); board.innerHTML = '';
   const deps = departuresFrom(save.lastCity);
   if (!deps.length) {
-    board.innerHTML = `<div class="stn-empty">No trains from here right now.<br>Regular trains run 5am–11pm; catch the overnight from New York.</div>`;
+    board.innerHTML = `<div class="stn-empty">No trains from here right now.<br>Corridor trains run 5am–11pm; the Lake Shore Ltd runs hourly, 5am–midnight.</div>`;
     return;
   }
   // the train drawn at the platform = the first unlocked departure (unless you last tapped another)
@@ -2153,8 +2153,11 @@ function etMinuteOfDay(ms) { const t = etAt(ms); return t.h * 60 + t.m + t.s / 6
 // (6:30–10:00 and 15:00–20:00), hourly the rest of the day; nothing overnight.
 function isPeakMin(m) { return (m >= 390 && m < 600) || (m >= 900 && m < 1200); }
 function regularValidMin(m) { return m >= 300 && m <= 1380 && (m % (isPeakMin(m) ? 30 : 60) === 0); }
-// The overnight service runs evening through the small hours, hourly (20:00–05:00).
-function overnightValidMin(m) { return (m >= 1200 || m <= 300) && (m % 60 === 0); }
+// The Lake Shore Limited (NY⇄Chicago) runs hourly from 5am through midnight —
+// so a terminal like Chicago always has a train home within the hour by day,
+// without an aggressive 1am–4am departure every hour. The late-evening runs
+// are still overnight rides; the small-hours just get a quiet gap.
+function longhaulValidMin(m) { return m % 60 === 0 && !(m >= 60 && m <= 240); }
 // next epoch ms after fromMs whose ET minute-of-day satisfies validFn
 function nextValidDepart(validFn, fromMs) {
   const base = etMinuteOfDay(fromMs), start = Math.ceil(base + 1e-6);
@@ -2164,7 +2167,7 @@ function nextValidDepart(validFn, fromMs) {
   return fromMs + 24 * 3600 * 1000;
 }
 const BOARD_HORIZON_MS = BOARD_LEAD_MIN * 60 * 1000;   // the platform board lists a route once boarding is open (1h out)
-function scheduleFn(r) { return r && r.depart === 'overnight' ? overnightValidMin : regularValidMin; }
+function scheduleFn(r) { return r && r.depart === 'longhaul' ? longhaulValidMin : regularValidMin; }
 function nextDepartFor(r, fromMs) {
   fromMs = fromMs || Date.now();
   if (FAST_MODE) { const step = DEPART_INTERVAL_MIN * 60000; return Math.ceil((fromMs + 1) / step) * step; }
@@ -2333,13 +2336,13 @@ const ROUTES = buildRoutes();
   const rev = west.map(([name, mile]) => ({ name, mile: mir(mile) })).reverse();
   ROUTES.push({
     id: 'nychi', from: 'New York', to: 'Chicago', fromCode: 'NYC', toCode: 'CHI',
-    depart: 'overnight', minMiles: 0, stations: fwd,
+    depart: 'longhaul', minMiles: 0, stations: fwd,
     coast: [[498, 700]], slow: [[498, 700]], fast: [[720, 940]],       // Lake Erie shore, then the sprint
     bridges: [{ m: 140, name: 'Hudson River' }, { m: 436, name: 'Buffalo Creek' }], underground: null,
   });
   ROUTES.push({
     id: 'chiny', from: 'Chicago', to: 'New York', fromCode: 'CHI', toCode: 'NYC',
-    depart: 'overnight', minMiles: 0, stations: rev,
+    depart: 'longhaul', minMiles: 0, stations: rev,
     coast: [[mir(700), mir(498)]], slow: [[mir(700), mir(498)]], fast: [[mir(940), mir(720)]],
     bridges: [{ m: mir(140), name: 'Hudson River' }, { m: mir(436), name: 'Buffalo Creek' }],
     underground: mir(15),                                              // dives into Penn on arrival
