@@ -484,14 +484,25 @@
     background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
     font: 600 14px ui-monospace, monospace; letter-spacing: .5px;
   }
-  #bagDone:active, #charDone:active, #hpDone:active, #shopDone:active, #bagDrop:active { transform: translateY(1px); border-bottom-width: 2px; }
+  #bagDone:active, #charDone:active, #hpDone:active, #shopDone:active, #shopBuy:active, #bagDrop:active { transform: translateY(1px); border-bottom-width: 2px; }
   .bag-row { display: flex; gap: 8px; }
   #bagDrop { flex: 0 0 34%; background: #7d4a3f; border-color: #a06a54; }
   #bagDrop.on { background: #a34d3c; border-color: #c97a5a; }
   #bagGrid.dropping .chip { border-color: rgba(255,120,100,.6); }
-  #shopGrid .chip { position: relative; }
-  #shopGrid .chip .pr { position: absolute; top: 3px; right: 5px; font-size: 9px; opacity: .7; color: #ffd9a0; }
+  #shopDone { flex: 0 0 34%; background: #3a3546; border-color: #4a4458; }
+  #shopBuy { flex: 1; background: #b6893c; border-color: #d6a94e; color: #241a08; }
+  #shopBuy:disabled { background: #3a3546; border-color: #4a4458; color: #6d6678; cursor: default; box-shadow: none; }
+  #shopStatus { text-align: center; font: 600 12px ui-monospace, monospace; color: #cdb98f; margin: 12px 4px 2px; min-height: 15px; }
+  #shopStatus.warn { color: #e6a15a; }
+  #shopGrid .chip { position: relative; padding-top: 18px; }
+  #shopGrid .chip .pr { position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+    font: 700 9px ui-monospace, monospace; color: #ffe0a3; background: rgba(120,90,30,.5);
+    border: 1px solid rgba(214,169,78,.5); border-radius: 999px; padding: 1px 6px; letter-spacing: .3px; white-space: nowrap; }
   #shopGrid .chip .hpimg { image-rendering: pixelated; display: block; margin: 3px auto 1px; }
+  #shopGrid .chip.sel { background: #6a5220; border-color: #d6a94e; color: #fff; box-shadow: 0 0 0 2px rgba(214,169,78,.5); }
+  #shopGrid .chip.sel .pr { background: rgba(30,22,8,.55); }
+  #shopGrid .chip.owned { opacity: .5; cursor: default; }
+  #shopGrid .chip.owned .pr { color: #9fd8c4; background: rgba(40,90,72,.5); border-color: rgba(84,153,138,.5); }
   #hpColors button.locked { opacity: .38; filter: grayscale(.4); }
   .pp-spend { text-align: center; color: #ffd9a0; font-size: 12px; margin: -6px 0 12px; letter-spacing: .5px; }
 </style>
@@ -537,7 +548,8 @@
   <div id="shop">
     <div class="bag-head"><b>☕ Buffet counter</b><span id="shopMi">✦</span></div>
     <div id="shopGrid"></div>
-    <button id="shopDone">Done</button>
+    <div id="shopStatus">Tap treats to add them to your order.</div>
+    <div class="bag-row"><button id="shopBuy" disabled>Purchase</button><button id="shopDone">Done</button></div>
   </div>
 
   <div id="charPick">
@@ -1268,36 +1280,62 @@ function ownedGood(g) {
 }
 const shopEl = document.getElementById('shop');
 const shopGrid = document.getElementById('shopGrid');
+const shopStatusEl = document.getElementById('shopStatus');
+const shopBuyBtn = document.getElementById('shopBuy');
 let shopOpen = false;
+const shopCart = new Set();          // keys queued for one combined purchase
 for (const g of SHOP_GOODS) {
   const b = document.createElement('button');
   b.className = 'chip'; b.dataset.key = g.key;
   const hpc = g.key.startsWith('hp:') ? g.key.slice(3) : null;
-  b.innerHTML = `<span class="pr">${g.price}</span>` +
+  b.innerHTML = `<span class="pr">${g.price} mi</span>` +
     (hpc ? `<img class="hpimg" alt="" width="28" height="21">` : `<span class="emo">${g.emoji}</span>`) +
     `<span>${g.label}</span>`;
   if (hpc) b.querySelector('img').src = HP_IMG[hpc].img.src;   // show the actual colour, not a generic emoji
-  b.addEventListener('click', () => buyGood(g));
+  b.addEventListener('click', () => toggleCart(g));
   shopGrid.appendChild(b);
 }
-function openShop()  { shopOpen = true; closeBag(); shopEl.classList.add('show'); scrimEl.classList.add('show'); refreshShop(); }
-function closeShop() { shopOpen = false; shopEl.classList.remove('show'); if (!bagOpen) scrimEl.classList.remove('show'); }
+function shopStatus(msg, warn) { shopStatusEl.textContent = msg; shopStatusEl.classList.toggle('warn', !!warn); }
+function cartTotal() { return SHOP_GOODS.filter(g => shopCart.has(g.key)).reduce((s, g) => s + g.price, 0); }
+function toggleCart(g) {
+  if (ownedGood(g)) { shopStatus('You already own the ' + g.label.toLowerCase() + ' — it\'s in your bag.'); return; }
+  if (shopCart.has(g.key)) shopCart.delete(g.key); else shopCart.add(g.key);
+  refreshShop();
+}
+function openShop()  { shopOpen = true; shopCart.clear(); closeBag(); shopEl.classList.add('show'); scrimEl.classList.add('show'); refreshShop(); }
+function closeShop() { shopOpen = false; shopCart.clear(); shopEl.classList.remove('show'); if (!bagOpen) scrimEl.classList.remove('show'); }
 function refreshShop() {
   document.getElementById('shopMi').textContent = fmtMi(save.mi) + ' to spend';
   for (const b of shopGrid.children) {
     const g = SHOP_GOODS.find(x => x.key === b.dataset.key);
-    b.classList.toggle('on', ownedGood(g));
+    const owned = ownedGood(g);
+    b.classList.toggle('owned', owned);
+    b.classList.toggle('sel', !owned && shopCart.has(g.key));
   }
+  const total = cartTotal(), n = shopCart.size, reserve = minFare();
+  shopBuyBtn.textContent = n ? 'Purchase · ' + total + ' mi ✦' : 'Purchase';
+  const over = total > save.mi, underReserve = !over && save.mi - total < reserve;
+  shopBuyBtn.disabled = n === 0 || over || underReserve;
+  if (!n)               shopStatus('Tap treats to add them to your order.');
+  else if (over)        shopStatus('Order is ' + total + ' mi — you have ' + Math.round(save.mi) + '. Ride to earn more ✦', true);
+  else if (underReserve) shopStatus('Keep ' + reserve + ' mi aside for a ticket home ✦', true);
+  else                  shopStatus(n + (n === 1 ? ' item' : ' items') + ' · ' + total + ' mi · ' + Math.round(save.mi - total) + ' mi left after');
 }
-function buyGood(g) {
-  if (ownedGood(g)) { toast('You already own that — it\'s in your bag.'); return; }
-  if (!spendMi(g.price, true)) { refreshShop(); return; }   // always keep a ticket home in reserve
-  if (g.key.startsWith('hp:')) { save.hpOwned.push(g.key.slice(3)); refreshHpMenu(); }
-  else save.owned.push(g.key);
-  persist();
-  refreshShop(); refreshBag();
-  toast(g.emoji + ' ' + g.label + ' — yours! −' + g.price + ' mi · ' + fmtMi(save.mi));
+function purchaseCart() {
+  const total = cartTotal();
+  if (!shopCart.size || total > save.mi || save.mi - total < minFare()) { refreshShop(); return; }
+  const bought = [];
+  for (const g of SHOP_GOODS) {
+    if (!shopCart.has(g.key)) continue;
+    if (g.key.startsWith('hp:')) save.hpOwned.push(g.key.slice(3)); else save.owned.push(g.key);
+    bought.push(g.label);
+  }
+  save.mi -= total; persist();
+  shopCart.clear();
+  refreshHpMenu(); refreshBag(); refreshShop();
+  shopStatus('Enjoy! ' + bought.join(', ') + ' · −' + total + ' mi');
 }
+shopBuyBtn.addEventListener('click', purchaseCart);
 document.getElementById('shopDone').addEventListener('click', closeShop);
 
 // --- character picker: pick which roster character you play as ---------------
