@@ -997,6 +997,7 @@ const BAG = [
   { key: 'tea',        label: 'Tea',     emoji: '🍵' },
   { key: 'water',      label: 'Water',   emoji: '💧' },
   { key: 'book',       label: 'Book',    emoji: '📖' },
+  { key: 'novel',      label: 'Novel',   emoji: '📗' },
   { key: 'laptop',     label: 'Laptop',  emoji: '💻' },
   { key: 'notepad',    label: 'Notepad', emoji: '✏️' },
   { key: 'pastry',     label: 'Pastry',  emoji: '🥐' },
@@ -1266,7 +1267,7 @@ const SHOP_GOODS = [
   { key: 'pastry',     label: 'Pastry',   emoji: '🥐', price: 6 },
   { key: 'notepad',    label: 'Notepad',  emoji: '✏️', price: 8 },
   { key: 'sleepmask',  label: 'Sleep',    emoji: '😴', price: 10 },
-  { key: 'book',       label: 'Book',     emoji: '📖', price: 12 },
+  { key: 'novel',      label: 'Novel',    emoji: '📗', price: 12 },
   { key: 'headphones', label: 'Music',    emoji: '🎧', price: 20 },
   { key: 'watch',      label: 'Watch',    emoji: '⏱️', price: 25 },
   { key: 'laptop',     label: 'Laptop',   emoji: '💻', price: 40 },
@@ -2407,7 +2408,8 @@ if (save.character && CHAR_IMG[save.character]) player.char = save.character;   
 // so a shopping spree never costs you class progress. The backpack starts
 // barebones (just your charcoal headphones); everything else is for sale.
 if (save.mi == null) save.mi = Math.max(30, Math.round((save.lifetimeMiles || 0) * 0.5));   // old passports get credit
-if (!Array.isArray(save.owned))   save.owned   = ['headphones'];
+if (!Array.isArray(save.owned))   save.owned   = ['headphones', 'book'];   // you set off with your headphones and a book
+if (!save.starterKit) { if (!save.owned.includes('book')) save.owned.push('book'); save.starterKit = 1; }   // hand existing bags the starter book once
 if (!Array.isArray(save.hpOwned)) save.hpOwned = ['dark', save.hpColor].filter((v, i, a) => v && a.indexOf(v) === i);
 function routeMiles(r) { return r.totalMiles != null ? r.totalMiles : r.stations[r.stations.length - 1].mile; }
 function fareFor(r) { return Math.max(5, Math.round(routeMiles(r) * 0.25)); }   // rides always net +75%
@@ -2723,6 +2725,13 @@ function drawBook(r) {
   px(r.x + r.w/2, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');     // right page
   px(r.x + r.w/2 - 0.5, r.y + 2, 1, r.h - 3, '#6e3d31');       // spine
 }
+function drawNovel(r) {                                        // the buffet's new read — a green hardback
+  px(r.x, r.y + 2, r.w, r.h - 3, '#3f7d5a');                   // green covers
+  px(r.x + 1, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');         // left page
+  px(r.x + r.w/2, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');     // right page
+  px(r.x + r.w/2 - 0.5, r.y + 2, 1, r.h - 3, '#2b5c40');       // spine
+  px(r.x + 2, r.y + 1, r.w - 4, 1, '#5aa47c');                 // fresh cover sheen
+}
 function drawNotepad(r) {
   px(r.x + 1, r.y + 1, r.w - 3, r.h - 1, '#f3ead2');           // pad
   for (let i = 3; i < r.h - 1; i += 2) px(r.x + 2, r.y + i, r.w - 6, 1, '#cdbf9a');
@@ -2751,6 +2760,7 @@ function drawSteam(r, t) {                                    // a rising wisp, 
 function drawItemKind(key, r, t) {
   if (key === 'coffee') return drawCoffee(r, t);             // (mug sprite + steam)
   if (key === 'book')   return drawBook(r);                  // (book sprite)
+  if (key === 'novel')  return drawNovel(r);                 // the green hardback from the buffet
   if (drawItemSprite(key, r)) {                              // hand-drawn trinket art
     if (key === 'tea' || key === 'espresso') drawSteam(r, t);
     return;
