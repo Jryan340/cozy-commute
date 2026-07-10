@@ -497,8 +497,11 @@
   #shopGrid .chip { position: relative; padding-top: 18px; }
   #shopGrid .chip .pr { position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
     font: 700 9px ui-monospace, monospace; color: #ffe0a3; background: rgba(120,90,30,.5);
-    border: 1px solid rgba(214,169,78,.5); border-radius: 999px; padding: 1px 6px; letter-spacing: .3px; white-space: nowrap; }
+    border: 1px solid rgba(214,169,78,.5); border-radius: 999px; padding: 1px 5px 1px 4px; letter-spacing: .3px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 2px; }
   #shopGrid .chip .hpimg { image-rendering: pixelated; display: block; margin: 3px auto 1px; }
+  .coin { width: 12px; height: 12px; vertical-align: -2px; image-rendering: pixelated; }
+  #shopGrid .chip .pr .coin { width: 9px; height: 9px; vertical-align: 0; }
   #shopGrid .chip.sel { background: #6a5220; border-color: #d6a94e; color: #fff; box-shadow: 0 0 0 2px rgba(214,169,78,.5); }
   #shopGrid .chip.sel .pr { background: rgba(30,22,8,.55); }
   #shopGrid .chip.owned { opacity: .5; cursor: default; }
@@ -601,8 +604,8 @@
             </div>
             <div class="bd-meta">
               <div><b id="bdDepart">3:15 PM</b><span>DEPARTS</span></div>
-              <div><b id="bdDist">57 mi</b><span>FARE</span></div>
-              <div><b id="bdEarn">+229</b><span>EARN</span></div>
+              <div><b id="bdDist">—</b><span>FARE</span></div>
+              <div><b id="bdEarn">—</b><span>EARN</span></div>
             </div>
             <button id="bdGo">Buy ticket →</button>
             <div class="bd-status" id="bdStatus">Boarding open · departs at the top of the hour</div>
@@ -1210,7 +1213,7 @@ for (const it of BAG) {
 function tableItems() { return player.items.filter(k => k !== 'headphones' && k !== 'sleepmask'); }   // headphones + mask are worn, not on the table
 let bagDropMode = false;
 function refreshBag() {
-  bagCount.textContent = `${tableItems().length}/${MAX_ITEMS} out · ${fmtMi(save.mi)}`;
+  bagCount.innerHTML = `${tableItems().length}/${MAX_ITEMS} out · ${coinsHTML(save.coins)}`;
   for (const b of bagGrid.children) {
     b.style.display = save.owned.includes(b.dataset.key) ? '' : 'none';   // the bag shows only what you own
     b.classList.toggle('on', player.items.includes(b.dataset.key));
@@ -1259,7 +1262,13 @@ function toggleBag(){ bagOpen ? closeBag() : openBag(); }
 document.getElementById('bagDone').addEventListener('click', closeBag);
 scrimEl.addEventListener('click', () => { closeBag(); closeCharPick(); closeHpMenu(); closeShop(); });
 
-// --- the buffet counter: everything is for sale, priced in miles -------------
+// the coin icon + label helpers (used across the bag, buffet and passport)
+const COIN_URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAADeklEQVR4nG3T3U9bZQDH8d/znOc5pbSUQilQeRulxgnTKTiyG+CKDDMTx+KySaIXBhNjwp/gjOzGW70xm9y4xC17yTb3oixKohjJwoYO5H2IMMpogfa05ZTTnnOe5/FiMd74+Qu+N1+C5xhjxHVdFeMo6XizN3pZFB1JoDSp4DAv50+WdocX1nduMI1Mu0IxAC4AEACMUuJKqdrff6tt7OgbNcHBd5oUcTXCOIfrStCAjtt3VzH66ybOX33cTwhudSuwXwCXKPUpJeSzw0Pvto9++UV3FXYdYahDvLA9j/3dTTBdh7AFaur8wvdajfjq84f6x8NjAwAu9/SAEQANH7zdNjVy4Vh4889tEXqpT0sbe3jwww0QogAQCCnRVO1HfZ1fbiRN9/zVZXJ34tlAR2f4DovVV3QdOfJCmKQtR3MVjy/8hJmpdRw8UI75tT2UllDoXMdmKo9gQKd2QfDB/hYpJLl28fv5JtoaC3/70eAr6ulqhu9LhdnpDYSCXlRWl6G9tQrRugD8XgZKCB4u7KAmVErS2SJaGnw42hYZpEIpIRMmcQouHv2eQFtzJaorvXAcAaUUPF4N0ZYKHIoG4fUwcEZQ7vdop3ubEKnyf0IJoFFOQTUKXaeYXTVAGYGZK+LxYgozSynYlosn8Ryypg0hJQgBMnsOCrbrUEA5wpaQQkLTKKIRP4IVXoTCpc8LShjMvSJa6gMoK+WQEsiYDphGAAVQnTGuRfzgOoNVdJE0Clhbz2I7kUdHaxjdnfUwLQfxRB4AMLOSxtTCDkJBD3TOOI0nsudu3vkLjc3lornWD8sW2E5ZCPh0LP6dwcSDOPKWQMa0kcoW8WghhZ72WjH62zNspc1zdHJua2R8PI540oRH19SrsQrk8g5mV9MwckUYpo14Mo9wZQmUUggFPKqu2oc/Fg1Mzm2NsL6+WPLivZVTRnr/0pljDWJzl7Cc5dKDzUH4Sjh0ncLI2fh5KoEyL5O9nRH3yv2n5MrY8pmhoViSWdaKSKdx/Zt7+5xReunDk1F7aT2j3R5f17hGUbAFDkT8ONHdKBgj4tqPG/rZC5MDAK7PzKwwAgA9ABsncCt95SeOd9XdfDlahveOR2HkitAoBecE9ye2ML2cxdffLfVTYt/q+ncm/IdRAlcqHH79xZqTjbWBs5btOlAKPq/Ol9eM4bn/2fkfcrSfoT6rKqEAAAAASUVORK5CYII=';
+const COIN = '<img src="' + COIN_URI + '" class="coin" alt="coins">';
+function coinsHTML(n) { return COIN + ' ' + Math.round(n); }   // for HTML panels
+function coinsTxt(n) { return Math.round(n) + ' coins'; }      // for canvas toasts
+
+// --- the buffet counter: everything is for sale, priced in coins -------------
 // 'hp:*' entries are headphone colours for your existing set
 const SHOP_GOODS = [
   { key: 'water',      label: 'Water',    emoji: '💧', price: 2 },
@@ -1294,10 +1303,10 @@ for (const g of SHOP_GOODS) {
   const b = document.createElement('button');
   b.className = 'chip'; b.dataset.key = g.key;
   const hpc = g.key.startsWith('hp:') ? g.key.slice(3) : null;
-  b.innerHTML = `<span class="pr">${g.price} mi</span>` +
+  b.innerHTML = `<span class="pr">${COIN} ${g.price}</span>` +
     (hpc ? `<img class="hpimg" alt="" width="28" height="21">` : `<span class="emo">${g.emoji}</span>`) +
     `<span>${g.label}</span>`;
-  if (hpc) b.querySelector('img').src = HP_IMG[hpc].img.src;   // show the actual colour, not a generic emoji
+  if (hpc) b.querySelector('img.hpimg').src = HP_IMG[hpc].img.src;   // the colour swatch (not the coin icon)
   b.addEventListener('click', () => toggleCart(g));
   shopGrid.appendChild(b);
 }
@@ -1311,7 +1320,7 @@ function toggleCart(g) {
 function openShop()  { shopOpen = true; shopCart.clear(); closeBag(); shopEl.classList.add('show'); scrimEl.classList.add('show'); refreshShop(); }
 function closeShop() { shopOpen = false; shopCart.clear(); shopEl.classList.remove('show'); if (!bagOpen) scrimEl.classList.remove('show'); }
 function refreshShop() {
-  document.getElementById('shopMi').textContent = fmtMi(save.mi) + ' to spend';
+  document.getElementById('shopMi').innerHTML = coinsHTML(save.coins) + ' to spend';
   for (const b of shopGrid.children) {
     const g = SHOP_GOODS.find(x => x.key === b.dataset.key);
     const owned = ownedGood(g);
@@ -1319,27 +1328,27 @@ function refreshShop() {
     b.classList.toggle('sel', !owned && shopCart.has(g.key));
   }
   const total = cartTotal(), n = shopCart.size, reserve = minFare();
-  shopBuyBtn.textContent = n ? 'Purchase · ' + total + ' mi ✦' : 'Purchase';
-  const over = total > save.mi, underReserve = !over && save.mi - total < reserve;
+  shopBuyBtn.textContent = n ? 'Purchase · ' + total + ' coins' : 'Purchase';
+  const over = total > save.coins, underReserve = !over && save.coins - total < reserve;
   shopBuyBtn.disabled = n === 0 || over || underReserve;
   if (!n)               shopStatus('Tap treats to add them to your order.');
-  else if (over)        shopStatus('Order is ' + total + ' mi — you have ' + Math.round(save.mi) + '. Ride to earn more ✦', true);
-  else if (underReserve) shopStatus('Keep ' + reserve + ' mi aside for a ticket home ✦', true);
-  else                  shopStatus(n + (n === 1 ? ' item' : ' items') + ' · ' + total + ' mi · ' + Math.round(save.mi - total) + ' mi left after');
+  else if (over)        shopStatus('Order is ' + total + ' coins — you have ' + Math.round(save.coins) + '. Ride to earn more 🪙', true);
+  else if (underReserve) shopStatus('Keep ' + reserve + ' coins for a ticket home 🪙', true);
+  else                  shopStatus(n + (n === 1 ? ' item' : ' items') + ' · ' + total + ' coins · ' + Math.round(save.coins - total) + ' left after');
 }
 function purchaseCart() {
   const total = cartTotal();
-  if (!shopCart.size || total > save.mi || save.mi - total < minFare()) { refreshShop(); return; }
+  if (!shopCart.size || total > save.coins || save.coins - total < minFare()) { refreshShop(); return; }
   const bought = [];
   for (const g of SHOP_GOODS) {
     if (!shopCart.has(g.key)) continue;
     if (g.key.startsWith('hp:')) save.hpOwned.push(g.key.slice(3)); else save.owned.push(g.key);
     bought.push(g.label);
   }
-  save.mi -= total; persist();
+  save.coins -= total; persist();
   shopCart.clear();
   refreshHpMenu(); refreshBag(); refreshShop();
-  shopStatus('Enjoy! ' + bought.join(', ') + ' · −' + total + ' mi');
+  shopStatus('Enjoy! ' + bought.join(', ') + ' · −' + total + ' coins');
 }
 shopBuyBtn.addEventListener('click', purchaseCart);
 document.getElementById('shopDone').addEventListener('click', closeShop);
@@ -1851,7 +1860,7 @@ function renderPassport() {
   const el = document.getElementById('passBody');
   el.innerHTML =
     `<div class="pp-hero"><b>${Math.round(save.lifetimeMiles)}</b><span>LIFETIME MILES</span></div>
-     <div class="pp-spend">${fmtMi(save.mi)} to spend</div>
+     <div class="pp-spend">${coinsHTML(save.coins)} to spend</div>
      <div class="pp-class">
        <div class="pp-tier tier${cur}">${CLASSES[cur].name}</div>
        ${next ? `<div class="pp-next">${Math.max(0, next.at - Math.round(save.lifetimeMiles))} mi to ${next.name}</div>
@@ -1875,9 +1884,10 @@ function renderPassport() {
 // credit the completed trip to your passport (once, on arrival)
 function creditTrip() {
   const before = classUnlocked();
-  save.lifetimeMiles += ROUTE.totalMiles;
-  save.mi += ROUTE.totalMiles;      // the ride pays for itself and then some
-  setTimeout(() => toast('✦ +' + ROUTE.totalMiles + ' mi earned · ' + fmtMi(save.mi) + ' to spend'), 700);
+  save.lifetimeMiles += ROUTE.totalMiles;   // miles still count toward 2nd/1st class
+  const earned = earnFor(ROUTE);
+  save.coins += earned;                     // the ride pays out coins
+  setTimeout(() => toast('🪙 +' + earned + ' coins · ' + coinsTxt(save.coins) + ' to spend'), 700);
   save.trips += 1;
   STATIONS.forEach(s => { save.stations[s.name] = 1; });
   save.lastStation = STATIONS[STATIONS.length - 1].name;   // you're now at the destination
@@ -1906,8 +1916,8 @@ function showBoarding() {
   document.getElementById('bdFromName').textContent = ROUTE.from;
   document.getElementById('bdToName').textContent = ROUTE.to;
   document.getElementById('bdDepart').textContent = fmtETClock(departTs);
-  document.getElementById('bdDist').textContent = fareFor(ROUTE) + ' mi';
-  document.getElementById('bdEarn').textContent = '+' + ROUTE.totalMiles;
+  document.getElementById('bdDist').innerHTML = coinsHTML(fareFor(ROUTE));
+  document.getElementById('bdEarn').innerHTML = COIN + ' +' + earnFor(ROUTE);
   document.getElementById('bdClass').textContent = currentClass().name.toUpperCase();
   renderTicket();
   tripOpen = true; lastScrolled = -1;
@@ -1923,7 +1933,7 @@ function renderTicket() {
   document.getElementById('bdHead').textContent = purchased ? 'BOARDING PASS' : 'TICKET';
   document.getElementById('bdStamp').hidden = !purchased;
   const go = document.getElementById('bdGo');
-  if (!purchased)               { go.textContent = 'Buy ticket · ' + fareFor(ROUTE) + ' mi ✦'; go.disabled = false; }
+  if (!purchased)               { go.textContent = 'Buy ticket · ' + fareFor(ROUTE) + ' coins'; go.disabled = false; }
   else if (!atOrigin)           { go.textContent = 'Board at ' + ROUTE.from; go.disabled = true; }
   else if (Date.now() < boardOpensAt()) { go.textContent = 'Boarding opens ' + fmtETClock(boardOpensAt()); go.disabled = true; }
   else                          { go.textContent = 'Board this train →';  go.disabled = false; }
@@ -1932,10 +1942,10 @@ function renderTicket() {
 function boardOpensAt() { return departTs - BOARD_LEAD_MIN * 60000; }
 function buyTicket() {
   const fare = fareFor(ROUTE);
-  if (!spendMi(fare, false)) return;
+  if (!spendCoins(fare, false)) return;
   purchased = true;
   renderTicket();
-  toast('Ticket ✓ −' + fare + ' mi · arrive to earn +' + ROUTE.totalMiles + ' ✦');
+  toast('Ticket ✓ −' + fare + ' coins · arrive to earn +' + earnFor(ROUTE) + ' 🪙');
 }
 function board() {
   if (!purchased) return;           // can't board without a ticket
@@ -2407,23 +2417,26 @@ if (HP_COLORS.some(c => c.id === save.hpColor)) hpColor = save.hpColor;         
 updateHpBtn();   // reflect the saved channel on the (hidden until headphones-on) button
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
 if (save.character && CHAR_IMG[save.character]) player.char = save.character;   // restore your pick
-// --- the miles economy -------------------------------------------------------
-// save.mi is your SPENDABLE balance — every mile you ride earns a mile to
-// spend, on tickets and at the buffet car. It's separate from lifetimeMiles,
-// so a shopping spree never costs you class progress. The backpack starts
-// barebones (just your charcoal headphones); everything else is for sale.
-if (save.mi == null) save.mi = Math.max(30, Math.round((save.lifetimeMiles || 0) * 0.5));   // old passports get credit
+// --- the coin economy --------------------------------------------------------
+// save.coins is your SPENDABLE money — every ride pays out coins, tickets and
+// the buffet cost coins. It's SEPARATE from lifetimeMiles, which still governs
+// when 2nd/1st class unlock. Riding always nets coins (3rd class saves the
+// fastest, 1st is a splurge that barely profits), and longer runs pay big so
+// you can bank toward the long-distance trips. The backpack starts barebones.
+if (save.coins == null) save.coins = Math.max(25, Math.round((save.lifetimeMiles || 0) * 0.2));   // migrate old passports to a sensible kitty
 if (!Array.isArray(save.owned))   save.owned   = ['headphones', 'book'];   // you set off with your headphones and a book
 if (!save.starterKit) { if (!save.owned.includes('book')) save.owned.push('book'); save.starterKit = 1; }   // hand existing bags the starter book once
 if (!Array.isArray(save.hpOwned)) save.hpOwned = ['dark', save.hpColor].filter((v, i, a) => v && a.indexOf(v) === i);
 function routeMiles(r) { return r.totalMiles != null ? r.totalMiles : r.stations[r.stations.length - 1].mile; }
-function fareFor(r) { return Math.max(5, Math.round(routeMiles(r) * 0.25)); }   // rides always net +75%
-function minFare() { return Math.min(...ROUTES.map(fareFor)); }
-function fmtMi(n) { return '✦ ' + Math.round(n) + ' mi'; }
-function spendMi(cost, keepReserve) {
-  if (save.mi < cost) { toast('Not enough miles — riding earns them ✦'); return false; }
-  if (keepReserve && save.mi - cost < minFare()) { toast('Keep ' + minFare() + ' mi aside for a ticket home ✦'); return false; }
-  save.mi -= cost; persist(); return true;
+const FARE_RATE = [0.13, 0.20, 0.30], FARE_MIN = [3, 5, 8];   // per-mile fare + floor, by class (3rd·2nd·1st)
+function fareForClass(r, ci) { const c = Math.max(0, Math.min(2, ci)); return Math.max(FARE_MIN[c], Math.round(routeMiles(r) * FARE_RATE[c])); }
+function fareFor(r) { return fareForClass(r, currentClassIdx()); }             // the class you're riding sets the price
+function earnFor(r) { return Math.max(5, Math.round(routeMiles(r) * 0.34)); }  // coins the ride pays out (≈1 per 3 mi)
+function minFare() { return Math.min(...ROUTES.map(r => fareForClass(r, 0))); }   // cheapest possible hop (3rd class) — kept in reserve
+function spendCoins(cost, keepReserve) {
+  if (save.coins < cost) { toast('Not enough coins — riding pays them out 🪙'); return false; }
+  if (keepReserve && save.coins - cost < minFare()) { toast('Keep ' + minFare() + ' coins for a ticket home 🪙'); return false; }
+  save.coins -= cost; persist(); return true;
 }
 if (Array.isArray(save.items)) player.items = save.items.slice();               // restore your desk — coffee, book, laptop…
 player.items = player.items.filter(k => save.owned.includes(k));                // you can only carry what you own
@@ -2437,7 +2450,8 @@ function resumeAudioOnGesture() { if (audioResumed) return; audioResumed = true;
 addEventListener('pointerdown', resumeAudioOnGesture);
 addEventListener('keydown', resumeAudioOnGesture);
 function classUnlocked() { let t = 0; for (let i = 0; i < CLASSES.length; i++) if (save.lifetimeMiles >= CLASSES[i].at) t = i; return t; }
-function currentClass() { return CLASSES[Math.min(save.classCurrent, classUnlocked())]; }
+function currentClassIdx() { return Math.min(save.classCurrent, classUnlocked()); }
+function currentClass() { return CLASSES[currentClassIdx()]; }
 
 // active route + its stations (set by loadRoute)
 let ROUTE, STATIONS;
