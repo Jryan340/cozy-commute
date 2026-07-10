@@ -1443,9 +1443,11 @@ document.getElementById('bagBtn').addEventListener('click', toggleBag);   // �
 // --- audio: looped train-interior recording; tap 🔇 to cycle Off/Background/Prominent ---
 let actx = null, master = null, trainBus = null, lofiBus = null, ambientBus = null, loopLP = null, loopSrc = null;
 let soundBuf = null, noiseBuf = null, ambientBuf = null, headphonesOn = false;
+let rainBus = null, rainSrc = null, rainLoading = false;   // 🌧️ rain bed, mixed under the same sound toggle
 const sndBtn = document.getElementById('snd');
 const SND_URL = 'trainsound.mp3';
 const AMB_URL = 'train-ambience.mp3';   // interior "train inside" bed, for when we're stopped
+const RAIN_URL = 'rain.mp3';            // fetched lazily, only if a rainy ride actually happens
 const SOUND_LEVELS = [
   { name: 'Off',        icon: '🔇', gain: 0.0001, lp: 20000 },
   { name: 'Background', icon: '🔈', gain: 0.33,   lp: 2600  },  // quieter + softer, recedes
@@ -1471,6 +1473,8 @@ async function buildAudio() {
   // the ambient interior bed (a "train inside" recording) — always looping, its
   // bus fades up only while we're stationary so it fills the quiet at a stop
   ambientBus = actx.createGain(); ambientBus.gain.value = 0.0001; ambientBus.connect(master);
+  // rain on the roof — silent until a rainy ride fades it up (see updateTrainAudio)
+  rainBus = actx.createGain(); rainBus.gain.value = 0.0001; rainBus.connect(master);
   // fetch + decode the recordings once
   const [ab, amb] = await Promise.all([
     fetch(SND_URL).then(r => r.arrayBuffer()),
@@ -1496,6 +1500,20 @@ function startLoop() {
   loopSrc.loopEnd = Math.max(0.1, soundBuf.duration - 0.05);
   loopSrc.connect(loopLP);
   loopSrc.start(0, loopSrc.loopStart);
+}
+
+// fetch + loop the rain recording the first time a rainy ride needs it
+async function ensureRainAudio() {
+  if (rainSrc || rainLoading || !actx || !rainBus) return;
+  rainLoading = true;                                    // stays set on failure so we don't refetch every frame
+  try {
+    const ab = await fetch(RAIN_URL).then(r => r.arrayBuffer());
+    const buf = await actx.decodeAudioData(ab);
+    rainSrc = actx.createBufferSource();
+    rainSrc.buffer = buf; rainSrc.loop = true;
+    rainSrc.loopStart = 0.15; rainSrc.loopEnd = Math.max(0.3, buf.duration - 0.15);   // skip the encoder padding
+    rainSrc.connect(rainBus); rainSrc.start(0, rainSrc.loopStart);
+  } catch (e) { rainSrc = null; }
 }
 
 // effective train volume: low in the whole-train view, and ducked under headphones
@@ -1526,6 +1544,13 @@ function updateTrainAudio(dt, speedNorm) {
   if (actx && ambientBus) {
     const amb = effectiveGain() * (1 - audioSpeed) * 0.6;   // scales with the sound level, sits under the clack
     ambientBus.gain.setTargetAtTime(amb, actx.currentTime, 0.35);
+  }
+  // 🌧️ rain drums along whether we're rolling or stopped — same sound toggle,
+  // ducked under headphones (via effectiveGain) and muffled away inside tunnels
+  if (actx && rainBus) {
+    const rg = effectiveGain() * 0.5 * rainAmt * (1 - tunnelAmount * 0.8);
+    rainBus.gain.setTargetAtTime(Math.max(0.0001, rg), actx.currentTime, 0.8);
+    if (soundLevel > 0 && rainAmt > 0.02) ensureRainAudio();   // fetch the recording only when it's actually needed
   }
 }
 async function cycleSound() {
@@ -2009,6 +2034,7 @@ let departTs  = 0;       // wall-clock (epoch ms) this train departs — clock-d
 // showing the trip to buy — you don't hold the ticket until you press Buy.
 function showBoarding() {
   boarding = true; purchased = false; boarded = false;
+  rideRain = null;                                  // weather is rolled fresh when you board
   if (save.ride) { save.ride = null; persist(); }   // pulling up a fresh fare drops any old in-progress ride
   departTs = effectiveDepartTs();   // the departure you picked, else the next one
   timetable = buildTimetable();
@@ -2079,7 +2105,8 @@ function board() {
   timetable = buildTimetable();
   boarding = false; purchased = false; boarded = true; atStation = false;
   carIdx = HOME_CAR; seatCarNPCs(carIdx);  // every ride starts in your usual carriage
-  save.ride = { routeId: ROUTE.id, departTs, carIdx }; persist();   // remember the ride so a refresh lands you back aboard
+  rideRain = rollRideRain(); rainAnnounced = false;   // 🌧️ roll this ride's weather
+  save.ride = { routeId: ROUTE.id, departTs, carIdx, rain: rideRain }; persist();   // remember the ride so a refresh lands you back aboard
   hideStation();
   closeTrip();                      // put the phone away — you're in the car now
   const wait = Math.round((departTs - Date.now()) / 1000);
@@ -2576,6 +2603,7 @@ function resumeRide() {
   loadRoute(r);
   departTs = chosenDepartTs = rd.departTs;
   timetable = buildTimetable();
+  rideRain = rd.rain || null; rainAnnounced = false;   // same sky as when you left
   const finalArr = timetable[timetable.length - 1].arr;
   const e = (Date.now() - departTs) / 1000;
   if (e >= finalArr) {                 // the train reached the end while you were away
@@ -2601,6 +2629,7 @@ function leaveRide() {
   if (player.seat) { standUpFrom(player.seat); player.seat = null; }
   boarded = false; arrived = false; boarding = false; purchased = false;
   elapsed = 0; miles = 0; scroll = 0; trainSpeed = 0;
+  rideRain = null;                     // the shower belonged to that ride
   save.ride = null; persist();
   closeTrip();
   showStation();                       // back at your last completed city
@@ -2611,6 +2640,28 @@ resumeRide();          // …unless a ride was under way when you left or refres
 // --- living-window state ----------------------------------------------------
 let dayT = 0;            // 0..1 position in a looping day/night cycle
 let tunnelAmount = 0;    // 0..1 how deep we are inside a tunnel
+
+// --- weather: some rides are rainy -------------------------------------------
+// Rolled once when you board (most rides stay dry). The shower starts at a
+// random moment and lasts anywhere from ten minutes to the rest of the ride,
+// pinned to the wall clock and saved with the ride so a refresh keeps the sky.
+let rideRain = null;     // { s, e } epoch-ms window, or null for a dry ride
+let rainAmt = 0;         // eased 0..1 — how hard it's raining right now
+let rainAnnounced = false;
+const RAIN_CHANCE = 0.38, RAIN_MIN_MS = 10 * 60000;
+function rollRideRain() {
+  if (Math.random() >= RAIN_CHANCE) return null;
+  const rideMs = timetable[timetable.length - 1].arr * 1000;
+  const minMs = Math.min(RAIN_MIN_MS, rideMs);              // short hops: the shower can span the whole run
+  const s = departTs + Math.random() * Math.max(0, rideMs - minMs);
+  const maxDur = departTs + rideMs - s;
+  const e = s + minMs + Math.random() * Math.max(0, maxDur - minMs);
+  return { s: Math.round(s), e: Math.round(e) };
+}
+function rainNow() {
+  if (!rideRain || !boarded || arrived) return false;
+  const n = Date.now(); return n >= rideRain.s && n <= rideRain.e;
+}
 
 // time-of-day is the REAL Eastern-Time clock (0 = midnight … 1 = next midnight),
 // so rides reflect the actual hour and an overnight run truly passes through the
@@ -2649,6 +2700,11 @@ function update(dt) {
   bobPhase += dt;   // gentle carriage rock for the seated player
   animT += dt;      // ever-advancing clock for ambient wisps (steam, smoke, Zzz) — never freezes like `elapsed`
   tickNaps(dt);   // passengers doze off and stir awake as the hours pass
+  // 🌧️ weather eases in and out rather than switching on
+  const rt = rainNow() ? 1 : 0;
+  rainAmt += (rt - rainAmt) * Math.min(1, dt * 0.5);
+  if (rainAmt < 0.005 && !rt) rainAmt = 0;
+  if (rt && !rainAnnounced) { rainAnnounced = true; toast('🌧️ Rain drums on the roof'); }
   if (atStation) { updateStation(dt); updateWorldClock(); updateTrainAudio(dt, 0); if (toastT > 0 && (toastT -= dt) <= 0) toastEl.classList.remove('show'); return; }
   // movement (disabled while seated, in the whole-train view, or mid-gangway)
   if (!player.seat && !wideView && carFade === 0) {
@@ -3990,6 +4046,7 @@ function frame(now) {
     ctx.restore();
   }
   applyAmbient();
+  drawRain();
 
   // gentle vignette for cosiness
   const g = ctx.createRadialGradient(W/2,H/2,80, W/2,H/2,260);
@@ -4003,6 +4060,34 @@ function frame(now) {
   }
 
   requestAnimationFrame(frame);
+}
+
+// 🌧️ rain past the windows: a cool grey wash + drifting diagonal streaks over
+// the world outside the car (the whole scene in the wide view). Purely visual —
+// the sound bed fades up in updateTrainAudio under the same weather window.
+function drawRain() {
+  if (fpView) return;                                    // first-person paints its own window
+  const a = rainAmt * (1 - tunnelAmount);                // no weather underground
+  if (a < 0.03) return;
+  ctx.save();
+  if (!wideView) {                                       // clip to the scenery strips past the car walls
+    ctx.beginPath(); ctx.rect(0, 0, WALL_L, H); ctx.rect(WALL_R, 0, W - WALL_R, H); ctx.clip();
+  }
+  ctx.fillStyle = `rgba(96,112,138,${0.11 * a})`;        // the sky greys over
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = `rgba(205,220,240,${0.32 * a})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const SPAN_W = W + 40, SPAN_H = H + 30;
+  for (let i = 0; i < 44; i++) {                         // stateless drops: hashed lanes scrolled by the clock
+    const sp = 300 + (i * 97) % 160;                     // fall speed varies per drop
+    const t = animT * sp;
+    const x = ((((i * 761) % 997) / 997 * SPAN_W - t * 0.22) % SPAN_W + SPAN_W) % SPAN_W - 20;
+    const y = ((((i * 389) % 997) / 997 * SPAN_H + t) % SPAN_H) - 15;
+    ctx.moveTo(x, y); ctx.lineTo(x + 2, y + 9);          // a slanted streak
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 
 // time-of-day wash + tunnel darkness + cosy interior lamp glow
