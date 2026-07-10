@@ -57,7 +57,10 @@
   body.at-station #act, body.at-station #snd, body.at-station #wide, body.at-station #fp, body.at-station #charBtn, body.at-station #info, body.at-station #hpch,
   body.at-station #hint, body.at-station #tripTab, body.at-station #wclock { display: none !important; }
   /* the character picker panel + its swatches (mirrors the bag panel) */
-  #charGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  #charGrid, #hatGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  #hatHead { margin-top: 16px; }
+  #hatGrid .cchip img { height: 26px; }
+  #hatGrid .cchip.bare { justify-content: center; min-height: 60px; font-size: 18px; }
   .cchip {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
     padding: 10px 4px; border-radius: 12px; cursor: pointer;
@@ -558,6 +561,8 @@
   <div id="charPick">
     <div class="bag-head"><b>🧑 Choose your traveller</b><span>tap to swap</span></div>
     <div id="charGrid"></div>
+    <div class="bag-head" id="hatHead"><b>🧢 Hat</b><span>buy more at the buffet</span></div>
+    <div id="hatGrid"></div>
     <button id="charDone">Done</button>
   </div>
 
@@ -997,6 +1002,15 @@ function drawWornHeadphones(charId, cx, cy, bob) {
   px(cx - 8, earY - 3, 3, 6, cup);  px(cx - 8, earY - 2, 1, 4, cupHi);      // left ear cup + inner sheen
   px(cx + 5, earY - 3, 3, 6, cup);  px(cx + 7, earY - 2, 1, 4, cupHi);      // right ear cup
 }
+// your bought hat, worn on the crown (top-down cap over the hair)
+function drawWornHat(cx, cy, bob) {
+  if (save.hat == null) return;
+  const rec = HATS[save.hat]; if (!rec || !rec.ok) return;
+  const rec0 = CHAR_IMG[player.char], hh = (rec0 && rec0.ok) ? rec0.img.height : 30;
+  const htop = Math.round(cy + 8 - hh + (bob || 0));   // crown = top of the sprite
+  const w = rec.img.width, h = rec.img.height;
+  ctx.drawImage(rec.img, Math.round(cx - w / 2), htop + 1, w, h);   // nestled onto the hair
+}
 
 // everything you can take out of your bag
 const BAG = [
@@ -1262,6 +1276,9 @@ function toggleBag(){ bagOpen ? closeBag() : openBag(); }
 document.getElementById('bagDone').addEventListener('click', closeBag);
 scrimEl.addEventListener('click', () => { closeBag(); closeCharPick(); closeHpMenu(); closeShop(); });
 
+// hats you can buy + wear on the crown (top-down caps): navy·charcoal·flat·panel
+const HATS = loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAHCAYAAADTcMcaAAABM0lEQVR4nDWQO24TURRAz73vPY8tm+A4sSKDEFR8migSXQpL6bKBLCBKmRVkBVlBSpQFsAE6BAUdFRVIkfgIR7FNPInHZGY88y4F8emPjnQEBDCA/pOt/nEISSKqTWk8PLLy5o3FmC+XRfHranIGTEAQwL16vv22s/54r9UddJPmGgCoh1gBRlksyK5/pll6+f7rty8H8vLFzof+s9fDTvcRZrG2WBsAMXpUKwBRJyLqsnTE5Pvnj94n7WFtUmez3+obLedDixVSRw9Q5hl1VRoSYqPZGfrb8cV50u4dttYGyyJfhPwuQwRAiLHGu0BVFYgL1fLvLKTji3MvzvfmsxF3RRnsP3LfWQ0CMFUN1WKKqOsJoE83H+xLc+MEF3ajGQK6Eg2LqgpV+cnyP6c/pvN3/wCEl4KkYlOC+QAAAABJRU5ErkJggg==', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAHCAYAAADTcMcaAAABJklEQVR4nE2PPU4CYRRF73vfN38EcBw1FsZEI4lWLICCxM4NuABj6QpcgSuwNCzADdgZLdyAlQVGC6OAM0NCYAZm5j0LMXL6m3Mu4Z+t3e2NC9dxPGb2Xc8/X8zzGxHJy6KYvw/iawAjACAApn3Yuo2i6LgZhmEtCAAAxAwVAQBkeY4kjsfjcXr//NI/pfZR62Fv/6C7HoWAaFWJKACoiiXiEgCYmYjYpGmKt9f+o/U8v1upVnGcsue6xnWdleLK0tJUFqWCSPwg6NrR8KtXq9fPms21IstzZ5ZlICIAgIjAGIOiKGGsKfPp1BkOPnuW2UZJkiCbLxz9hf48ujwNQJnZmU0nYLYRAeCdzcZJUGtcgk1HVUEArwyFiaBSPWWzydXH9+TuBxvfgaNj2kboAAAAAElFTkSuQmCC', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAGCAYAAADKfB7nAAABPElEQVR4nD3Lz04TURjG4d/7nZnOYBOiRWpS/jRo3DTRW/AO2M0VuMG1V8DWsGTLRjYkXIH34BKqUUOMKCFISGlK0xnmnM8N8dk/4r8qwHEE+s/X13dQWDWzFPJHQ0LxJja3H01BbbOYnv3+tQ9cVlUV9LANSBv9le3e2uuD5dWtp52yi1mGWcAx5C1I3DcL7m7OJ39/fn53dnFxpNFo1BlXVfvy8Oh9b+3Vh3K5j1kei7ILntwdQTJkERxkEgqTqx9c/znZy8bjccPuLmxuLiSf45439Uyxrck7JTggXDLwRF3PHfca6V4eJ9nGYLCTFY/fRllzdX5qTwbKLRgC5tNIwnnI5ikhMyRl08svRbOYP9PW8IUrlCDhQFvPvtHMPhFCSDHGpW5vmFCnvrv+blkhUnLhKSu6wWP79R828Yfk8ExdxgAAAABJRU5ErkJggg==', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAGCAYAAAAYLBS/AAABAklEQVR4nE3FvU7CUBgG4PdrT88JBRSDhJiIYTPB0egtOLt6A16TN+DqBXAHOjg5sCkYlaG2Egptz8/rQEx8lkewo/aAcX80uk2UMYiUkaRzQ7u6Rwi1dXWdLRZ3K+AVgJMu0D85u3joHBxftntHJtEpQvBwzkEbA4YAZyuUxWe9zt8f5y9P1zKZXHwdjs+HrbQHiHgBaG0jdruK0/2Bp3dEFAvJeFvmyN6el4r0hWuqQWmXiJSOE92CdxaBhGuqmMHD2greNYEkRFCoMv+YJWn/1HSHntUGRAGSAImqWgMECCJSmq78jn+y+Uwluj1tNvlVvc40/ojsJvFPJCK10e3pL6J4ii/GJCPFAAAAAElFTkSuQmCC']);
+const HAT_NAMES = ['Beret', 'Charcoal', 'Flat cap', 'Ballcap'];
 // the coin icon + label helpers (used across the bag, buffet and passport)
 const COIN_URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAADeklEQVR4nG3T3U9bZQDH8d/znOc5pbSUQilQeRulxgnTKTiyG+CKDDMTx+KySaIXBhNjwp/gjOzGW70xm9y4xC17yTb3oixKohjJwoYO5H2IMMpogfa05ZTTnnOe5/FiMd74+Qu+N1+C5xhjxHVdFeMo6XizN3pZFB1JoDSp4DAv50+WdocX1nduMI1Mu0IxAC4AEACMUuJKqdrff6tt7OgbNcHBd5oUcTXCOIfrStCAjtt3VzH66ybOX33cTwhudSuwXwCXKPUpJeSzw0Pvto9++UV3FXYdYahDvLA9j/3dTTBdh7AFaur8wvdajfjq84f6x8NjAwAu9/SAEQANH7zdNjVy4Vh4889tEXqpT0sbe3jwww0QogAQCCnRVO1HfZ1fbiRN9/zVZXJ34tlAR2f4DovVV3QdOfJCmKQtR3MVjy/8hJmpdRw8UI75tT2UllDoXMdmKo9gQKd2QfDB/hYpJLl28fv5JtoaC3/70eAr6ulqhu9LhdnpDYSCXlRWl6G9tQrRugD8XgZKCB4u7KAmVErS2SJaGnw42hYZpEIpIRMmcQouHv2eQFtzJaorvXAcAaUUPF4N0ZYKHIoG4fUwcEZQ7vdop3ubEKnyf0IJoFFOQTUKXaeYXTVAGYGZK+LxYgozSynYlosn8Ryypg0hJQgBMnsOCrbrUEA5wpaQQkLTKKIRP4IVXoTCpc8LShjMvSJa6gMoK+WQEsiYDphGAAVQnTGuRfzgOoNVdJE0Clhbz2I7kUdHaxjdnfUwLQfxRB4AMLOSxtTCDkJBD3TOOI0nsudu3vkLjc3lornWD8sW2E5ZCPh0LP6dwcSDOPKWQMa0kcoW8WghhZ72WjH62zNspc1zdHJua2R8PI540oRH19SrsQrk8g5mV9MwckUYpo14Mo9wZQmUUggFPKqu2oc/Fg1Mzm2NsL6+WPLivZVTRnr/0pljDWJzl7Cc5dKDzUH4Sjh0ncLI2fh5KoEyL5O9nRH3yv2n5MrY8pmhoViSWdaKSKdx/Zt7+5xReunDk1F7aT2j3R5f17hGUbAFDkT8ONHdKBgj4tqPG/rZC5MDAK7PzKwwAgA9ABsncCt95SeOd9XdfDlahveOR2HkitAoBecE9ye2ML2cxdffLfVTYt/q+ncm/IdRAlcqHH79xZqTjbWBs5btOlAKPq/Ol9eM4bn/2fkfcrSfoT6rKqEAAAAASUVORK5CYII=';
 const COIN = '<img src="' + COIN_URI + '" class="coin" alt="coins">';
@@ -1289,9 +1306,15 @@ const SHOP_GOODS = [
   { key: 'hp:gold',    label: 'Gold',     emoji: '🎧', price: 15 },
   { key: 'hp:teal',    label: 'Teal',     emoji: '🎧', price: 15 },
   { key: 'hp:pink',    label: 'Rose',     emoji: '🎧', price: 15 },
+  { key: 'hat:0',      label: 'Beret',    emoji: '🧢', price: 18 },
+  { key: 'hat:1',      label: 'Charcoal', emoji: '🧢', price: 18 },
+  { key: 'hat:2',      label: 'Flat cap', emoji: '🧢', price: 18 },
+  { key: 'hat:3',      label: 'Ballcap',  emoji: '🧢', price: 18 },
 ];
 function ownedGood(g) {
-  return g.key.startsWith('hp:') ? save.hpOwned.includes(g.key.slice(3)) : save.owned.includes(g.key);
+  if (g.key.startsWith('hp:'))  return save.hpOwned.includes(g.key.slice(3));
+  if (g.key.startsWith('hat:')) return save.hatsOwned.includes(+g.key.slice(4));
+  return save.owned.includes(g.key);
 }
 const shopEl = document.getElementById('shop');
 const shopGrid = document.getElementById('shopGrid');
@@ -1303,10 +1326,12 @@ for (const g of SHOP_GOODS) {
   const b = document.createElement('button');
   b.className = 'chip'; b.dataset.key = g.key;
   const hpc = g.key.startsWith('hp:') ? g.key.slice(3) : null;
+  const hatI = g.key.startsWith('hat:') ? +g.key.slice(4) : null;
   b.innerHTML = `<span class="pr">${COIN} ${g.price}</span>` +
-    (hpc ? `<img class="hpimg" alt="" width="28" height="21">` : `<span class="emo">${g.emoji}</span>`) +
+    (hpc != null || hatI != null ? `<img class="hpimg" alt="" width="28" height="21">` : `<span class="emo">${g.emoji}</span>`) +
     `<span>${g.label}</span>`;
-  if (hpc) b.querySelector('img.hpimg').src = HP_IMG[hpc].img.src;   // the colour swatch (not the coin icon)
+  if (hpc != null)  b.querySelector('img.hpimg').src = HP_IMG[hpc].img.src;    // the colour swatch (not the coin icon)
+  if (hatI != null) b.querySelector('img.hpimg').src = HATS[hatI].img.src;     // the hat sprite
   b.addEventListener('click', () => toggleCart(g));
   shopGrid.appendChild(b);
 }
@@ -1342,12 +1367,14 @@ function purchaseCart() {
   const bought = [];
   for (const g of SHOP_GOODS) {
     if (!shopCart.has(g.key)) continue;
-    if (g.key.startsWith('hp:')) save.hpOwned.push(g.key.slice(3)); else save.owned.push(g.key);
+    if (g.key.startsWith('hp:')) save.hpOwned.push(g.key.slice(3));
+    else if (g.key.startsWith('hat:')) { const i = +g.key.slice(4); save.hatsOwned.push(i); if (save.hat == null) save.hat = i; }   // first hat goes straight on
+    else save.owned.push(g.key);
     bought.push(g.label);
   }
   save.coins -= total; persist();
   shopCart.clear();
-  refreshHpMenu(); refreshBag(); refreshShop();
+  refreshHpMenu(); refreshHatPick(); refreshBag(); refreshShop();
   shopStatus('Enjoy! ' + bought.join(', ') + ' · −' + total + ' coins');
 }
 shopBuyBtn.addEventListener('click', purchaseCart);
@@ -1365,7 +1392,26 @@ for (const c of CHARACTERS) {
   b.addEventListener('click', () => pickChar(c.id));
   charGrid.appendChild(b);
 }
-function refreshCharPick() { for (const b of charGrid.children) b.classList.toggle('on', b.dataset.id === player.char); }
+const hatGrid = document.getElementById('hatGrid'), hatHead = document.getElementById('hatHead');
+function refreshHatPick() {
+  hatGrid.innerHTML = '';
+  const owned = [...save.hatsOwned].sort((a, b) => a - b);
+  hatHead.querySelector('span').textContent = owned.length ? 'tap to wear' : 'buy some at the buffet 🧢';
+  const bare = document.createElement('button');   // always offer "no hat"
+  bare.className = 'cchip bare' + (save.hat == null ? ' on' : ''); bare.textContent = '— Bare';
+  bare.addEventListener('click', () => setHat(null));
+  hatGrid.appendChild(bare);
+  for (const i of owned) {
+    const b = document.createElement('button');
+    b.className = 'cchip' + (save.hat === i ? ' on' : '');
+    b.innerHTML = `<img alt=""><span>${HAT_NAMES[i]}</span>`;
+    b.querySelector('img').src = HATS[i].img.src;
+    b.addEventListener('click', () => setHat(i));
+    hatGrid.appendChild(b);
+  }
+}
+function setHat(i) { save.hat = i; persist(); refreshHatPick(); }
+function refreshCharPick() { for (const b of charGrid.children) b.classList.toggle('on', b.dataset.id === player.char); refreshHatPick(); }
 function pickChar(id) { player.char = id; save.character = id; persist(); refreshCharPick(); }
 function openCharPick()  { charOpen = true;  closeBag(); charEl.classList.add('show');  scrimEl.classList.add('show'); refreshCharPick(); }
 function closeCharPick() { charOpen = false; charEl.classList.remove('show'); scrimEl.classList.remove('show'); }
@@ -2427,6 +2473,8 @@ if (save.coins == null) save.coins = Math.max(25, Math.round((save.lifetimeMiles
 if (!Array.isArray(save.owned))   save.owned   = ['headphones', 'book'];   // you set off with your headphones and a book
 if (!save.starterKit) { if (!save.owned.includes('book')) save.owned.push('book'); save.starterKit = 1; }   // hand existing bags the starter book once
 if (!Array.isArray(save.hpOwned)) save.hpOwned = ['dark', save.hpColor].filter((v, i, a) => v && a.indexOf(v) === i);
+if (!Array.isArray(save.hatsOwned)) save.hatsOwned = [];   // hats you've bought; save.hat = the one worn (null = bare)
+if (save.hat === undefined) save.hat = null;
 function routeMiles(r) { return r.totalMiles != null ? r.totalMiles : r.stations[r.stations.length - 1].mile; }
 const FARE_RATE = [0.13, 0.20, 0.30], FARE_MIN = [3, 5, 8];   // per-mile fare + floor, by class (3rd·2nd·1st)
 function fareForClass(r, ci) { const c = Math.max(0, Math.min(2, ci)); return Math.max(FARE_MIN[c], Math.round(routeMiles(r) * FARE_RATE[c])); }
@@ -3667,6 +3715,7 @@ function drawSeatedPlayer(st) {
   const drawn = drawPlayerSprite(cx, cy, player.facing, bob);
   if (!drawn) drawChar(cx, cy - 10, player, { hp, bob });
   else if (hp) drawWornHeadphones(player.char, cx, cy, bob);          // headphones sit on your head
+  drawWornHat(cx, cy, bob);                                          // hat over the crown
   if (lightsOff) {
     drawSleepMask(player.char, cx, cy, bob);                          // 😴 the mask goes on over your eyes
     drawZzz(cx + 4, cy - (drawn ? 22 : 20), animT * 1.4);            // and a drift of Zzz above
@@ -3681,6 +3730,7 @@ function drawPlayer() {
   if (!drawPlayerSprite(cx, cy, player.facing, bob, player.faceUp))   // the hand-drawn sprite (back view heading up)
     drawChar(cx, cy, player, { hp, facing: player.facing, walk: moving, walkT: player.walkT });
   else if (hp) drawWornHeadphones(player.char, cx, cy, bob);
+  drawWornHat(cx, cy, bob);
 
   // "sit here" prompt if near a free seat (keyboard hint only; no booths in the buffet car)
   const st = (isTouch || carIdx === SHOP_CAR) ? null : nearestFreeSeat();
@@ -3847,6 +3897,7 @@ function drawStationScene() {
   const pbob = stnMoving ? -Math.abs(Math.sin(stnWalkT)) * 1.5 : 0;
   if (!drawPlayerSprite(stnX, stnY, stnFacing, pbob, stnFaceUp))
     drawStationPerson(stnX, stnY, player, stnMoving ? stnWalkT : stationT, stnFacing, stnMoving, !stnMoving && stnY > 90);
+  else drawWornHat(stnX, stnY, pbob);
 }
 
 // --- main loop -------------------------------------------------------------
