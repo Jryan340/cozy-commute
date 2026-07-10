@@ -484,14 +484,25 @@
     background: #3f7d6e; color: #fff; border: 1px solid #54998a; border-bottom-width: 3px;
     font: 600 14px ui-monospace, monospace; letter-spacing: .5px;
   }
-  #bagDone:active, #charDone:active, #hpDone:active, #shopDone:active, #bagDrop:active { transform: translateY(1px); border-bottom-width: 2px; }
+  #bagDone:active, #charDone:active, #hpDone:active, #shopDone:active, #shopBuy:active, #bagDrop:active { transform: translateY(1px); border-bottom-width: 2px; }
   .bag-row { display: flex; gap: 8px; }
   #bagDrop { flex: 0 0 34%; background: #7d4a3f; border-color: #a06a54; }
   #bagDrop.on { background: #a34d3c; border-color: #c97a5a; }
   #bagGrid.dropping .chip { border-color: rgba(255,120,100,.6); }
-  #shopGrid .chip { position: relative; }
-  #shopGrid .chip .pr { position: absolute; top: 3px; right: 5px; font-size: 9px; opacity: .7; color: #ffd9a0; }
+  #shopDone { flex: 0 0 34%; background: #3a3546; border-color: #4a4458; }
+  #shopBuy { flex: 1; background: #b6893c; border-color: #d6a94e; color: #241a08; }
+  #shopBuy:disabled { background: #3a3546; border-color: #4a4458; color: #6d6678; cursor: default; box-shadow: none; }
+  #shopStatus { text-align: center; font: 600 12px ui-monospace, monospace; color: #cdb98f; margin: 12px 4px 2px; min-height: 15px; }
+  #shopStatus.warn { color: #e6a15a; }
+  #shopGrid .chip { position: relative; padding-top: 18px; }
+  #shopGrid .chip .pr { position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+    font: 700 9px ui-monospace, monospace; color: #ffe0a3; background: rgba(120,90,30,.5);
+    border: 1px solid rgba(214,169,78,.5); border-radius: 999px; padding: 1px 6px; letter-spacing: .3px; white-space: nowrap; }
   #shopGrid .chip .hpimg { image-rendering: pixelated; display: block; margin: 3px auto 1px; }
+  #shopGrid .chip.sel { background: #6a5220; border-color: #d6a94e; color: #fff; box-shadow: 0 0 0 2px rgba(214,169,78,.5); }
+  #shopGrid .chip.sel .pr { background: rgba(30,22,8,.55); }
+  #shopGrid .chip.owned { opacity: .5; cursor: default; }
+  #shopGrid .chip.owned .pr { color: #9fd8c4; background: rgba(40,90,72,.5); border-color: rgba(84,153,138,.5); }
   #hpColors button.locked { opacity: .38; filter: grayscale(.4); }
   .pp-spend { text-align: center; color: #ffd9a0; font-size: 12px; margin: -6px 0 12px; letter-spacing: .5px; }
 </style>
@@ -537,7 +548,8 @@
   <div id="shop">
     <div class="bag-head"><b>☕ Buffet counter</b><span id="shopMi">✦</span></div>
     <div id="shopGrid"></div>
-    <button id="shopDone">Done</button>
+    <div id="shopStatus">Tap treats to add them to your order.</div>
+    <div class="bag-row"><button id="shopBuy" disabled>Purchase</button><button id="shopDone">Done</button></div>
   </div>
 
   <div id="charPick">
@@ -742,6 +754,7 @@ function makeNPC(k, i, j, base) {
     hair: ['#3a2a1d','#5a3b2a','#1f1a16','#7a5230'][(i * 3 + k) % 4],
     bob: Math.random() * 6.28,
     item: NPC_ITEMS[Math.floor(carR(k, 97 + i) * NPC_ITEMS.length)],
+    bookVar: Math.floor(carR(k, 113 + i) * 4),             // which colour book they're reading
     sprite: NPC_SPRITES[(base + j) % NPC_SPRITES.length],   // hand-drawn passengers from the roster
     asleep: false,
     napT: 8 + Math.random() * 18,   // seconds until this passenger next dozes off / stirs awake
@@ -837,9 +850,13 @@ tableImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAiCAYAAAAtZZ
 const mugImg = new Image(); let mugImgOK = false;
 mugImg.onload = () => { mugImgOK = true; };
 mugImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAALCAYAAACksgdhAAABwUlEQVR4nFWRTUtUYRiGr+d53+mMRYwJ2hRjRdOXQmAwRBgRFGT/oFUQRAsX1cYIgqh9Cyls10J/QRsJCoSoTasiiIjEoGjGIucLHefMmfecp5VS9/7m4r5uATAzHj+YtlbzN6Qx+bxneHgPJgWu330iIsK/UTNDRDh1pMDB3VAccAx7yBotxvdFvJy/b2b2X0neLc5ZdeULs4/mEc2hKCpCMKE45Jm+fYVjxw9Tmry1jdO3S0uMFncyURnDfA5yHpf37BjcRXniND9+Nnj14jVzD6/Z1hS5d/W8XT57lL2lEX7VWzgxBKXZifEWsfz1O+8/LnOoPMqZyjgrtTaefkKz0SYNMd47er2AOk+/3WWlViWEhPEDI9x5tiQ3/6zZQGEItTRDBHzOsRkHur1At5fQ6fYQFVBHSDMANuKUvMvQAaeo96AOEcHnlG6cIEAUKU6Fb6t1blwYs8qJ/UTO8OoUp0qWKiEE1jdiwBP3jbx3pK5PpJCLHOVSkamZBdGJk2Py4XONVnudXj/DcHRiI0ky0pBRXV3j4rlJmV38JFMzCyIiyNa58zOXrFbfJDMlCxmZKO1Wi8QP8vT5G9nWLcJf1BK/TxpvnrsAAAAASUVORK5CYII=';
-const bookImg = new Image(); let bookImgOK = false;
-bookImg.onload = () => { bookImgOK = true; };
-bookImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAsAAAALCAYAAACprHcmAAABk0lEQVR4nE3RvWtTYRiG8es55805SdP25MuvxYCLIoo6FMVRQSHi5CAWFBz6B1hw66I4Vv8AR2dBFwURghWEGiw4WISiRoSaRm1CIOZ8vec8Dhrwnn9cyy38t1erS/r08WtUcxzjYjRnYqHWqHL32brIFKoqK+dPqRtbHM9gNCeLMiKbUZ7xmABmijvLixpYh/KhgGBfkdEoxXdyhv2QwfZvOt0+zrTafr9FZC3FUoZrFNycRC12nJD7BVo3L/wtt+/f0mEco2Lpfo4p/QqxmfKzF2InlkqzzvLKIqKq3Gst6Gg3IpaU/XWIEpckVWyYE2c5xWaN480DYtp3ltRXxRchyzwGQ8V3XeYLDuLG9DyDv2cvNx48wbx4/pYZJ8X3XBpOgeZ8mW9hhKIcrM8RzhY5cewIIoKcCwI9fXGBk2cOUy56+J6h199le6zUSHi3tsHDNx9FRDCXrl3m+84Xtj58olIPcBCyLGWuNMvg6w5HGxXk3x0CkK494uXGpnZ/DKnWqly90oJ0zHpnk7PXb8sU/wF4Lq5TUIgYZQAAAABJRU5ErkJggg==';
+// hand-drawn book art: an open book (your read), four closed colours the
+// passengers carry, and a little stack for the buffet counter
+const BOOKS = {
+  open: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAICAYAAAAm06XyAAABpUlEQVR4nDXOv08TYRzH8c/3eZ5ee63XFlq8UCVoBQO6sBBjHHQwBmOcJCb6B+Bg9F9hdideojaEGBzcwbiS8CNx0BLhPL1oetdqr3zv+Tqg7/E9vWjhcvvu8sP7nUqlXLS5EAAiInCe4/uPGGcnmjBaQ0QAQJQmGQx+Z29evX1gdEEtPX+24nrVM9zrpUZpBQhgjMZxGKE16YM5BwiwuaVazcvTpO+ur28umThOV18GnSePHi87h4dH4jgFsiIoFYtIkhSKFIbDIZRSGI1OZPrClA6CThbH6arqRlE3DKMdZiatlQDAqR0gIhAExnFAiqC1EmamMIx2ulHUVQCaa8HGNrO1Fy+1ecL3xW9NynijISW3LA3fF5cIY/U62rMzzGztWrCxDaBJizOt/dlzY3PXb1yD4xRgRUBEsLnFoN9HuV6D/vpNuF6F8Sp0MszwYesjPh39OqCr0/4tr2he9JLEtdYSEUH+0Y3W6I8ydXvqfOtzkuJLkh6XtGav6mVplq8QTlPATQU8FWD3/wPwWgGuuTf/870I8O5g/A6u/GHs7TEA+xdf37e1EieEEQAAAABJRU5ErkJggg=='])[0],
+  closed: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAALCAYAAABPhbxiAAABuklEQVR4nG2QS2tTURRGv332uXn0JiFcaavpKzYqgRbEoiMnnQR04EiuE0f+EUOl/g2HPsGBD1BEQVBEWmoVLb4oLVpDiqRtkqrJvWdvB07S1G++WIuPAADVqsHcnBweG782NFK+5GfysYizBEL/FAoiIxQCfEdVDmaT5eHSqaXi1KyX8XNGRIhoL6gqYE6g2fgGizAEiDQ9Nn71QOFYCq4T7zRq+1X/bMJszZe3TxYIqlTIJ44Pl04vFEozZA0bVf0PqGAv7bY3v+rHxQezFkSaKU5eGRw5ahOe5yBKMH2cKhTkmITr6+/v17baL+2hIKiYgcLZbpwU1/zNqrrPRWyUbQqt7yut7fqny1VUjU16fObC+YqdKE7GnU7H9B9irIf2Zl3TbPn50mrz1YtoeZ7nYYm6G+G5Ezo9XdZ2q61EZk+i5w9gY/ENsqT4w2Xcug2PCJFN5UYv3ry3TNlnnz3nBOgxkirEeuCfPyRngMfvVnwA4kRhRbV14/rdrSjqChFMbyaB9FfskjNByh9MJ/B6vfYUgKgIEwAcAXJBADR6oMjB5AGs7mCoMjXxkECjj9bWTu7u4kMI8F+2HLb3aAKLGAAAAABJRU5ErkJggg==', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAKCAYAAACE2W/HAAAB0UlEQVR4nEWQT2sTYRjE53ne3WQ3TbZpkzaVQrRFa8AK1oNo70JFPIh/6knwI+gHMCj6NbwoFC3eAuLBYpEIWgiejQehlCSNadYk27jZd9/Hg7EdmOPM8BsCgDLATwBzZj7/4tRs5oHnJrQxYoEAAgAiaG2w2+nj5IwHZjIEQAlgctPpUqmQrV1cyNleKslGhDCWpRgtP0DjYICVxQJa/hDWHQAEyJLrPC/mJxwtotu94VHIGAEzUG/4KOYzpjMI+cuP9g6/AczM5OSFuax7w3PtmAClmKCYwEyY8pLwgxBuwkI+7Uqze6j3u38eMgGSz7pPi7OelUjYIFbESkGNnUlb8A9HmM95sSFSP1u9d41ut2qdmPaueiq6hjAwfT1UIjiSIuBrw4DjSHg0QP1X3N/tDB+XAbaStr128+4ta7E4p8MwYhrTGRFMuClsvH6Ls0un5crqZfVqs9Jr17a/PVMES0jtrd1ex7nlEoJBACIenxIjm8vh/dYnLF9axfX7j1D7vkeobNtEKrKmUmq9svESH700x5HB/0URQdJx0G428XnrA4KDNnaqVfdfZww6v1CoURSujCJtiMDHhAQRQcJxoLWOyWg1itVmff/3vTKAv+xfvv19udDfAAAAAElFTkSuQmCC', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAKCAYAAACE2W/HAAABpklEQVR4nG2RP2tTYRTGn3PO+zZ/bk1CrGlMtCgojZrBQdDFqQhKcbM6+xH8ABqq9Wu4inVQEVTERTCTWKKDFHExxVZFG9Letlzvfc9xCEgpfaZn+Q3P7yEA6KDD85jXU83DD9q1IzerhfEsaHBEhL0xGJhYCYAYTA9Uc62Lk9NLM8fbvhoVOKgSgfcggGdBf/gHbg5zIJCdLtTvtyYa+dTSbGWQEIxBEnaBBJipE+YXXz++50UsarlcPHuiUr96sBiFNDVp1vO4cK4EKGNMBJ4FwozxXN5WNtazb4Nft5hAdqwycXe61nBj3sN5pu0dYHU1wHkGmAFhiEgwgvR+9l+uDeKuO1otXWpKdCWXqG5lscCAnaHhhxq8Y9honeVZsByvb37+vXangw478f7y7PVZd3JqKkuSv/zfJAGwUVVVq5RK8uXZk43h0nZvQe7BBaLv56/N4Ey7hTjeAtNuk6NkIUPt0CTe9pcJz195Ikpdo1i+0X34Gp9KXc5SxT7XwVQRRRF67z4UAKgGgzNT//jRUyRpCt6PAmAGc8zYtOQNALttyv8AJ/+pKlV0YKgAAAAASUVORK5CYII=', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAKCAYAAACE2W/HAAABlElEQVR4nG2RQWtTURCFz8y9L8/e5tWU4kvUNEas0FKwoH/AjWgWboRQF278Ey59VuvK/yCIK9tFBSOIWCyC0DZFdKUoSEEKBZFU08aE3DvjQoVqevbfOTPnEAAgyxhzc3KyUrp/pFq87hLnRdQSBqUAQCRUB8yiqpSSZDKdKr85PjMROedYVAj4H1WQMfj5bQcW9TpApMPV4t3kWHrIMTx3d4lBf/3/iCCiEucMv9/40CSo0olCYWb4dLl55lyFbtUKHOWYSPYjgBfF6EgurKxv6417a+ctiHToVPn2WCW1187mQxoLtXsBhvYfCMSGQq/dNQ8ef3zy+WvrtT2ajlwISVxTDrKxuWPefQFE//1OFRrFjNbW9/Zyc/tmlmVsYxNdunrlsh2vjvvWbo8HCwFURPOHE7PSbPzo9Dtv5+fvwFKgrdmLNUxPT6K7twdmHgC993ClIjqfNulZ43lERH0bj+VnHz5tIHn1koOXgwKhKnDOYXl1fQiABFFYEYkWHi2h3/cAHTQ5oKpqDEN6/sVvH+FfNJikHriI+ZQAAAAASUVORK5CYII=']),
+  stack: loadSprites(['data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAKCAYAAABv7tTEAAABV0lEQVR4nH3NvUpcURTF8f/e95y5d5hR1EC0mEkCCQxCAj6AoBbWwd7CzlewS2WKJJA2eYaUKVKmSEgpRBDSOIVYCIoR5/POPefsFFNoEnHB6taPJQDP2w831x4vfFbBJzMREG7FjNis51n3cvDl08HxlgMQY2P10VzecFJFw9/MBUsB8YW+3H/Hqzcf1zk4LhRQg/HFcMIoGE4VFZlWBafKOCZ6tRlSXh8COCBlLitnC48BV+Pq5kgVCxWu8Mw269TzmtBqTdwCtK5/Xy1//eUtExPj75gZiPJze8d+HHU9p6dtWdlYP5vvdBYHw5EhKv8YBDCMWI7txbMncnJ4eOa0VlvM5h+kmUapIv8ZBAgp0Shy+bC3y9vX75dcCiGmSZnFsuQ+VFmiHA6IIUSHamaimCjcgQBMIYlw3h8xqkImT5c731yzuZpiTIDeqaaPyXuvZb/3/Q8PkIf/nXCkmAAAAABJRU5ErkJggg=='])[0],
+};
 // hand-drawn table trinkets, keyed by bag item — set out on your café table
 const ITEM_SPRITES = {};
 function loadItemSprite(key, uri) {
@@ -985,6 +1002,7 @@ const BAG = [
   { key: 'tea',        label: 'Tea',     emoji: '🍵' },
   { key: 'water',      label: 'Water',   emoji: '💧' },
   { key: 'book',       label: 'Book',    emoji: '📖' },
+  { key: 'novel',      label: 'Novel',   emoji: '📗' },
   { key: 'laptop',     label: 'Laptop',  emoji: '💻' },
   { key: 'notepad',    label: 'Notepad', emoji: '✏️' },
   { key: 'pastry',     label: 'Pastry',  emoji: '🥐' },
@@ -1254,7 +1272,7 @@ const SHOP_GOODS = [
   { key: 'pastry',     label: 'Pastry',   emoji: '🥐', price: 6 },
   { key: 'notepad',    label: 'Notepad',  emoji: '✏️', price: 8 },
   { key: 'sleepmask',  label: 'Sleep',    emoji: '😴', price: 10 },
-  { key: 'book',       label: 'Book',     emoji: '📖', price: 12 },
+  { key: 'novel',      label: 'Novel',    emoji: '📗', price: 12 },
   { key: 'headphones', label: 'Music',    emoji: '🎧', price: 20 },
   { key: 'watch',      label: 'Watch',    emoji: '⏱️', price: 25 },
   { key: 'laptop',     label: 'Laptop',   emoji: '💻', price: 40 },
@@ -1268,36 +1286,62 @@ function ownedGood(g) {
 }
 const shopEl = document.getElementById('shop');
 const shopGrid = document.getElementById('shopGrid');
+const shopStatusEl = document.getElementById('shopStatus');
+const shopBuyBtn = document.getElementById('shopBuy');
 let shopOpen = false;
+const shopCart = new Set();          // keys queued for one combined purchase
 for (const g of SHOP_GOODS) {
   const b = document.createElement('button');
   b.className = 'chip'; b.dataset.key = g.key;
   const hpc = g.key.startsWith('hp:') ? g.key.slice(3) : null;
-  b.innerHTML = `<span class="pr">${g.price}</span>` +
+  b.innerHTML = `<span class="pr">${g.price} mi</span>` +
     (hpc ? `<img class="hpimg" alt="" width="28" height="21">` : `<span class="emo">${g.emoji}</span>`) +
     `<span>${g.label}</span>`;
   if (hpc) b.querySelector('img').src = HP_IMG[hpc].img.src;   // show the actual colour, not a generic emoji
-  b.addEventListener('click', () => buyGood(g));
+  b.addEventListener('click', () => toggleCart(g));
   shopGrid.appendChild(b);
 }
-function openShop()  { shopOpen = true; closeBag(); shopEl.classList.add('show'); scrimEl.classList.add('show'); refreshShop(); }
-function closeShop() { shopOpen = false; shopEl.classList.remove('show'); if (!bagOpen) scrimEl.classList.remove('show'); }
+function shopStatus(msg, warn) { shopStatusEl.textContent = msg; shopStatusEl.classList.toggle('warn', !!warn); }
+function cartTotal() { return SHOP_GOODS.filter(g => shopCart.has(g.key)).reduce((s, g) => s + g.price, 0); }
+function toggleCart(g) {
+  if (ownedGood(g)) { shopStatus('You already own the ' + g.label.toLowerCase() + ' — it\'s in your bag.'); return; }
+  if (shopCart.has(g.key)) shopCart.delete(g.key); else shopCart.add(g.key);
+  refreshShop();
+}
+function openShop()  { shopOpen = true; shopCart.clear(); closeBag(); shopEl.classList.add('show'); scrimEl.classList.add('show'); refreshShop(); }
+function closeShop() { shopOpen = false; shopCart.clear(); shopEl.classList.remove('show'); if (!bagOpen) scrimEl.classList.remove('show'); }
 function refreshShop() {
   document.getElementById('shopMi').textContent = fmtMi(save.mi) + ' to spend';
   for (const b of shopGrid.children) {
     const g = SHOP_GOODS.find(x => x.key === b.dataset.key);
-    b.classList.toggle('on', ownedGood(g));
+    const owned = ownedGood(g);
+    b.classList.toggle('owned', owned);
+    b.classList.toggle('sel', !owned && shopCart.has(g.key));
   }
+  const total = cartTotal(), n = shopCart.size, reserve = minFare();
+  shopBuyBtn.textContent = n ? 'Purchase · ' + total + ' mi ✦' : 'Purchase';
+  const over = total > save.mi, underReserve = !over && save.mi - total < reserve;
+  shopBuyBtn.disabled = n === 0 || over || underReserve;
+  if (!n)               shopStatus('Tap treats to add them to your order.');
+  else if (over)        shopStatus('Order is ' + total + ' mi — you have ' + Math.round(save.mi) + '. Ride to earn more ✦', true);
+  else if (underReserve) shopStatus('Keep ' + reserve + ' mi aside for a ticket home ✦', true);
+  else                  shopStatus(n + (n === 1 ? ' item' : ' items') + ' · ' + total + ' mi · ' + Math.round(save.mi - total) + ' mi left after');
 }
-function buyGood(g) {
-  if (ownedGood(g)) { toast('You already own that — it\'s in your bag.'); return; }
-  if (!spendMi(g.price, true)) { refreshShop(); return; }   // always keep a ticket home in reserve
-  if (g.key.startsWith('hp:')) { save.hpOwned.push(g.key.slice(3)); refreshHpMenu(); }
-  else save.owned.push(g.key);
-  persist();
-  refreshShop(); refreshBag();
-  toast(g.emoji + ' ' + g.label + ' — yours! −' + g.price + ' mi · ' + fmtMi(save.mi));
+function purchaseCart() {
+  const total = cartTotal();
+  if (!shopCart.size || total > save.mi || save.mi - total < minFare()) { refreshShop(); return; }
+  const bought = [];
+  for (const g of SHOP_GOODS) {
+    if (!shopCart.has(g.key)) continue;
+    if (g.key.startsWith('hp:')) save.hpOwned.push(g.key.slice(3)); else save.owned.push(g.key);
+    bought.push(g.label);
+  }
+  save.mi -= total; persist();
+  shopCart.clear();
+  refreshHpMenu(); refreshBag(); refreshShop();
+  shopStatus('Enjoy! ' + bought.join(', ') + ' · −' + total + ' mi');
 }
+shopBuyBtn.addEventListener('click', purchaseCart);
 document.getElementById('shopDone').addEventListener('click', closeShop);
 
 // --- character picker: pick which roster character you play as ---------------
@@ -2369,7 +2413,8 @@ if (save.character && CHAR_IMG[save.character]) player.char = save.character;   
 // so a shopping spree never costs you class progress. The backpack starts
 // barebones (just your charcoal headphones); everything else is for sale.
 if (save.mi == null) save.mi = Math.max(30, Math.round((save.lifetimeMiles || 0) * 0.5));   // old passports get credit
-if (!Array.isArray(save.owned))   save.owned   = ['headphones'];
+if (!Array.isArray(save.owned))   save.owned   = ['headphones', 'book'];   // you set off with your headphones and a book
+if (!save.starterKit) { if (!save.owned.includes('book')) save.owned.push('book'); save.starterKit = 1; }   // hand existing bags the starter book once
 if (!Array.isArray(save.hpOwned)) save.hpOwned = ['dark', save.hpColor].filter((v, i, a) => v && a.indexOf(v) === i);
 function routeMiles(r) { return r.totalMiles != null ? r.totalMiles : r.stations[r.stations.length - 1].mile; }
 function fareFor(r) { return Math.max(5, Math.round(routeMiles(r) * 0.25)); }   // rides always net +75%
@@ -2673,17 +2718,23 @@ function drawWater(r) {
   px(r.x + 2, r.y + 5, r.w - 4, r.h - 5, 'rgba(120,190,215,.8)');  // water
   px(r.x + 3, r.y + 3, 1, r.h - 4, 'rgba(255,255,255,.5)');        // shine
 }
-function drawBook(r) {
-  if (bookImgOK) {                                             // hand-drawn book sprite
-    const w = bookImg.width, h = bookImg.height;
-    const dx = Math.round(r.x + r.w / 2 - w / 2), dy = Math.round(r.y + r.h - h);
-    ctx.drawImage(bookImg, dx, dy, w, h);
-    return;
-  }
-  px(r.x, r.y + 2, r.w, r.h - 3, '#9c5a4a');                   // covers
-  px(r.x + 1, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');         // left page
-  px(r.x + r.w/2, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');     // right page
-  px(r.x + r.w/2 - 0.5, r.y + 2, 1, r.h - 3, '#6e3d31');       // spine
+function drawBookRec(rec, r) {                                 // a book sprite, bottom-centred in its slot
+  if (!rec || !rec.ok) return false;
+  const w = rec.img.width, h = rec.img.height;
+  ctx.drawImage(rec.img, Math.round(r.x + r.w / 2 - w / 2), Math.round(r.y + r.h - h), w, h);
+  return true;
+}
+function drawBook(r) {                                         // your read — the open book
+  if (drawBookRec(BOOKS.open, r)) return;
+  px(r.x, r.y + 2, r.w, r.h - 3, '#9c5a4a');                   // (procedural fallback until it loads)
+  px(r.x + 1, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');
+  px(r.x + r.w/2, r.y + 3, r.w/2 - 1, r.h - 5, '#f3ead2');
+  px(r.x + r.w/2 - 0.5, r.y + 2, 1, r.h - 3, '#6e3d31');
+}
+function drawNovel(r) {                                        // the buffet's new read — a closed navy hardback
+  if (drawBookRec(BOOKS.closed[0], r)) return;
+  px(r.x, r.y + 2, r.w, r.h - 3, '#3f4f7d');                   // (procedural fallback)
+  px(r.x + 1, r.y + r.h - 3, r.w - 2, 2, '#f3ead2');
 }
 function drawNotepad(r) {
   px(r.x + 1, r.y + 1, r.w - 3, r.h - 1, '#f3ead2');           // pad
@@ -2713,6 +2764,7 @@ function drawSteam(r, t) {                                    // a rising wisp, 
 function drawItemKind(key, r, t) {
   if (key === 'coffee') return drawCoffee(r, t);             // (mug sprite + steam)
   if (key === 'book')   return drawBook(r);                  // (book sprite)
+  if (key === 'novel')  return drawNovel(r);                 // the green hardback from the buffet
   if (drawItemSprite(key, r)) {                              // hand-drawn trinket art
     if (key === 'tea' || key === 'espresso') drawSteam(r, t);
     return;
@@ -2731,7 +2783,9 @@ function drawSeatItems(st) {
   const slots = itemSlots(st);
   const o1 = st.occupant, o2 = st.occupant2;
   const npcItem = (o, slot, ph) => {   // asleep → they've put their things away
-    if (o && o.npc && o.item && o.item !== 'headphones' && !o.asleep) drawItemKind(o.item, slot, ph);
+    if (!o || !o.npc || !o.item || o.item === 'headphones' || o.asleep) return;
+    if (o.item === 'book' && drawBookRec(BOOKS.closed[o.bookVar || 0], slot)) return;   // each reader a different colour
+    drawItemKind(o.item, slot, ph);
   };
   if (o1 && o1.player) {
     // headphones are worn (drawn on the head), not set on the table — pack the rest into slots
@@ -3493,7 +3547,11 @@ function drawShopInterior() {
   if (sh.ok) ctx.drawImage(sh.img, Math.round(cx - sh.img.width/2), 108 - sh.img.height, sh.img.width, sh.img.height);
   drawShopkeeper();
   const co = SHOP.counter;
-  if (co.ok) { px(Math.round(cx - co.img.width/2) + 2, 146, co.img.width - 4, 2, C.shadow); ctx.drawImage(co.img, Math.round(cx - co.img.width/2), 148 - co.img.height, co.img.width, co.img.height); }
+  if (co.ok) {
+    px(Math.round(cx - co.img.width/2) + 2, 146, co.img.width - 4, 2, C.shadow);
+    ctx.drawImage(co.img, Math.round(cx - co.img.width/2), 148 - co.img.height, co.img.width, co.img.height);
+    if (BOOKS.stack.ok) ctx.drawImage(BOOKS.stack.img, Math.round(cx + co.img.width/2 - BOOKS.stack.img.width - 1), 148 - co.img.height - BOOKS.stack.img.height + 1, BOOKS.stack.img.width, BOOKS.stack.img.height);   // a stack of reads for sale on the counter
+  }
   // café tables in booth rhythm down both walls, loveseat + stool as the last row
   const b = SHOP.bench, t = SHOP.table, sl = SHOP.stool;
   if (t.ok)  for (const tb of SHOP_TABLES) ctx.drawImage(t.img, tb.x, tb.gy - t.img.height, t.img.width, t.img.height);
@@ -4135,7 +4193,8 @@ function drawFirstPerson() {
 function drawFPItem(key, cx, groundY, s) {
   let img = null;
   if (key === 'coffee' && mugImgOK) img = mugImg;
-  else if (key === 'book' && bookImgOK) img = bookImg;
+  else if (key === 'book' && BOOKS.open.ok) img = BOOKS.open.img;
+  else if (key === 'novel' && BOOKS.closed[0].ok) img = BOOKS.closed[0].img;
   else if (ITEM_SPRITES[key] && ITEM_SPRITES[key].ok) img = ITEM_SPRITES[key].img;
   if (img) {
     ctx.drawImage(img, 0, 0, img.width, img.height, Math.round(cx - img.width * s / 2), Math.round(groundY - img.height * s), img.width * s, img.height * s);
