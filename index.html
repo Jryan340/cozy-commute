@@ -1939,7 +1939,7 @@ function renderStation() {
   const board = document.getElementById('stnDeps'); board.innerHTML = '';
   const deps = departuresFrom(save.lastCity);
   if (!deps.length) {
-    board.innerHTML = `<div class="stn-empty">No trains from here right now.<br>Corridor trains run 5am–11pm; the Lake Shore Ltd runs hourly to Chicago &amp; back.</div>`;
+    board.innerHTML = `<div class="stn-empty">No trains from here right now.<br>Corridor trains run 5am–11pm; the Lake Shore Ltd runs hourly, 5am–midnight.</div>`;
     return;
   }
   // the train drawn at the platform = the first unlocked departure (unless you last tapped another)
@@ -2153,10 +2153,11 @@ function etMinuteOfDay(ms) { const t = etAt(ms); return t.h * 60 + t.m + t.s / 6
 // (6:30–10:00 and 15:00–20:00), hourly the rest of the day; nothing overnight.
 function isPeakMin(m) { return (m >= 390 && m < 600) || (m >= 900 && m < 1200); }
 function regularValidMin(m) { return m >= 300 && m <= 1380 && (m % (isPeakMin(m) ? 30 : 60) === 0); }
-// The Lake Shore Limited (NY⇄Chicago) runs hourly, round the clock — so a
-// terminal like Chicago always has a train home within the hour instead of
-// only the 8pm–5am window. Night departures are still overnight rides.
-function longhaulValidMin(m) { return m % 60 === 0; }
+// The Lake Shore Limited (NY⇄Chicago) runs hourly from 5am through midnight —
+// so a terminal like Chicago always has a train home within the hour by day,
+// without an aggressive 1am–4am departure every hour. The late-evening runs
+// are still overnight rides; the small-hours just get a quiet gap.
+function longhaulValidMin(m) { return m % 60 === 0 && !(m >= 60 && m <= 240); }
 // next epoch ms after fromMs whose ET minute-of-day satisfies validFn
 function nextValidDepart(validFn, fromMs) {
   const base = etMinuteOfDay(fromMs), start = Math.ceil(base + 1e-6);
