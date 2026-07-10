@@ -491,6 +491,7 @@
   #bagGrid.dropping .chip { border-color: rgba(255,120,100,.6); }
   #shopGrid .chip { position: relative; }
   #shopGrid .chip .pr { position: absolute; top: 3px; right: 5px; font-size: 9px; opacity: .7; color: #ffd9a0; }
+  #shopGrid .chip .hpimg { image-rendering: pixelated; display: block; margin: 3px auto 1px; }
   #hpColors button.locked { opacity: .38; filter: grayscale(.4); }
   .pp-spend { text-align: center; color: #ffd9a0; font-size: 12px; margin: -6px 0 12px; letter-spacing: .5px; }
 </style>
@@ -1259,7 +1260,11 @@ let shopOpen = false;
 for (const g of SHOP_GOODS) {
   const b = document.createElement('button');
   b.className = 'chip'; b.dataset.key = g.key;
-  b.innerHTML = `<span class="pr">${g.price}</span><span class="emo">${g.emoji}</span><span>${g.label}</span>`;
+  const hpc = g.key.startsWith('hp:') ? g.key.slice(3) : null;
+  b.innerHTML = `<span class="pr">${g.price}</span>` +
+    (hpc ? `<img class="hpimg" alt="" width="28" height="21">` : `<span class="emo">${g.emoji}</span>`) +
+    `<span>${g.label}</span>`;
+  if (hpc) b.querySelector('img').src = HP_IMG[hpc].img.src;   // show the actual colour, not a generic emoji
   b.addEventListener('click', () => buyGood(g));
   shopGrid.appendChild(b);
 }
